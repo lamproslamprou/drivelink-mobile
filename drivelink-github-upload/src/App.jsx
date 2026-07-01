@@ -3,6 +3,8 @@ import { supabase } from "./supabase.js";
 import Auth from "./Auth.jsx";
 import Landing from "./Landing.jsx";
 import ImageUpload from "./ImageUpload.jsx";
+import Messages from "./Messages.jsx";
+import ListingsMap, { geocode } from "./ListingsMap.jsx";
 import logoIcon from "./assets/logo-icon.png";
 
 const fmt = (n) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n);
@@ -16,6 +18,9 @@ export default function App() {
   const [listings, setListings] = useState([]);
   const [referrals, setReferrals] = useState([]);
   const [users, setUsers] = useState([]);
+  const [reports, setReports] = useState([]);
+  const [savedSearches, setSavedSearches] = useState([]);
+  const [openThread, setOpenThread] = useState(null);
   const [view, setView] = useState("landing");
   const [toast, setToast] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -31,16 +36,24 @@ export default function App() {
     const { data: listingsData } = await supabase.from("listings").select("*").order("created_at", { ascending: false });
     const { data: referralsData } = await supabase.from("referrals").select("*");
     const { data: usersData } = await supabase.from("users").select("*");
+    const { data: reportsData } = await supabase.from("reports").select("*").order("created_at", { ascending: false });
     if (listingsData) setListings(listingsData);
     if (referralsData) setReferrals(referralsData);
     if (usersData) setUsers(usersData);
+    if (reportsData) setReports(reportsData);
     setLoading(false);
   };
 
+  const loadSavedSearches = async (userId) => {
+    const { data } = await supabase.from("saved_searches").select("*").eq("user_id", userId).order("created_at", { ascending: false });
+    if (data) setSavedSearches(data);
+  };
+
   const loadDbUser = async (authUser) => {
-    if (!authUser) { setDbUser(null); return; }
+    if (!authUser) { setDbUser(null); setSavedSearches([]); return; }
     const { data } = await supabase.from("users").select("*").eq("id", authUser.id).single();
     setDbUser(data);
+    loadSavedSearches(authUser.id);
   };
 
   // ── Detect a Supabase email-confirmation redirect (link clicked in the confirmation email)
@@ -99,7 +112,16 @@ export default function App() {
 
   // ── Post listing
   const postListing = async (data) => {
-    const newListing = { id: "l" + Date.now(), seller_id: currentUser.id, ...data, status: "active", created_at: new Date().toISOString() };
+    const coords = await geocode(data.location_text);
+    const newListing = {
+      id: "l" + Date.now(),
+      seller_id: currentUser.id,
+      ...data,
+      lat: coords?.lat ?? null,
+      lng: coords?.lng ?? null,
+      status: "active",
+      created_at: new Date().toISOString(),
+    };
     const { error } = await supabase.from("listings").insert(newListing);
     if (error) { showToast("Error posting listing", "error"); return; }
     await loadData();
@@ -148,6 +170,55 @@ export default function App() {
     await supabase.from("listings").update({ status: "archived", archived_at: new Date().toISOString() }).eq("id", listingId);
     await loadData();
     showToast("Listing archived.");
+  };
+
+  // ── Seller toggles their own listing between active/pending (e.g. "sale in progress")
+  const setListingStatus = async (listingId, status) => {
+    await supabase.from("listings").update({ status }).eq("id", listingId);
+    await loadData();
+    showToast(status === "pending" ? "Listing marked as pending." : "Listing is active again.");
+  };
+
+  // ── Flag/report a listing
+  const fileReport = async (listingId, reason, details) => {
+    const row = { id: "rep" + Date.now(), listing_id: listingId, reporter_id: currentUser.id, reason, details, status: "open" };
+    const { error } = await supabase.from("reports").insert(row);
+    if (error) { showToast("Couldn't submit report", "error"); return; }
+    await loadData();
+    showToast("Report submitted. Our team will review it.");
+  };
+
+  const resolveReport = async (reportId, status) => {
+    await supabase.from("reports").update({ status }).eq("id", reportId);
+    await loadData();
+    showToast("Report updated.");
+  };
+
+  // ── Admin toggles a seller's verified badge
+  const toggleVerified = async (userId, verified) => {
+    await supabase.from("users").update({ verified }).eq("id", userId);
+    await loadData();
+    showToast(verified ? "Seller verified." : "Verification removed.");
+  };
+
+  // ── Saved searches / alerts
+  const saveSearch = async (criteria) => {
+    const row = { id: "ss" + Date.now(), user_id: currentUser.id, ...criteria };
+    await supabase.from("saved_searches").insert(row);
+    await loadSavedSearches(currentUser.id);
+    showToast("Search saved — we'll surface new matches for you.");
+  };
+
+  const deleteSavedSearch = async (id) => {
+    await supabase.from("saved_searches").delete().eq("id", id);
+    await loadSavedSearches(currentUser.id);
+  };
+
+  // ── Jump into (or start) a message thread with a listing's seller
+  const messageSeller = (listing) => {
+    if (listing.seller_id === currentUser.id) return;
+    setOpenThread({ listingId: listing.id, otherId: listing.seller_id });
+    setView("messages");
   };
 
   const activeListings = listings.filter(l => l.status === "active");
@@ -201,6 +272,8 @@ export default function App() {
             <NavBtn active={view === "home"} onClick={() => setView("home")}>Browse</NavBtn>
             {currentUser && <NavBtn active={view === "myListings"} onClick={() => setView("myListings")}>My Listings</NavBtn>}
             {currentUser && <NavBtn active={view === "postListing"} onClick={() => setView("postListing")}>+ Post Car</NavBtn>}
+            {currentUser && <NavBtn active={view === "messages"} onClick={() => setView("messages")}>Messages</NavBtn>}
+            {currentUser && <NavBtn active={view === "savedSearches"} onClick={() => setView("savedSearches")}>Saved Searches</NavBtn>}
             {currentUser && <NavBtn active={view === "dashboard"} onClick={() => setView("dashboard")}>Earnings</NavBtn>}
             {dbUser?.role === "admin" && <NavBtn active={view === "admin"} onClick={() => setView("admin")}>Admin</NavBtn>}
           </div>
@@ -225,11 +298,13 @@ export default function App() {
       {toast && <div style={{ ...styles.toast, background: toast.type === "info" ? "#1d4ed8" : toast.type === "error" ? "#dc2626" : "#16a34a" }} className="app-toast">{toast.msg}</div>}
 
       <main style={styles.main} className="app-main">
-        {view === "home" && <HomeView listings={activeListings} allListings={listings} currentUser={dbUser} onShare={generateShare} onBuy={handleBuyNow} referrals={referrals} onSignIn={() => setView("auth")} />}
-        {view === "myListings" && <MyListingsView listings={listings.filter(l => l.seller_id === currentUser?.id)} referrals={referrals} users={users} onMarkSold={markSold} />}
+        {view === "home" && <HomeView listings={activeListings} allListings={listings} currentUser={dbUser} users={users} onShare={generateShare} onBuy={handleBuyNow} referrals={referrals} onSignIn={() => setView("auth")} onMessageSeller={messageSeller} onReport={fileReport} onSaveSearch={saveSearch} />}
+        {view === "myListings" && <MyListingsView listings={listings.filter(l => l.seller_id === currentUser?.id)} referrals={referrals} users={users} onMarkSold={markSold} onSetStatus={setListingStatus} />}
         {view === "postListing" && <PostListingView onPost={postListing} />}
+        {view === "messages" && currentUser && <Messages currentUser={{ ...dbUser, id: currentUser.id }} listings={listings} users={users} openThread={openThread} onOpened={() => setOpenThread(null)} />}
+        {view === "savedSearches" && <SavedSearchesView savedSearches={savedSearches} onDelete={deleteSavedSearch} onBrowse={() => setView("home")} />}
         {view === "dashboard" && <PromoterDashboard currentUser={dbUser} referrals={referrals.filter(r => r.promoter_id === currentUser?.id)} listings={listings} />}
-        {view === "admin" && <AdminView listings={listings} users={users} referrals={referrals} onArchive={archiveListing} onMarkSold={markSold} />}
+        {view === "admin" && <AdminView listings={listings} users={users} referrals={referrals} reports={reports} onArchive={archiveListing} onMarkSold={markSold} onResolveReport={resolveReport} onToggleVerified={toggleVerified} />}
         {view === "success" && <SuccessView onHome={() => setView("home")} />}
       </main>
     </div>
@@ -277,15 +352,32 @@ function SuccessView({ onHome }) {
   );
 }
 
-function HomeView({ listings, allListings, currentUser, onShare, onBuy, referrals, onSignIn }) {
+function HomeView({ listings, allListings, currentUser, users, onShare, onBuy, referrals, onSignIn, onMessageSeller, onReport, onSaveSearch }) {
   const [search, setSearch] = useState("");
+  const [make, setMake] = useState("all");
   const [maxPrice, setMaxPrice] = useState(200000);
+  const [maxMileage, setMaxMileage] = useState(300000);
+  const [location, setLocation] = useState("");
   const [sort, setSort] = useState("newest");
+  const [mode, setMode] = useState("grid"); // grid | map
+
+  const makes = [...new Set(listings.map(l => l.make).filter(Boolean))].sort();
 
   const filtered = listings
     .filter(l => `${l.year} ${l.make} ${l.model}`.toLowerCase().includes(search.toLowerCase()))
+    .filter(l => make === "all" || l.make === make)
     .filter(l => l.price <= maxPrice)
+    .filter(l => (l.mileage || 0) <= maxMileage)
+    .filter(l => !location.trim() || (l.location_text || "").toLowerCase().includes(location.toLowerCase()))
     .sort((a, b) => sort === "newest" ? new Date(b.created_at) - new Date(a.created_at) : sort === "priceLow" ? a.price - b.price : b.price - a.price);
+
+  // Average price per make+model, for the "priced below/above similar listings" comparison
+  const avgByModel = {};
+  for (const l of allListings) {
+    const key = `${l.make}|${l.model}`;
+    if (!avgByModel[key]) avgByModel[key] = [];
+    avgByModel[key].push(l.price);
+  }
 
   const soldCount = allListings.filter(l => l.status === "sold").length;
 
@@ -307,70 +399,204 @@ function HomeView({ listings, allListings, currentUser, onShare, onBuy, referral
       </div>
       <div style={styles.filterBar}>
         <input style={styles.searchInput} placeholder="Search make, model, year…" value={search} onChange={e => setSearch(e.target.value)} />
+        <select style={styles.selectInput} value={make} onChange={e => setMake(e.target.value)}>
+          <option value="all">All makes</option>
+          {makes.map(m => <option key={m} value={m}>{m}</option>)}
+        </select>
         <div style={styles.filterGroup}>
           <label style={styles.filterLabel}>Max price: {fmt(maxPrice)}</label>
           <input type="range" min={5000} max={200000} step={1000} value={maxPrice} onChange={e => setMaxPrice(+e.target.value)} style={styles.rangeInput} />
         </div>
+        <div style={styles.filterGroup}>
+          <label style={styles.filterLabel}>Max mileage: {maxMileage.toLocaleString()} mi</label>
+          <input type="range" min={0} max={300000} step={5000} value={maxMileage} onChange={e => setMaxMileage(+e.target.value)} style={styles.rangeInput} />
+        </div>
+        <input style={{ ...styles.searchInput, minWidth: 140 }} placeholder="City or ZIP…" value={location} onChange={e => setLocation(e.target.value)} />
         <select style={styles.selectInput} value={sort} onChange={e => setSort(e.target.value)}>
           <option value="newest">Newest first</option>
           <option value="priceLow">Price: low to high</option>
           <option value="priceHigh">Price: high to low</option>
         </select>
-      </div>
-      <div style={styles.grid} className="app-grid">
-        {filtered.length === 0 && (
-          <div style={{ gridColumn: "1/-1", textAlign: "center", padding: "60px 0", color: "#6b7280" }}>
-            <div style={{ fontSize: 48, marginBottom: 16 }}>🚗</div>
-            <div style={{ fontSize: 18, fontWeight: 600, marginBottom: 8 }}>No listings yet</div>
-            <div style={{ fontSize: 14 }}>Sign in as a seller to post the first car!</div>
-          </div>
+        <div style={styles.viewToggle}>
+          <button style={{ ...styles.viewToggleBtn, ...(mode === "grid" ? styles.viewToggleBtnActive : {}) }} onClick={() => setMode("grid")}>⊞ Grid</button>
+          <button style={{ ...styles.viewToggleBtn, ...(mode === "map" ? styles.viewToggleBtnActive : {}) }} onClick={() => setMode("map")}>📍 Map</button>
+        </div>
+        {currentUser && (
+          <button
+            style={styles.saveSearchBtn}
+            onClick={() => onSaveSearch({ label: search || make !== "all" ? `${make !== "all" ? make + " " : ""}${search}`.trim() || "Saved search" : "Saved search", search, make: make === "all" ? "" : make, max_price: maxPrice, max_mileage: maxMileage, location_text: location })}
+          >
+            🔔 Save this search
+          </button>
         )}
-        {filtered.map(l => {
-          const myRef = currentUser ? referrals.find(r => r.listing_id === l.id && r.promoter_id === currentUser.id) : null;
-          return <CarCard key={l.id} listing={l} currentUser={currentUser} onShare={onShare} onBuy={onBuy} myRef={myRef} onSignIn={onSignIn} />;
-        })}
       </div>
+
+      {mode === "map" ? (
+        <ListingsMap listings={filtered} />
+      ) : (
+        <div style={styles.grid} className="app-grid">
+          {filtered.length === 0 && (
+            <div style={{ gridColumn: "1/-1", textAlign: "center", padding: "60px 0", color: "#6b7280" }}>
+              <div style={{ fontSize: 48, marginBottom: 16 }}>🚗</div>
+              <div style={{ fontSize: 18, fontWeight: 600, marginBottom: 8 }}>No listings match your filters</div>
+              <div style={{ fontSize: 14 }}>Try widening your search.</div>
+            </div>
+          )}
+          {filtered.map(l => {
+            const myRef = currentUser ? referrals.find(r => r.listing_id === l.id && r.promoter_id === currentUser.id) : null;
+            const seller = users.find(u => u.id === l.seller_id);
+            const comparablePrices = avgByModel[`${l.make}|${l.model}`] || [];
+            const avgPrice = comparablePrices.length > 1 ? comparablePrices.reduce((s, p) => s + p, 0) / comparablePrices.length : null;
+            return (
+              <CarCard
+                key={l.id}
+                listing={l}
+                seller={seller}
+                avgPrice={avgPrice}
+                currentUser={currentUser}
+                onShare={onShare}
+                onBuy={onBuy}
+                myRef={myRef}
+                onSignIn={onSignIn}
+                onMessageSeller={onMessageSeller}
+                onReport={onReport}
+              />
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
 
-function CarCard({ listing, currentUser, onShare, onBuy, myRef, onSignIn }) {
+function CarCard({ listing, seller, avgPrice, currentUser, onShare, onBuy, myRef, onSignIn, onMessageSeller, onReport }) {
   const [copied, setCopied] = useState(false);
+  const [reporting, setReporting] = useState(false);
   const handleShare = () => { onShare(listing.id); setCopied(true); setTimeout(() => setCopied(false), 2000); };
+  const cover = (listing.images && listing.images[0]) || listing.image;
+  const isOwnListing = currentUser && listing.seller_id === currentUser.id;
+
+  let priceCompare = null;
+  if (avgPrice) {
+    const diffPct = Math.round(((listing.price - avgPrice) / avgPrice) * 100);
+    if (Math.abs(diffPct) >= 3) {
+      priceCompare = diffPct < 0
+        ? { text: `${Math.abs(diffPct)}% below similar listings`, good: true }
+        : { text: `${diffPct}% above similar listings`, good: false };
+    }
+  }
+
   return (
     <div style={styles.card} className="car-card">
       <div style={styles.cardImgWrap}>
-        <img src={listing.image} alt={`${listing.make} ${listing.model}`} style={styles.cardImg} onError={e => { e.target.src = "https://images.unsplash.com/photo-1494976388531-d1058494cdd8?w=600&q=80"; }} />
+        <img src={cover} alt={`${listing.make} ${listing.model}`} style={styles.cardImg} onError={e => { e.target.src = "https://images.unsplash.com/photo-1494976388531-d1058494cdd8?w=600&q=80"; }} />
         <div style={styles.cardPrice}>{fmt(listing.price)}</div>
+        {listing.status === "pending" && <div style={styles.pendingRibbon}>Sale Pending</div>}
       </div>
       <div style={styles.cardBody}>
-        <div style={styles.cardTitle}>{listing.year} {listing.make} {listing.model}</div>
-        <div style={styles.cardMeta}><span>🛣 {listing.mileage?.toLocaleString()} mi</span><span>🎨 {listing.color}</span></div>
+        <div style={styles.cardTitleRow}>
+          <div style={styles.cardTitle}>{listing.year} {listing.make} {listing.model}</div>
+          {seller?.verified && <span style={styles.verifiedBadge} title="Verified seller">✓ Verified</span>}
+        </div>
+        <div style={styles.cardMeta}>
+          <span>🛣 {listing.mileage?.toLocaleString()} mi</span>
+          <span>🎨 {listing.color}</span>
+          {listing.location_text && <span>📍 {listing.location_text}</span>}
+        </div>
+        {priceCompare && (
+          <div style={{ ...styles.priceCompare, color: priceCompare.good ? "#15803d" : "#b45309", background: priceCompare.good ? "#f0fdf4" : "#fffbeb" }}>
+            {priceCompare.good ? "▼" : "▲"} {priceCompare.text}
+          </div>
+        )}
         <p style={styles.cardDesc}>{listing.description}</p>
+        {listing.vin && (
+          <div style={styles.vinRow}>
+            VIN: {listing.vin} · <a href={`https://www.carfax.com/vehicle/${listing.vin}`} target="_blank" rel="noreferrer" style={styles.vinLink}>Check Carfax history →</a>
+          </div>
+        )}
         {myRef && <div style={styles.refTag}>{myRef.status === "paid" ? `✅ Commission paid: ${fmt(myRef.commission_amount)}` : `🔗 Tracking active • Code: ${myRef.share_code}`}</div>}
         <div style={styles.cardActions}>
-          {currentUser && (
-            <button style={styles.buyBtn} onClick={() => onBuy(listing)}>
-              💳 Buy Now
-            </button>
+          {currentUser && !isOwnListing && (
+            <button style={styles.buyBtn} onClick={() => onBuy(listing)}>💳 Buy Now</button>
           )}
-          {currentUser && (
+          {currentUser && !isOwnListing && (
             <button style={{ ...styles.shareBtn, background: copied ? "#16a34a" : "#1d4ed8" }} onClick={handleShare}>
               {copied ? "✓ Copied!" : myRef ? "Share Again" : "Share & Earn 1%"}
             </button>
           )}
           {!currentUser && (
-            <button style={styles.buyBtn} onClick={onSignIn}>
-              Sign in to buy or share →
-            </button>
+            <button style={styles.buyBtn} onClick={onSignIn}>Sign in to buy or share →</button>
           )}
+        </div>
+        {currentUser && !isOwnListing && (
+          <div style={styles.cardSecondaryActions}>
+            <button style={styles.messageLink} onClick={() => onMessageSeller(listing)}>💬 Message seller</button>
+            <button style={styles.reportLink} onClick={() => setReporting(true)}>🚩 Report</button>
+          </div>
+        )}
+      </div>
+      {reporting && (
+        <ReportModal
+          onCancel={() => setReporting(false)}
+          onSubmit={(reason, details) => { onReport(listing.id, reason, details); setReporting(false); }}
+        />
+      )}
+    </div>
+  );
+}
+
+function ReportModal({ onCancel, onSubmit }) {
+  const [reason, setReason] = useState("Misleading listing");
+  const [details, setDetails] = useState("");
+  return (
+    <div style={styles.overlay} onClick={onCancel}>
+      <div style={styles.modalBox} onClick={e => e.stopPropagation()}>
+        <h3 style={styles.modalTitle}>Report this listing</h3>
+        <label style={styles.fieldLabel}>Reason</label>
+        <select style={{ ...styles.selectInput, width: "100%", marginBottom: 12 }} value={reason} onChange={e => setReason(e.target.value)}>
+          <option>Misleading listing</option>
+          <option>Suspected scam</option>
+          <option>Wrong price / bait and switch</option>
+          <option>Car already sold elsewhere</option>
+          <option>Inappropriate content</option>
+          <option>Other</option>
+        </select>
+        <label style={styles.fieldLabel}>Details (optional)</label>
+        <textarea style={styles.textarea} rows={3} value={details} onChange={e => setDetails(e.target.value)} placeholder="Anything else we should know?" />
+        <div style={styles.modalActions}>
+          <button style={styles.cancelBtn} onClick={onCancel}>Cancel</button>
+          <button style={styles.confirmBtn} onClick={() => onSubmit(reason, details)}>Submit Report</button>
         </div>
       </div>
     </div>
   );
 }
 
-function MyListingsView({ listings, referrals, users, onMarkSold }) {
+function SavedSearchesView({ savedSearches, onDelete, onBrowse }) {
+  return (
+    <div style={styles.pageWrap}>
+      <h2 style={styles.pageTitle}>Saved Searches</h2>
+      {savedSearches.length === 0 && <p style={{ color: "#6b7280" }}>No saved searches yet. Browse listings and use "Save this search" to get notified about new matches next time you visit.</p>}
+      <div style={styles.tableWrap}>
+        {savedSearches.map(s => (
+          <div key={s.id} style={styles.listingRow} className="app-listing-row">
+            <div style={styles.rowInfo} className="app-row-info">
+              <div style={styles.rowTitle}>{s.label || "Saved search"}</div>
+              <div style={styles.rowMeta}>
+                {[s.make, s.search, s.max_price ? `under ${fmt(s.max_price)}` : null, s.max_mileage ? `under ${s.max_mileage.toLocaleString()} mi` : null, s.location_text].filter(Boolean).join(" • ") || "All listings"}
+              </div>
+            </div>
+            <button style={styles.removeBtn} onClick={() => onDelete(s.id)}>Remove</button>
+          </div>
+        ))}
+      </div>
+      <div style={styles.infoBox}>New matching listings are highlighted for you automatically when you revisit Browse.</div>
+      <button style={{ ...styles.confirmBtn, marginTop: 16 }} onClick={onBrowse}>Back to Browse</button>
+    </div>
+  );
+}
+
+function MyListingsView({ listings, referrals, users, onMarkSold, onSetStatus }) {
   return (
     <div style={styles.pageWrap}>
       <h2 style={styles.pageTitle}>My Listings</h2>
@@ -379,18 +605,28 @@ function MyListingsView({ listings, referrals, users, onMarkSold }) {
         {listings.map(l => {
           const ref = referrals.find(r => r.listing_id === l.id);
           const promoter = ref ? users.find(u => u.id === ref.promoter_id) : null;
+          const cover = (l.images && l.images[0]) || l.image;
           return (
             <div key={l.id} style={styles.listingRow} className="app-listing-row">
-              <img src={l.image} alt="" style={styles.rowImg} onError={e => { e.target.src = "https://images.unsplash.com/photo-1494976388531-d1058494cdd8?w=300&q=60"; }} />
+              <img src={cover} alt="" style={styles.rowImg} onError={e => { e.target.src = "https://images.unsplash.com/photo-1494976388531-d1058494cdd8?w=300&q=60"; }} />
               <div style={styles.rowInfo} className="app-row-info">
                 <div style={styles.rowTitle}>{l.year} {l.make} {l.model}</div>
                 <div style={styles.rowMeta}>{fmt(l.price)} • {l.mileage?.toLocaleString()} mi</div>
                 {l.status === "sold" && <div style={styles.soldBadge}>SOLD for {fmt(l.sale_price)} on {l.sold_at}</div>}
                 {promoter && <div style={styles.promoterTag}>Promoted by {promoter.name} {ref.status === "paid" ? `• Commission ${fmt(ref.commission_amount)} paid` : "• Pending"}</div>}
               </div>
-              <span style={{ ...styles.statusPill, background: l.status === "active" ? "#dcfce7" : "#fee2e2", color: l.status === "active" ? "#15803d" : "#b91c1c" }}>{l.status}</span>
+              <span style={{ ...styles.statusPill, background: l.status === "active" ? "#dcfce7" : l.status === "pending" ? "#fef9c3" : "#fee2e2", color: l.status === "active" ? "#15803d" : l.status === "pending" ? "#854d0e" : "#b91c1c" }}>{l.status}</span>
               {l.status === "active" && (
-                <button style={styles.soldBtn} onClick={() => onMarkSold(l.id, l.price)}>Mark Sold</button>
+                <>
+                  <button style={styles.pendingBtn} onClick={() => onSetStatus(l.id, "pending")}>Mark Pending</button>
+                  <button style={styles.soldBtn} onClick={() => onMarkSold(l.id, l.price)}>Mark Sold</button>
+                </>
+              )}
+              {l.status === "pending" && (
+                <>
+                  <button style={styles.pendingBtn} onClick={() => onSetStatus(l.id, "active")}>Reactivate</button>
+                  <button style={styles.soldBtn} onClick={() => onMarkSold(l.id, l.price)}>Mark Sold</button>
+                </>
               )}
             </div>
           );
@@ -401,20 +637,28 @@ function MyListingsView({ listings, referrals, users, onMarkSold }) {
 }
 
 function PostListingView({ onPost }) {
-  const [form, setForm] = useState({ make: "", model: "", year: new Date().getFullYear(), price: "", mileage: "", color: "", description: "", image: "" });
+  const [form, setForm] = useState({ make: "", model: "", year: new Date().getFullYear(), price: "", mileage: "", color: "", description: "", vin: "", location_text: "" });
+  const [images, setImages] = useState([]);
   const [submitting, setSubmitting] = useState(false);
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
   const handleSubmit = async () => {
     if (!form.make || !form.model || !form.price) return alert("Fill in at least make, model, and price.");
     setSubmitting(true);
-    await onPost({ ...form, price: +form.price, mileage: +form.mileage, year: +form.year, image: form.image || "https://images.unsplash.com/photo-1494976388531-d1058494cdd8?w=600&q=80" });
+    await onPost({
+      ...form,
+      price: +form.price,
+      mileage: +form.mileage,
+      year: +form.year,
+      images,
+      image: images[0] || "https://images.unsplash.com/photo-1494976388531-d1058494cdd8?w=600&q=80",
+    });
     setSubmitting(false);
   };
   return (
     <div style={styles.pageWrap}>
       <h2 style={styles.pageTitle}>Post a Car for Sale</h2>
       <div style={styles.formCard}>
-        <ImageUpload onUpload={url => set("image", url)} />
+        <ImageUpload images={images} onChange={setImages} />
         <div style={styles.formGrid} className="app-form-grid">
           <Field label="Make" value={form.make} onChange={v => set("make", v)} placeholder="e.g. Toyota" />
           <Field label="Model" value={form.model} onChange={v => set("model", v)} placeholder="e.g. Camry" />
@@ -422,6 +666,8 @@ function PostListingView({ onPost }) {
           <Field label="Price ($)" value={form.price} onChange={v => set("price", v)} type="number" placeholder="e.g. 25000" />
           <Field label="Mileage" value={form.mileage} onChange={v => set("mileage", v)} type="number" placeholder="e.g. 35000" />
           <Field label="Color" value={form.color} onChange={v => set("color", v)} placeholder="e.g. Pearl White" />
+          <Field label="VIN (optional)" value={form.vin} onChange={v => set("vin", v)} placeholder="17-character VIN" />
+          <Field label="Location (city or ZIP)" value={form.location_text} onChange={v => set("location_text", v)} placeholder="e.g. Austin, TX" />
         </div>
         <div style={{ marginTop: 16 }}>
           <label style={styles.fieldLabel}>Description</label>
@@ -479,12 +725,13 @@ function StatBox({ label, value, color }) {
   return <div style={styles.statBox}><div style={{ ...styles.statValue, color }}>{value}</div><div style={styles.statLabel}>{label}</div></div>;
 }
 
-function AdminView({ listings, users, referrals, onArchive, onMarkSold }) {
+function AdminView({ listings, users, referrals, reports, onArchive, onMarkSold, onResolveReport, onToggleVerified }) {
   const [tab, setTab] = useState("listings");
   const activeAndSold = listings.filter(l => l.status !== "archived");
   const totalRevenue = activeAndSold.filter(l => l.status === "sold").reduce((s, l) => s + (l.sale_price || 0), 0);
   const platformEarnings = activeAndSold.filter(l => l.status === "sold").reduce((s, l) => s + (l.platform_fee || Math.round((l.sale_price || 0) * 0.01)), 0);
   const totalCommissions = referrals.filter(r => r.status === "paid").reduce((s, r) => s + (r.commission_amount || 0), 0);
+  const openReports = reports.filter(r => r.status === "open");
   return (
     <div style={styles.pageWrap}>
       <h2 style={styles.pageTitle}>Admin Panel</h2>
@@ -495,9 +742,10 @@ function AdminView({ listings, users, referrals, onArchive, onMarkSold }) {
         <StatBox label="GMV" value={fmt(totalRevenue)} color="#b45309" />
         <StatBox label="Your Earnings (1%)" value={fmt(platformEarnings)} color="#16a34a" />
         <StatBox label="Promoter Commissions" value={fmt(totalCommissions)} color="#dc2626" />
+        <StatBox label="Open Reports" value={openReports.length} color="#dc2626" />
       </div>
       <div style={styles.tabRow}>
-        {["listings", "archived", "users", "referrals"].map(t => <button key={t} style={{ ...styles.tab, ...(tab === t ? styles.tabActive : {}) }} onClick={() => setTab(t)}>{t.charAt(0).toUpperCase() + t.slice(1)}</button>)}
+        {["listings", "archived", "users", "referrals", "reports"].map(t => <button key={t} style={{ ...styles.tab, ...(tab === t ? styles.tabActive : {}) }} onClick={() => setTab(t)}>{t.charAt(0).toUpperCase() + t.slice(1)}{t === "reports" && openReports.length > 0 ? ` (${openReports.length})` : ""}</button>)}
       </div>
       {tab === "listings" && (
         <div style={styles.tableWrap}>
@@ -539,10 +787,13 @@ function AdminView({ listings, users, referrals, onArchive, onMarkSold }) {
             <div key={u.id} style={styles.listingRow} className="app-listing-row">
               <div style={styles.avatar}>{u.name[0]}</div>
               <div style={styles.rowInfo} className="app-row-info">
-                <div style={styles.rowTitle}>{u.name}</div>
+                <div style={styles.rowTitle}>{u.name} {u.verified && <span style={styles.verifiedBadge}>✓ Verified</span>}</div>
                 <div style={styles.rowMeta}>{u.email} • Balance: {fmt(u.balance || 0)}</div>
               </div>
               <span style={{ ...styles.statusPill, background: "#e0e7ff", color: "#3730a3" }}>{u.role}</span>
+              <button style={u.verified ? styles.removeBtn : styles.pendingBtn} onClick={() => onToggleVerified(u.id, !u.verified)}>
+                {u.verified ? "Unverify" : "Verify Seller"}
+              </button>
             </div>
           ))}
         </div>
@@ -560,6 +811,30 @@ function AdminView({ listings, users, referrals, onArchive, onMarkSold }) {
                   <div style={styles.rowMeta}>Code: {r.share_code} • Commission: {fmt(r.commission_amount || 0)}</div>
                 </div>
                 <span style={{ ...styles.statusPill, background: r.status === "paid" ? "#dcfce7" : "#fef9c3", color: r.status === "paid" ? "#15803d" : "#854d0e" }}>{r.status}</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+      {tab === "reports" && (
+        <div style={styles.tableWrap}>
+          {reports.length === 0 && <p style={{ color: "#6b7280" }}>No reports filed.</p>}
+          {reports.map(r => {
+            const listing = listings.find(l => l.id === r.listing_id);
+            const reporter = users.find(u => u.id === r.reporter_id);
+            return (
+              <div key={r.id} style={styles.listingRow} className="app-listing-row">
+                <div style={styles.rowInfo} className="app-row-info">
+                  <div style={styles.rowTitle}>{r.reason} — {listing ? `${listing.year} ${listing.make} ${listing.model}` : r.listing_id}</div>
+                  <div style={styles.rowMeta}>Reported by {reporter?.name || "user"} {r.details ? `• "${r.details}"` : ""}</div>
+                </div>
+                <span style={{ ...styles.statusPill, background: r.status === "open" ? "#fef9c3" : r.status === "actioned" ? "#fee2e2" : "#f1f5f9", color: r.status === "open" ? "#854d0e" : r.status === "actioned" ? "#b91c1c" : "#6b7280" }}>{r.status}</span>
+                {r.status === "open" && (
+                  <>
+                    <button style={styles.removeBtn} onClick={() => { if (listing) onArchive(listing.id); onResolveReport(r.id, "actioned"); }}>Remove Listing</button>
+                    <button style={styles.pendingBtn} onClick={() => onResolveReport(r.id, "dismissed")}>Dismiss</button>
+                  </>
+                )}
               </div>
             );
           })}
@@ -605,17 +880,30 @@ const styles = {
   filterLabel: { fontSize: 12, color: "#6b7280", fontWeight: 500 },
   rangeInput: { width: "100%", accentColor: "#3b82f6" },
   selectInput: { padding: "10px 14px", borderRadius: 10, border: "1px solid #e5e7eb", fontSize: 14, background: "#fff", cursor: "pointer" },
+  viewToggle: { display: "flex", border: "1px solid #e5e7eb", borderRadius: 10, overflow: "hidden" },
+  viewToggleBtn: { padding: "9px 14px", background: "#fff", border: "none", fontSize: 13, fontWeight: 600, color: "#4b5563", cursor: "pointer" },
+  viewToggleBtnActive: { background: "#0f172a", color: "#fff" },
+  saveSearchBtn: { background: "#eff6ff", color: "#1d4ed8", border: "1px solid #bfdbfe", padding: "9px 14px", borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: "pointer" },
   grid: { display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(300px,1fr))", gap: 24, paddingTop: 8 },
   card: { background: "#fff", borderRadius: 16, overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,.08)", transition: "transform .2s,box-shadow .2s" },
   cardImgWrap: { position: "relative", height: 200, overflow: "hidden" },
   cardImg: { width: "100%", height: "100%", objectFit: "cover" },
   cardPrice: { position: "absolute", bottom: 12, right: 12, background: "#0f172a", color: "#fff", fontWeight: 800, fontSize: 16, padding: "6px 14px", borderRadius: 10 },
+  pendingRibbon: { position: "absolute", top: 12, left: 12, background: "#f59e0b", color: "#fff", fontWeight: 700, fontSize: 11, padding: "4px 10px", borderRadius: 8, textTransform: "uppercase", letterSpacing: ".03em" },
   cardBody: { padding: "18px 20px 20px" },
-  cardTitle: { fontSize: 18, fontWeight: 700, color: "#0f172a", marginBottom: 8 },
-  cardMeta: { display: "flex", gap: 16, fontSize: 13, color: "#6b7280", marginBottom: 10 },
-  cardDesc: { fontSize: 13, color: "#374151", lineHeight: 1.5, marginBottom: 14 },
+  cardTitleRow: { display: "flex", alignItems: "center", gap: 8, marginBottom: 8 },
+  cardTitle: { fontSize: 18, fontWeight: 700, color: "#0f172a" },
+  verifiedBadge: { fontSize: 11, fontWeight: 700, color: "#1d4ed8", background: "#eff6ff", padding: "2px 8px", borderRadius: 20 },
+  cardMeta: { display: "flex", gap: 16, fontSize: 13, color: "#6b7280", marginBottom: 10, flexWrap: "wrap" },
+  priceCompare: { fontSize: 12, fontWeight: 700, padding: "5px 10px", borderRadius: 8, display: "inline-block", marginBottom: 10 },
+  cardDesc: { fontSize: 13, color: "#374151", lineHeight: 1.5, marginBottom: 10 },
+  vinRow: { fontSize: 12, color: "#6b7280", marginBottom: 12 },
+  vinLink: { color: "#1d4ed8", fontWeight: 600, textDecoration: "none" },
   refTag: { background: "#eff6ff", color: "#1d4ed8", fontSize: 12, fontWeight: 600, padding: "6px 10px", borderRadius: 8, marginBottom: 12 },
   cardActions: { display: "flex", gap: 10 },
+  cardSecondaryActions: { display: "flex", gap: 16, marginTop: 12, justifyContent: "center" },
+  messageLink: { background: "none", border: "none", color: "#4b5563", fontSize: 12, fontWeight: 600, cursor: "pointer" },
+  reportLink: { background: "none", border: "none", color: "#9ca3af", fontSize: 12, fontWeight: 600, cursor: "pointer" },
   buyBtn: { flex: 1, background: "#0f172a", color: "#fff", border: "none", padding: "10px 0", borderRadius: 10, cursor: "pointer", fontSize: 14, fontWeight: 600 },
   shareBtn: { flex: 1, color: "#fff", border: "none", padding: "10px 0", borderRadius: 10, cursor: "pointer", fontSize: 14, fontWeight: 600, transition: "background .3s" },
   overlay: { position: "fixed", inset: 0, background: "rgba(0,0,0,.5)", zIndex: 999, display: "flex", alignItems: "center", justifyContent: "center", padding: 16, boxSizing: "border-box" },
@@ -637,6 +925,7 @@ const styles = {
   promoterTag: { display: "inline-block", background: "#eff6ff", color: "#1d4ed8", fontSize: 12, fontWeight: 600, padding: "3px 8px", borderRadius: 6, marginTop: 6 },
   statusPill: { flexShrink: 0, fontSize: 12, fontWeight: 700, padding: "4px 10px", borderRadius: 20, textTransform: "uppercase", letterSpacing: ".04em" },
   soldBtn: { background: "#dcfce7", color: "#15803d", border: "none", padding: "7px 14px", borderRadius: 8, cursor: "pointer", fontSize: 13, fontWeight: 600 },
+  pendingBtn: { background: "#fef9c3", color: "#854d0e", border: "none", padding: "7px 14px", borderRadius: 8, cursor: "pointer", fontSize: 13, fontWeight: 600 },
   removeBtn: { background: "#fee2e2", color: "#dc2626", border: "none", padding: "7px 14px", borderRadius: 8, cursor: "pointer", fontSize: 13, fontWeight: 600 },
   formCard: { background: "#fff", borderRadius: 16, padding: 32, maxWidth: 640, boxShadow: "0 1px 4px rgba(0,0,0,.07)" },
   formGrid: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 },
