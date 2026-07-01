@@ -235,6 +235,21 @@ export default function App() {
     setView("messages");
   };
 
+  // ── Admin: wipe test data. Deletes rows from selected tables; optionally resets
+  // user balances to 0. Never deletes user accounts themselves (would break auth).
+  const resetTestData = async (options) => {
+    const { listings: wipeListings, referrals: wipeReferrals, messages: wipeMessages, reports: wipeReports, savedSearchesFlag, feedbackFlag, resetBalances } = options;
+    if (wipeListings) await supabase.from("listings").delete().not("id", "is", null);
+    if (wipeReferrals) await supabase.from("referrals").delete().not("id", "is", null);
+    if (wipeMessages) await supabase.from("messages").delete().not("id", "is", null);
+    if (wipeReports) await supabase.from("reports").delete().not("id", "is", null);
+    if (savedSearchesFlag) await supabase.from("saved_searches").delete().not("id", "is", null);
+    if (feedbackFlag) await supabase.from("feedback").delete().not("id", "is", null);
+    if (resetBalances) await supabase.from("users").update({ balance: 0 }).not("id", "is", null);
+    await loadData();
+    showToast("Test data cleared.");
+  };
+
   const activeListings = listings.filter(l => l.status === "active");
   const archivedListings = listings.filter(l => l.status === "archived");
 
@@ -318,7 +333,7 @@ export default function App() {
         {view === "messages" && currentUser && <Messages currentUser={{ ...dbUser, id: currentUser.id }} listings={listings} users={users} openThread={openThread} onOpened={() => setOpenThread(null)} />}
         {view === "savedSearches" && <SavedSearchesView savedSearches={savedSearches} onDelete={deleteSavedSearch} onBrowse={() => setView("home")} />}
         {view === "dashboard" && <PromoterDashboard currentUser={dbUser} referrals={referrals.filter(r => r.promoter_id === currentUser?.id)} listings={listings} />}
-        {view === "admin" && <AdminView listings={listings} users={users} referrals={referrals} reports={reports} feedback={feedback} onArchive={archiveListing} onMarkSold={markSold} onResolveReport={resolveReport} onToggleVerified={toggleVerified} />}
+        {view === "admin" && <AdminView listings={listings} users={users} referrals={referrals} reports={reports} feedback={feedback} onArchive={archiveListing} onMarkSold={markSold} onResolveReport={resolveReport} onToggleVerified={toggleVerified} onResetData={resetTestData} />}
         {view === "success" && <SuccessView onHome={() => setView("home")} />}
       </main>
     </div>
@@ -802,7 +817,7 @@ function StatBox({ label, value, color }) {
   return <div style={styles.statBox}><div style={{ ...styles.statValue, color }}>{value}</div><div style={styles.statLabel}>{label}</div></div>;
 }
 
-function AdminView({ listings, users, referrals, reports, feedback, onArchive, onMarkSold, onResolveReport, onToggleVerified }) {
+function AdminView({ listings, users, referrals, reports, feedback, onArchive, onMarkSold, onResolveReport, onToggleVerified, onResetData }) {
   const [tab, setTab] = useState("listings");
   const activeAndSold = listings.filter(l => l.status !== "archived");
   const totalRevenue = activeAndSold.filter(l => l.status === "sold").reduce((s, l) => s + (l.sale_price || 0), 0);
@@ -822,7 +837,7 @@ function AdminView({ listings, users, referrals, reports, feedback, onArchive, o
         <StatBox label="Open Reports" value={openReports.length} color="#dc2626" />
       </div>
       <div style={styles.tabRow}>
-        {["listings", "archived", "users", "referrals", "reports", "feedback"].map(t => <button key={t} style={{ ...styles.tab, ...(tab === t ? styles.tabActive : {}) }} onClick={() => setTab(t)}>{t.charAt(0).toUpperCase() + t.slice(1)}{t === "reports" && openReports.length > 0 ? ` (${openReports.length})` : ""}{t === "feedback" && feedback.length > 0 ? ` (${feedback.length})` : ""}</button>)}
+        {["listings", "archived", "users", "referrals", "reports", "feedback", "danger"].map(t => <button key={t} style={{ ...styles.tab, ...(tab === t ? styles.tabActive : {}), ...(t === "danger" ? { color: tab === "danger" ? "#dc2626" : "#dc2626" } : {}) }} onClick={() => setTab(t)}>{t === "danger" ? "⚠️ Danger Zone" : t.charAt(0).toUpperCase() + t.slice(1)}{t === "reports" && openReports.length > 0 ? ` (${openReports.length})` : ""}{t === "feedback" && feedback.length > 0 ? ` (${feedback.length})` : ""}</button>)}
       </div>
       {tab === "listings" && (
         <div style={styles.tableWrap}>
@@ -930,6 +945,61 @@ function AdminView({ listings, users, referrals, reports, feedback, onArchive, o
           ))}
         </div>
       )}
+      {tab === "danger" && <DangerZone onResetData={onResetData} />}
+    </div>
+  );
+}
+
+function DangerZone({ onResetData }) {
+  const [selected, setSelected] = useState({
+    listings: true, referrals: true, messages: true, reports: true,
+    savedSearchesFlag: true, feedbackFlag: false, resetBalances: true,
+  });
+  const [confirmText, setConfirmText] = useState("");
+  const [running, setRunning] = useState(false);
+  const [done, setDone] = useState(false);
+
+  const toggle = (k) => setSelected(s => ({ ...s, [k]: !s[k] }));
+  const anySelected = Object.values(selected).some(Boolean);
+  const canRun = confirmText.trim().toUpperCase() === "DELETE" && anySelected;
+
+  const run = async () => {
+    setRunning(true);
+    await onResetData(selected);
+    setRunning(false);
+    setDone(true);
+    setConfirmText("");
+    setTimeout(() => setDone(false), 4000);
+  };
+
+  return (
+    <div style={styles.dangerBox}>
+      <h3 style={styles.dangerTitle}>⚠️ Reset Test Data</h3>
+      <p style={styles.dangerSub}>
+        This permanently deletes data from your live database. Use this to clear out testing
+        entries before real users show up — it does <b>not</b> delete user accounts, so nobody loses their login.
+      </p>
+      <div style={styles.dangerChecks}>
+        <label style={styles.dangerCheckRow}><input type="checkbox" checked={selected.listings} onChange={() => toggle("listings")} /> Listings (all — active, sold, archived)</label>
+        <label style={styles.dangerCheckRow}><input type="checkbox" checked={selected.referrals} onChange={() => toggle("referrals")} /> Referrals & share links</label>
+        <label style={styles.dangerCheckRow}><input type="checkbox" checked={selected.messages} onChange={() => toggle("messages")} /> Messages</label>
+        <label style={styles.dangerCheckRow}><input type="checkbox" checked={selected.reports} onChange={() => toggle("reports")} /> Reports</label>
+        <label style={styles.dangerCheckRow}><input type="checkbox" checked={selected.savedSearchesFlag} onChange={() => toggle("savedSearchesFlag")} /> Saved searches</label>
+        <label style={styles.dangerCheckRow}><input type="checkbox" checked={selected.feedbackFlag} onChange={() => toggle("feedbackFlag")} /> Feedback submissions</label>
+        <label style={styles.dangerCheckRow}><input type="checkbox" checked={selected.resetBalances} onChange={() => toggle("resetBalances")} /> Reset all user balances to $0 (keeps accounts)</label>
+      </div>
+      <div style={styles.dangerConfirmRow}>
+        <label style={styles.fieldLabel}>Type DELETE to confirm</label>
+        <input style={styles.fieldInput} value={confirmText} onChange={e => setConfirmText(e.target.value)} placeholder="DELETE" />
+      </div>
+      <button
+        style={{ ...styles.dangerBtn, opacity: canRun && !running ? 1 : 0.5, cursor: canRun && !running ? "pointer" : "not-allowed" }}
+        onClick={run}
+        disabled={!canRun || running}
+      >
+        {running ? "Clearing…" : "Permanently Clear Selected Data"}
+      </button>
+      {done && <div style={styles.dangerDone}>✅ Selected data cleared.</div>}
     </div>
   );
 }
@@ -1032,6 +1102,14 @@ const styles = {
   tab: { padding: "8px 18px", borderRadius: 8, border: "none", background: "none", fontSize: 14, fontWeight: 500, color: "#6b7280", cursor: "pointer" },
   tabActive: { background: "#f1f5f9", color: "#0f172a", fontWeight: 700 },
   toast: { position: "fixed", bottom: 24, right: 24, zIndex: 9999, color: "#fff", fontWeight: 600, fontSize: 14, padding: "14px 20px", borderRadius: 12, boxShadow: "0 8px 24px rgba(0,0,0,.2)", maxWidth: 360 },
+  dangerBox: { background: "#fef2f2", border: "2px solid #fecaca", borderRadius: 16, padding: 28, maxWidth: 560 },
+  dangerTitle: { fontSize: 18, fontWeight: 800, color: "#b91c1c", marginBottom: 10 },
+  dangerSub: { fontSize: 13, color: "#7f1d1d", lineHeight: 1.6, marginBottom: 20 },
+  dangerChecks: { display: "flex", flexDirection: "column", gap: 10, marginBottom: 20, background: "#fff", padding: 16, borderRadius: 10, border: "1px solid #fecaca" },
+  dangerCheckRow: { display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "#374151", cursor: "pointer" },
+  dangerConfirmRow: { marginBottom: 16 },
+  dangerBtn: { width: "100%", background: "#dc2626", color: "#fff", border: "none", padding: "13px 0", borderRadius: 10, fontSize: 14, fontWeight: 700 },
+  dangerDone: { marginTop: 14, fontSize: 13, color: "#15803d", fontWeight: 600 },
 };
 
 const css = `
