@@ -165,6 +165,17 @@ export default function App() {
     return code;
   };
 
+  // ── Seller edits their own listing's details
+  const updateListing = async (listingId, data) => {
+    const coords = data.location_text ? await geocode(data.location_text) : null;
+    const patch = { ...data };
+    if (coords) { patch.lat = coords.lat; patch.lng = coords.lng; }
+    const { error } = await supabase.from("listings").update(patch).eq("id", listingId);
+    if (error) { showToast("Error updating listing", "error"); return; }
+    await loadData();
+    showToast("Listing updated.");
+  };
+
   // ── Remove listing (admin)
   const archiveListing = async (listingId) => {
     await supabase.from("listings").update({ status: "archived", archived_at: new Date().toISOString() }).eq("id", listingId);
@@ -299,7 +310,7 @@ export default function App() {
 
       <main style={styles.main} className="app-main">
         {view === "home" && <HomeView listings={activeListings} allListings={listings} currentUser={dbUser} users={users} onShare={generateShare} onBuy={handleBuyNow} referrals={referrals} onSignIn={() => setView("auth")} onMessageSeller={messageSeller} onReport={fileReport} onSaveSearch={saveSearch} />}
-        {view === "myListings" && <MyListingsView listings={listings.filter(l => l.seller_id === currentUser?.id)} referrals={referrals} users={users} onMarkSold={markSold} onSetStatus={setListingStatus} />}
+        {view === "myListings" && <MyListingsView listings={listings.filter(l => l.seller_id === currentUser?.id)} referrals={referrals} users={users} onMarkSold={markSold} onSetStatus={setListingStatus} onUpdate={updateListing} />}
         {view === "postListing" && <PostListingView onPost={postListing} />}
         {view === "messages" && currentUser && <Messages currentUser={{ ...dbUser, id: currentUser.id }} listings={listings} users={users} openThread={openThread} onOpened={() => setOpenThread(null)} />}
         {view === "savedSearches" && <SavedSearchesView savedSearches={savedSearches} onDelete={deleteSavedSearch} onBrowse={() => setView("home")} />}
@@ -596,7 +607,8 @@ function SavedSearchesView({ savedSearches, onDelete, onBrowse }) {
   );
 }
 
-function MyListingsView({ listings, referrals, users, onMarkSold, onSetStatus }) {
+function MyListingsView({ listings, referrals, users, onMarkSold, onSetStatus, onUpdate }) {
+  const [editing, setEditing] = useState(null);
   return (
     <div style={styles.pageWrap}>
       <h2 style={styles.pageTitle}>My Listings</h2>
@@ -616,6 +628,9 @@ function MyListingsView({ listings, referrals, users, onMarkSold, onSetStatus })
                 {promoter && <div style={styles.promoterTag}>Promoted by {promoter.name} {ref.status === "paid" ? `• Commission ${fmt(ref.commission_amount)} paid` : "• Pending"}</div>}
               </div>
               <span style={{ ...styles.statusPill, background: l.status === "active" ? "#dcfce7" : l.status === "pending" ? "#fef9c3" : "#fee2e2", color: l.status === "active" ? "#15803d" : l.status === "pending" ? "#854d0e" : "#b91c1c" }}>{l.status}</span>
+              {l.status !== "sold" && (
+                <button style={styles.pendingBtn} onClick={() => setEditing(l)}>Edit</button>
+              )}
               {l.status === "active" && (
                 <>
                   <button style={styles.pendingBtn} onClick={() => onSetStatus(l.id, "pending")}>Mark Pending</button>
@@ -631,6 +646,65 @@ function MyListingsView({ listings, referrals, users, onMarkSold, onSetStatus })
             </div>
           );
         })}
+      </div>
+      {editing && (
+        <EditListingModal
+          listing={editing}
+          onCancel={() => setEditing(null)}
+          onSave={async (data) => { await onUpdate(editing.id, data); setEditing(null); }}
+        />
+      )}
+    </div>
+  );
+}
+
+function EditListingModal({ listing, onCancel, onSave }) {
+  const [form, setForm] = useState({
+    make: listing.make || "", model: listing.model || "", year: listing.year || new Date().getFullYear(),
+    price: listing.price || "", mileage: listing.mileage || "", color: listing.color || "",
+    description: listing.description || "", vin: listing.vin || "", location_text: listing.location_text || "",
+  });
+  const [images, setImages] = useState(listing.images && listing.images.length ? listing.images : (listing.image ? [listing.image] : []));
+  const [saving, setSaving] = useState(false);
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+  const handleSave = async () => {
+    if (!form.make || !form.model || !form.price) return alert("Fill in at least make, model, and price.");
+    setSaving(true);
+    await onSave({
+      ...form,
+      price: +form.price,
+      mileage: +form.mileage,
+      year: +form.year,
+      images,
+      image: images[0] || listing.image,
+    });
+    setSaving(false);
+  };
+
+  return (
+    <div style={styles.overlay} onClick={onCancel}>
+      <div style={{ ...styles.modalBox, maxWidth: 640, maxHeight: "88vh", overflowY: "auto" }} onClick={e => e.stopPropagation()}>
+        <h3 style={styles.modalTitle}>Edit Listing</h3>
+        <ImageUpload images={images} onChange={setImages} />
+        <div style={styles.formGrid} className="app-form-grid">
+          <Field label="Make" value={form.make} onChange={v => set("make", v)} />
+          <Field label="Model" value={form.model} onChange={v => set("model", v)} />
+          <Field label="Year" value={form.year} onChange={v => set("year", v)} type="number" />
+          <Field label="Price ($)" value={form.price} onChange={v => set("price", v)} type="number" />
+          <Field label="Mileage" value={form.mileage} onChange={v => set("mileage", v)} type="number" />
+          <Field label="Color" value={form.color} onChange={v => set("color", v)} />
+          <Field label="VIN (optional)" value={form.vin} onChange={v => set("vin", v)} />
+          <Field label="Location (city or ZIP)" value={form.location_text} onChange={v => set("location_text", v)} />
+        </div>
+        <div style={{ marginTop: 16 }}>
+          <label style={styles.fieldLabel}>Description</label>
+          <textarea style={styles.textarea} value={form.description} onChange={e => set("description", e.target.value)} rows={4} />
+        </div>
+        <div style={styles.modalActions}>
+          <button style={styles.cancelBtn} onClick={onCancel}>Cancel</button>
+          <button style={{ ...styles.confirmBtn, opacity: saving ? 0.6 : 1 }} onClick={handleSave} disabled={saving}>{saving ? "Saving…" : "Save Changes"}</button>
+        </div>
       </div>
     </div>
   );
