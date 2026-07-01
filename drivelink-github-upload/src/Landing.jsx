@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { supabase } from "./supabase.js";
 import logoIcon from "./assets/logo-icon.png";
 
 export default function Landing({ onSignIn, onBrowse }) {
@@ -150,6 +151,9 @@ export default function Landing({ onSignIn, onBrowse }) {
         </div>
       </section>
 
+      {/* FEEDBACK */}
+      <FeedbackSection />
+
       {/* FOOTER */}
       <footer style={styles.footer}>
         <div style={styles.footerInner}>
@@ -162,6 +166,62 @@ export default function Landing({ onSignIn, onBrowse }) {
         </div>
       </footer>
     </div>
+  );
+}
+
+function FeedbackSection() {
+  const [message, setMessage] = useState("");
+  const [email, setEmail] = useState("");
+  const [status, setStatus] = useState("idle"); // idle | sending | sent | error
+
+  const submit = async () => {
+    if (!message.trim()) return;
+    setStatus("sending");
+    const { error } = await supabase.from("feedback").insert({
+      id: "fb" + Date.now(),
+      email: email.trim() || null,
+      message: message.trim(),
+    });
+    if (error) { setStatus("error"); return; }
+    setStatus("sent");
+    setMessage("");
+    setEmail("");
+  };
+
+  return (
+    <section style={styles.feedbackSection}>
+      <div style={styles.sectionInner}>
+        <div style={styles.feedbackBox}>
+          <h3 style={styles.feedbackTitle}>This is your marketplace.</h3>
+          <p style={styles.feedbackSub}>Noticed a feature you'd like to see? Let us know — it helps us build what actually matters to you.</p>
+          {status === "sent" ? (
+            <div style={styles.feedbackThanks}>✅ Thanks — we've got your note and will take a look.</div>
+          ) : (
+            <div style={styles.feedbackForm}>
+              <textarea
+                style={styles.feedbackTextarea}
+                placeholder="What would make DriveLink better for you?"
+                value={message}
+                onChange={e => setMessage(e.target.value)}
+                rows={3}
+              />
+              <div style={styles.feedbackRow}>
+                <input
+                  style={styles.feedbackEmail}
+                  placeholder="Your email (optional, if you'd like a reply)"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                />
+                <button style={styles.feedbackBtn} onClick={submit} disabled={status === "sending" || !message.trim()}>
+                  {status === "sending" ? "Sending…" : "Send Feedback"}
+                </button>
+              </div>
+              {status === "error" && <div style={styles.feedbackError}>Something went wrong — please try again.</div>}
+            </div>
+          )}
+        </div>
+      </div>
+    </section>
   );
 }
 
@@ -219,6 +279,17 @@ const styles = {
   footerInner: { maxWidth: 1200, margin: "0 auto", display: "flex", flexDirection: "column", alignItems: "center", gap: 8 },
   footerLogo: { display: "flex", alignItems: "center", gap: 8, fontSize: 18, marginBottom: 4 },
   footerText: { fontSize: 13, color: "#6b7280" },
+  feedbackSection: { padding: "56px 24px", background: "#fff" },
+  feedbackBox: { maxWidth: 640, margin: "0 auto", background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: 20, padding: "36px 40px", textAlign: "center" },
+  feedbackTitle: { fontSize: 24, fontWeight: 800, color: "#0f172a", marginBottom: 8, letterSpacing: "-0.02em" },
+  feedbackSub: { fontSize: 15, color: "#4b5563", lineHeight: 1.6, marginBottom: 24 },
+  feedbackForm: { display: "flex", flexDirection: "column", gap: 12 },
+  feedbackTextarea: { width: "100%", padding: "12px 16px", borderRadius: 12, border: "1px solid #bfdbfe", fontSize: 14, outline: "none", resize: "vertical", boxSizing: "border-box", fontFamily: "inherit", background: "#fff" },
+  feedbackRow: { display: "flex", gap: 10, flexWrap: "wrap" },
+  feedbackEmail: { flex: 1, minWidth: 200, padding: "11px 16px", borderRadius: 10, border: "1px solid #bfdbfe", fontSize: 14, outline: "none", boxSizing: "border-box", background: "#fff" },
+  feedbackBtn: { background: "#0f172a", color: "#fff", border: "none", padding: "11px 24px", borderRadius: 10, cursor: "pointer", fontSize: 14, fontWeight: 700, whiteSpace: "nowrap" },
+  feedbackThanks: { fontSize: 15, color: "#15803d", fontWeight: 600, padding: "12px 0" },
+  feedbackError: { fontSize: 13, color: "#dc2626" },
 };
 
 const css = `

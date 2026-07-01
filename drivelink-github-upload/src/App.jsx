@@ -19,6 +19,7 @@ export default function App() {
   const [referrals, setReferrals] = useState([]);
   const [users, setUsers] = useState([]);
   const [reports, setReports] = useState([]);
+  const [feedback, setFeedback] = useState([]);
   const [savedSearches, setSavedSearches] = useState([]);
   const [openThread, setOpenThread] = useState(null);
   const [view, setView] = useState("landing");
@@ -37,10 +38,12 @@ export default function App() {
     const { data: referralsData } = await supabase.from("referrals").select("*");
     const { data: usersData } = await supabase.from("users").select("*");
     const { data: reportsData } = await supabase.from("reports").select("*").order("created_at", { ascending: false });
+    const { data: feedbackData } = await supabase.from("feedback").select("*").order("created_at", { ascending: false });
     if (listingsData) setListings(listingsData);
     if (referralsData) setReferrals(referralsData);
     if (usersData) setUsers(usersData);
     if (reportsData) setReports(reportsData);
+    if (feedbackData) setFeedback(feedbackData);
     setLoading(false);
   };
 
@@ -315,7 +318,7 @@ export default function App() {
         {view === "messages" && currentUser && <Messages currentUser={{ ...dbUser, id: currentUser.id }} listings={listings} users={users} openThread={openThread} onOpened={() => setOpenThread(null)} />}
         {view === "savedSearches" && <SavedSearchesView savedSearches={savedSearches} onDelete={deleteSavedSearch} onBrowse={() => setView("home")} />}
         {view === "dashboard" && <PromoterDashboard currentUser={dbUser} referrals={referrals.filter(r => r.promoter_id === currentUser?.id)} listings={listings} />}
-        {view === "admin" && <AdminView listings={listings} users={users} referrals={referrals} reports={reports} onArchive={archiveListing} onMarkSold={markSold} onResolveReport={resolveReport} onToggleVerified={toggleVerified} />}
+        {view === "admin" && <AdminView listings={listings} users={users} referrals={referrals} reports={reports} feedback={feedback} onArchive={archiveListing} onMarkSold={markSold} onResolveReport={resolveReport} onToggleVerified={toggleVerified} />}
         {view === "success" && <SuccessView onHome={() => setView("home")} />}
       </main>
     </div>
@@ -799,7 +802,7 @@ function StatBox({ label, value, color }) {
   return <div style={styles.statBox}><div style={{ ...styles.statValue, color }}>{value}</div><div style={styles.statLabel}>{label}</div></div>;
 }
 
-function AdminView({ listings, users, referrals, reports, onArchive, onMarkSold, onResolveReport, onToggleVerified }) {
+function AdminView({ listings, users, referrals, reports, feedback, onArchive, onMarkSold, onResolveReport, onToggleVerified }) {
   const [tab, setTab] = useState("listings");
   const activeAndSold = listings.filter(l => l.status !== "archived");
   const totalRevenue = activeAndSold.filter(l => l.status === "sold").reduce((s, l) => s + (l.sale_price || 0), 0);
@@ -819,7 +822,7 @@ function AdminView({ listings, users, referrals, reports, onArchive, onMarkSold,
         <StatBox label="Open Reports" value={openReports.length} color="#dc2626" />
       </div>
       <div style={styles.tabRow}>
-        {["listings", "archived", "users", "referrals", "reports"].map(t => <button key={t} style={{ ...styles.tab, ...(tab === t ? styles.tabActive : {}) }} onClick={() => setTab(t)}>{t.charAt(0).toUpperCase() + t.slice(1)}{t === "reports" && openReports.length > 0 ? ` (${openReports.length})` : ""}</button>)}
+        {["listings", "archived", "users", "referrals", "reports", "feedback"].map(t => <button key={t} style={{ ...styles.tab, ...(tab === t ? styles.tabActive : {}) }} onClick={() => setTab(t)}>{t.charAt(0).toUpperCase() + t.slice(1)}{t === "reports" && openReports.length > 0 ? ` (${openReports.length})` : ""}{t === "feedback" && feedback.length > 0 ? ` (${feedback.length})` : ""}</button>)}
       </div>
       {tab === "listings" && (
         <div style={styles.tableWrap}>
@@ -912,6 +915,19 @@ function AdminView({ listings, users, referrals, reports, onArchive, onMarkSold,
               </div>
             );
           })}
+        </div>
+      )}
+      {tab === "feedback" && (
+        <div style={styles.tableWrap}>
+          {feedback.length === 0 && <p style={{ color: "#6b7280" }}>No feedback submitted yet.</p>}
+          {feedback.map(f => (
+            <div key={f.id} style={styles.listingRow} className="app-listing-row">
+              <div style={styles.rowInfo} className="app-row-info">
+                <div style={styles.rowTitle}>{f.message}</div>
+                <div style={styles.rowMeta}>{f.email ? f.email : "Anonymous"} • {new Date(f.created_at).toLocaleDateString()}</div>
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </div>
