@@ -27,6 +27,7 @@ export default function Landing({ onSignIn, onBrowse }) {
       <section style={styles.hero} className="dl-hero">
         <div style={styles.heroInner}>
           <div style={styles.heroBadge}>🇺🇸 Nationwide • Peer-to-peer • Commission-backed</div>
+          <div style={styles.heroTagline}>The link that drives you to cash. 💸</div>
           <h1 style={styles.heroTitle} className="dl-hero-title">
             Buy & sell cars directly.<br />
             <span style={styles.heroAccent}>Share listings. Earn 1%.</span>
@@ -84,6 +85,7 @@ export default function Landing({ onSignIn, onBrowse }) {
               <div style={styles.featuredBadge}>Most Popular</div>
               <div style={styles.roleEmoji}>💰</div>
               <h3 style={{ ...styles.roleTitle, color: "#fff" }}>Promoters</h3>
+              <p style={{ fontSize: 13, fontWeight: 700, color: "#60a5fa", marginBottom: 10 }}>The link that drives you to cash. 💸</p>
               <p style={{ ...styles.roleDesc, color: "#94a3b8" }}>Share car listings with your friends, family, or followers. Every time someone buys a car through your link, you earn 1% of the sale price — automatically.</p>
               <ul style={{ ...styles.roleList, color: "#94a3b8" }}>
                 <li>✅ Earn 1% per sale</li>
@@ -239,6 +241,7 @@ const styles = {
   hero: { maxWidth: 1200, margin: "0 auto", padding: "80px 24px 60px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 48, alignItems: "center" },
   heroInner: {},
   heroBadge: { display: "inline-block", background: "#eff6ff", color: "#1d4ed8", fontSize: 12, fontWeight: 600, padding: "5px 12px", borderRadius: 20, marginBottom: 20 },
+  heroTagline: { fontSize: 15, fontWeight: 700, color: "#3b82f6", marginBottom: 14, letterSpacing: "-0.01em" },
   heroTitle: { fontSize: 52, fontWeight: 800, color: "#0f172a", lineHeight: 1.1, letterSpacing: "-0.03em", marginBottom: 20 },
   heroAccent: { color: "#3b82f6" },
   heroSub: { fontSize: 18, color: "#4b5563", lineHeight: 1.7, marginBottom: 32 },
