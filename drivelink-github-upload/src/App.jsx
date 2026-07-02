@@ -179,24 +179,38 @@ export default function App() {
     if (buyerEmail && !buyer) {
       showToast("No account found with that buyer email — sale recorded without linking a buyer.", "info");
     }
+    // Sale goes into "pending_confirmation" — payment fee & promoter commission are
+    // computed now but not released until the buyer confirms receipt in-app (or an
+    // admin force-confirms it). This isn't real payment escrow — Stripe already
+    // captured the charge instantly — it's a safeguard on when payouts are finalized.
     await supabase.from("listings").update({ 
-      status: "sold", 
+      status: "pending_confirmation", 
       sale_price: salePrice, 
       sold_at: new Date().toISOString().slice(0, 10),
       platform_fee: platformFee,
       seller_net: sellerNet,
       buyer_id: buyer?.id || null,
     }).eq("id", listingId);
+    await loadData();
+    showToast(`Sale recorded — awaiting buyer confirmation before payout. Platform fee: ${fmt(platformFee)} • Promoter: ${fmt(promoterCommission)} • Seller nets: ${fmt(sellerNet)}`);
+  };
+
+  // ── Buyer confirms they received the car (or admin force-confirms on their behalf).
+  // This is the moment the sale becomes final: promoter commission is credited and
+  // the listing flips from "pending_confirmation" to "sold".
+  const confirmReceipt = async (listingId) => {
+    const listing = listings.find(l => l.id === listingId);
+    if (!listing) return;
+    const promoterCommission = Math.round((listing.sale_price || 0) * PROMOTER_FEE);
+    await supabase.from("listings").update({ status: "sold", confirmed_at: new Date().toISOString() }).eq("id", listingId);
     const ref = referrals.find(r => r.listing_id === listingId && r.status === "pending");
     if (ref) {
       await supabase.from("referrals").update({ status: "paid", commission_amount: promoterCommission, paid_at: new Date().toISOString().slice(0, 10) }).eq("id", ref.id);
       const promoter = users.find(u => u.id === ref.promoter_id);
       await supabase.from("users").update({ balance: (promoter?.balance || 0) + promoterCommission }).eq("id", ref.promoter_id);
-      showToast(`Sale recorded! Platform fee: ${fmt(platformFee)} • Promoter: ${fmt(promoterCommission)} • Seller nets: ${fmt(sellerNet)}`);
-    } else {
-      showToast(`Sale recorded! Platform fee: ${fmt(platformFee)} • Seller nets: ${fmt(sellerNet)}`);
     }
     await loadData();
+    showToast("Receipt confirmed — sale finalized and commission released.");
   };
 
   // ── Generate share link
@@ -429,14 +443,14 @@ export default function App() {
       <main style={styles.main} className="app-main">
         {view === "home" && <HomeView key={homeResetKey} listings={activeListings} allListings={listings} currentUser={dbUser} users={users} onShare={generateShare} onBuy={handleBuyNow} referrals={referrals} onSignIn={() => setView("auth")} onMessageSeller={messageSeller} onReport={fileReport} onSaveSearch={saveSearch} favorites={favorites} onToggleFavorite={toggleFavorite} onToggleBlock={toggleBlock} onReportUser={reportUserAction} blocks={blocks} reviews={reviews} />}
         {view === "myListings" && <MyListingsView listings={listings.filter(l => l.seller_id === currentUser?.id)} referrals={referrals} users={users} onMarkSold={markSold} onSetStatus={setListingStatus} onUpdate={updateListing} />}
-        {view === "myPurchases" && <MyPurchasesView listings={listings.filter(l => l.buyer_id === currentUser?.id)} users={users} reviews={reviews} currentUser={currentUser} onSubmitReview={submitReview} onBrowse={() => setView("home")} />}
+        {view === "myPurchases" && <MyPurchasesView listings={listings.filter(l => l.buyer_id === currentUser?.id)} users={users} reviews={reviews} currentUser={currentUser} onSubmitReview={submitReview} onConfirmReceipt={confirmReceipt} onBrowse={() => setView("home")} />}
         {view === "postListing" && <PostListingView onPost={postListing} />}
         {view === "messages" && currentUser && <Messages currentUser={{ ...dbUser, id: currentUser.id }} listings={listings} users={users} openThread={openThread} onOpened={() => setOpenThread(null)} />}
         {view === "savedSearches" && <SavedSearchesView savedSearches={savedSearches} onDelete={deleteSavedSearch} onBrowse={() => setView("home")} />}
         {view === "favorites" && <FavoritesView favorites={favorites} listings={listings} users={users} referrals={referrals} currentUser={dbUser} onShare={generateShare} onBuy={handleBuyNow} onMessageSeller={messageSeller} onReport={fileReport} onToggleFavorite={toggleFavorite} onBrowse={() => setView("home")} />}
         {view === "blocked" && <BlockedUsersView blocks={blocks} users={users} onToggleBlock={toggleBlock} onBrowse={() => setView("home")} />}
         {view === "dashboard" && <PromoterDashboard currentUser={dbUser} referrals={referrals.filter(r => r.promoter_id === currentUser?.id)} listings={listings} />}
-        {view === "admin" && <AdminView listings={listings} users={users} referrals={referrals} reports={reports} feedback={feedback} userReports={userReports} reviews={reviews} onArchive={archiveListing} onMarkSold={markSold} onResolveReport={resolveReport} onResolveUserReport={resolveUserReport} onToggleVerified={toggleVerified} onResetData={resetTestData} />}
+        {view === "admin" && <AdminView listings={listings} users={users} referrals={referrals} reports={reports} feedback={feedback} userReports={userReports} reviews={reviews} onArchive={archiveListing} onMarkSold={markSold} onConfirmReceipt={confirmReceipt} onResolveReport={resolveReport} onResolveUserReport={resolveUserReport} onToggleVerified={toggleVerified} onResetData={resetTestData} />}
         {view === "success" && <SuccessView onHome={() => setView("home")} />}
       </main>
       <footer style={styles.appFooter}>
@@ -975,6 +989,7 @@ function MyListingsView({ listings, referrals, users, onMarkSold, onSetStatus, o
                 <div style={styles.rowTitle}>{l.year} {l.make} {l.model}</div>
                 <div style={styles.rowMeta}>{fmt(l.price)} • {l.mileage?.toLocaleString()} mi</div>
                 {l.status === "sold" && <div style={styles.soldBadge}>SOLD for {fmt(l.sale_price)} on {l.sold_at}</div>}
+                {l.status === "pending_confirmation" && <div style={styles.awaitingBadge}>💳 Payment received for {fmt(l.sale_price)} — awaiting buyer confirmation before payout</div>}
                 {promoter && <div style={styles.promoterTag}>Promoted by {promoter.name} {ref.status === "paid" ? `• Commission ${fmt(ref.commission_amount)} paid` : "• Pending"}</div>}
                 {l.status === "active" && l.last_active_at && (Date.now() - new Date(l.last_active_at).getTime()) > STALE_WARN_DAYS_MS && (
                   <div style={{ fontSize: 12, color: "#b45309", fontWeight: 600, marginTop: 4 }}>
@@ -982,8 +997,8 @@ function MyListingsView({ listings, referrals, users, onMarkSold, onSetStatus, o
                   </div>
                 )}
               </div>
-              <span style={{ ...styles.statusPill, background: l.status === "active" ? "#dcfce7" : l.status === "pending" ? "#fef9c3" : "#fee2e2", color: l.status === "active" ? "#15803d" : l.status === "pending" ? "#854d0e" : "#b91c1c" }}>{l.status}</span>
-              {l.status !== "sold" && (
+              <span style={{ ...styles.statusPill, background: l.status === "active" ? "#dcfce7" : l.status === "pending" ? "#fef9c3" : l.status === "pending_confirmation" ? "#dbeafe" : "#fee2e2", color: l.status === "active" ? "#15803d" : l.status === "pending" ? "#854d0e" : l.status === "pending_confirmation" ? "#1d4ed8" : "#b91c1c" }}>{l.status === "pending_confirmation" ? "awaiting confirmation" : l.status}</span>
+              {l.status !== "sold" && l.status !== "pending_confirmation" && (
                 <button style={styles.pendingBtn} onClick={() => setEditing(l)}>Edit</button>
               )}
               {l.status === "active" && (
@@ -1020,7 +1035,7 @@ function MyListingsView({ listings, referrals, users, onMarkSold, onSetStatus, o
   );
 }
 
-function MyPurchasesView({ listings, users, reviews, currentUser, onSubmitReview, onBrowse }) {
+function MyPurchasesView({ listings, users, reviews, currentUser, onSubmitReview, onConfirmReceipt, onBrowse }) {
   const [reviewing, setReviewing] = useState(null);
   return (
     <div style={styles.pageWrap}>
@@ -1031,15 +1046,24 @@ function MyPurchasesView({ listings, users, reviews, currentUser, onSubmitReview
           const seller = users.find(u => u.id === l.seller_id);
           const myReview = reviews.find(r => r.listing_id === l.id && r.buyer_id === currentUser.id);
           const cover = (l.images && l.images[0]) || l.image;
+          const awaitingConfirmation = l.status === "pending_confirmation";
           return (
             <div key={l.id} style={styles.listingRow} className="app-listing-row">
               <img src={cover} alt="" style={styles.rowImg} onError={e => { e.target.src = "https://images.unsplash.com/photo-1494976388531-d1058494cdd8?w=300&q=60"; }} />
               <div style={styles.rowInfo} className="app-row-info">
                 <div style={styles.rowTitle}>{l.year} {l.make} {l.model}</div>
                 <div style={styles.rowMeta}>{fmt(l.sale_price || l.price)} • Sold by {seller?.name || "seller"} on {l.sold_at}</div>
+                {awaitingConfirmation && (
+                  <div style={{ fontSize: 13, color: "#1d4ed8", fontWeight: 600, marginTop: 4 }}>
+                    Once you've received the car, confirm below — this finalizes the sale and releases the promoter's commission.
+                  </div>
+                )}
                 {myReview && <div style={styles.promoterTag}>{"⭐".repeat(myReview.rating)} — you reviewed this purchase</div>}
               </div>
-              {!myReview && (
+              {awaitingConfirmation && (
+                <button style={styles.soldBtn} onClick={() => onConfirmReceipt(l.id)}>✅ Confirm Receipt</button>
+              )}
+              {l.status === "sold" && !myReview && (
                 <button style={styles.soldBtn} onClick={() => setReviewing(l)}>Leave a Review</button>
               )}
             </div>
@@ -1244,15 +1268,16 @@ function StatBox({ label, value, color }) {
   return <div style={styles.statBox}><div style={{ ...styles.statValue, color }}>{value}</div><div style={styles.statLabel}>{label}</div></div>;
 }
 
-function AdminView({ listings, users, referrals, reports, feedback, userReports, reviews, onArchive, onMarkSold, onResolveReport, onResolveUserReport, onToggleVerified, onResetData }) {
+function AdminView({ listings, users, referrals, reports, feedback, userReports, reviews, onArchive, onMarkSold, onConfirmReceipt, onResolveReport, onResolveUserReport, onToggleVerified, onResetData }) {
   const [tab, setTab] = useState("listings");
   const [markingSold, setMarkingSold] = useState(null);
   const activeAndSold = listings.filter(l => l.status !== "archived");
-  const totalRevenue = activeAndSold.filter(l => l.status === "sold").reduce((s, l) => s + (l.sale_price || 0), 0);
+  const totalRevenue = activeAndSold.filter(l => l.status === "sold" || l.status === "pending_confirmation").reduce((s, l) => s + (l.sale_price || 0), 0);
   const platformEarnings = activeAndSold.filter(l => l.status === "sold").reduce((s, l) => s + (l.platform_fee || Math.round((l.sale_price || 0) * 0.01)), 0);
   const totalCommissions = referrals.filter(r => r.status === "paid").reduce((s, r) => s + (r.commission_amount || 0), 0);
   const openReports = reports.filter(r => r.status === "open");
   const openUserReports = (userReports || []).filter(r => r.status === "open");
+  const awaitingConfirmation = activeAndSold.filter(l => l.status === "pending_confirmation");
   return (
     <div style={styles.pageWrap}>
       <h2 style={styles.pageTitle}>Admin Panel</h2>
@@ -1260,6 +1285,7 @@ function AdminView({ listings, users, referrals, reports, feedback, userReports,
         <StatBox label="Listings" value={activeAndSold.length} color="#1d4ed8" />
         <StatBox label="Active" value={activeAndSold.filter(l => l.status === "active").length} color="#16a34a" />
         <StatBox label="Sold" value={activeAndSold.filter(l => l.status === "sold").length} color="#7c3aed" />
+        <StatBox label="Awaiting Confirmation" value={awaitingConfirmation.length} color="#1d4ed8" />
         <StatBox label="GMV" value={fmt(totalRevenue)} color="#b45309" />
         <StatBox label="Your Earnings (1%)" value={fmt(platformEarnings)} color="#16a34a" />
         <StatBox label="Promoter Commissions" value={fmt(totalCommissions)} color="#dc2626" />
@@ -1278,9 +1304,11 @@ function AdminView({ listings, users, referrals, reports, feedback, userReports,
               <div style={styles.rowInfo} className="app-row-info">
                 <div style={styles.rowTitle}>{l.year} {l.make} {l.model}</div>
                 <div style={styles.rowMeta}>{fmt(l.price)}</div>
+                {l.status === "pending_confirmation" && <div style={{ fontSize: 12, color: "#1d4ed8", marginTop: 2 }}>Sold {fmt(l.sale_price)} on {l.sold_at} • waiting on buyer to confirm receipt</div>}
               </div>
-              <span style={{ ...styles.statusPill, background: l.status === "active" ? "#dcfce7" : "#fee2e2", color: l.status === "active" ? "#15803d" : "#b91c1c" }}>{l.status}</span>
+              <span style={{ ...styles.statusPill, background: l.status === "active" ? "#dcfce7" : l.status === "pending_confirmation" ? "#dbeafe" : "#fee2e2", color: l.status === "active" ? "#15803d" : l.status === "pending_confirmation" ? "#1d4ed8" : "#b91c1c" }}>{l.status === "pending_confirmation" ? "awaiting confirmation" : l.status}</span>
               {l.status === "active" && <button style={styles.soldBtn} onClick={() => setMarkingSold(l)}>Mark Sold</button>}
+              {l.status === "pending_confirmation" && <button style={styles.soldBtn} onClick={() => onConfirmReceipt(l.id)} title="Use only if the buyer isn't responding — normally they confirm themselves">Force Confirm</button>}
               <button style={styles.removeBtn} onClick={() => onArchive(l.id)}>Archive</button>
             </div>
           ))}
@@ -1561,6 +1589,7 @@ const styles = {
   rowTitle: { fontSize: 15, fontWeight: 700, color: "#0f172a" },
   rowMeta: { fontSize: 13, color: "#6b7280", marginTop: 3 },
   soldBadge: { display: "inline-block", background: "#dcfce7", color: "#15803d", fontSize: 12, fontWeight: 600, padding: "3px 8px", borderRadius: 6, marginTop: 6 },
+  awaitingBadge: { display: "inline-block", background: "#dbeafe", color: "#1d4ed8", fontSize: 12, fontWeight: 600, padding: "3px 8px", borderRadius: 6, marginTop: 6 },
   promoterTag: { display: "inline-block", background: "#eff6ff", color: "#1d4ed8", fontSize: 12, fontWeight: 600, padding: "3px 8px", borderRadius: 6, marginTop: 6 },
   statusPill: { flexShrink: 0, fontSize: 12, fontWeight: 700, padding: "4px 10px", borderRadius: 20, textTransform: "uppercase", letterSpacing: ".04em" },
   soldBtn: { background: "#dcfce7", color: "#15803d", border: "none", padding: "7px 14px", borderRadius: 8, cursor: "pointer", fontSize: 13, fontWeight: 600 },
