@@ -22,6 +22,8 @@ export default function App() {
   const [feedback, setFeedback] = useState([]);
   const [savedSearches, setSavedSearches] = useState([]);
   const [favorites, setFavorites] = useState([]);
+  const [blocks, setBlocks] = useState([]);
+  const [userReports, setUserReports] = useState([]);
   const [openThread, setOpenThread] = useState(null);
   const [view, setView] = useState("landing");
   const [homeResetKey, setHomeResetKey] = useState(0);
@@ -41,11 +43,13 @@ export default function App() {
     const { data: usersData } = await supabase.from("users").select("*");
     const { data: reportsData } = await supabase.from("reports").select("*").order("created_at", { ascending: false });
     const { data: feedbackData } = await supabase.from("feedback").select("*").order("created_at", { ascending: false });
+    const { data: userReportsData } = await supabase.from("user_reports").select("*").order("created_at", { ascending: false });
     if (listingsData) setListings(listingsData);
     if (referralsData) setReferrals(referralsData);
     if (usersData) setUsers(usersData);
     if (reportsData) setReports(reportsData);
     if (feedbackData) setFeedback(feedbackData);
+    if (userReportsData) setUserReports(userReportsData);
     setLoading(false);
   };
 
@@ -59,12 +63,18 @@ export default function App() {
     if (data) setFavorites(data);
   };
 
+  const loadBlocks = async (userId) => {
+    const { data } = await supabase.from("blocks").select("*").eq("blocker_id", userId).order("created_at", { ascending: false });
+    if (data) setBlocks(data);
+  };
+
   const loadDbUser = async (authUser) => {
-    if (!authUser) { setDbUser(null); setSavedSearches([]); setFavorites([]); return; }
+    if (!authUser) { setDbUser(null); setSavedSearches([]); setFavorites([]); setBlocks([]); return; }
     const { data } = await supabase.from("users").select("*").eq("id", authUser.id).single();
     setDbUser(data);
     loadSavedSearches(authUser.id);
     loadFavorites(authUser.id);
+    loadBlocks(authUser.id);
   };
 
   // ── Detect a Supabase email-confirmation redirect (link clicked in the confirmation email)
@@ -247,9 +257,37 @@ export default function App() {
     await loadFavorites(currentUser.id);
   };
 
+  const toggleBlock = async (userId) => {
+    if (!currentUser) { setView("auth"); return; }
+    const existing = blocks.find(b => b.blocked_id === userId);
+    if (existing) {
+      await supabase.from("blocks").delete().eq("id", existing.id);
+      showToast("User unblocked.");
+    } else {
+      await supabase.from("blocks").insert({ id: "blk" + Date.now(), blocker_id: currentUser.id, blocked_id: userId });
+      showToast("User blocked. You won't see their listings or receive messages from them.");
+    }
+    await loadBlocks(currentUser.id);
+  };
+
+  const reportUserAction = async (userId, reason, details) => {
+    const row = { id: "urep" + Date.now(), reporter_id: currentUser.id, reported_user_id: userId, reason, details, status: "open" };
+    const { error } = await supabase.from("user_reports").insert(row);
+    if (error) { showToast("Couldn't submit report", "error"); return; }
+    await loadData();
+    showToast("Report submitted. Our team will review it.");
+  };
+
+  const resolveUserReport = async (reportId, status) => {
+    await supabase.from("user_reports").update({ status }).eq("id", reportId);
+    await loadData();
+    showToast("Report updated.");
+  };
+
   // ── Jump into (or start) a message thread with a listing's seller
   const messageSeller = (listing) => {
     if (listing.seller_id === currentUser.id) return;
+    if (blocks.some(b => b.blocked_id === listing.seller_id)) { showToast("You've blocked this seller.", "error"); return; }
     setOpenThread({ listingId: listing.id, otherId: listing.seller_id });
     setView("messages");
   };
@@ -271,7 +309,7 @@ export default function App() {
     showToast("Test data cleared.");
   };
 
-  const activeListings = listings.filter(l => l.status === "active");
+  const activeListings = listings.filter(l => l.status === "active" && !blocks.some(b => b.blocked_id === l.seller_id));
   const archivedListings = listings.filter(l => l.status === "archived");
 
   if (!authChecked || loading) return (
@@ -325,6 +363,7 @@ export default function App() {
             {currentUser && <NavBtn active={view === "messages"} onClick={() => setView("messages")}>Messages</NavBtn>}
             {currentUser && <NavBtn active={view === "savedSearches"} onClick={() => setView("savedSearches")}>Saved Searches</NavBtn>}
             {currentUser && <NavBtn active={view === "favorites"} onClick={() => setView("favorites")}>❤️ Saved Cars</NavBtn>}
+            {currentUser && <NavBtn active={view === "blocked"} onClick={() => setView("blocked")}>🚫 Blocked</NavBtn>}
             {currentUser && <NavBtn active={view === "dashboard"} onClick={() => setView("dashboard")}>Earnings</NavBtn>}
             {dbUser?.role === "admin" && <NavBtn active={view === "admin"} onClick={() => setView("admin")}>Admin</NavBtn>}
           </div>
@@ -349,14 +388,15 @@ export default function App() {
       {toast && <div style={{ ...styles.toast, background: toast.type === "info" ? "#1d4ed8" : toast.type === "error" ? "#dc2626" : "#16a34a" }} className="app-toast">{toast.msg}</div>}
 
       <main style={styles.main} className="app-main">
-        {view === "home" && <HomeView key={homeResetKey} listings={activeListings} allListings={listings} currentUser={dbUser} users={users} onShare={generateShare} onBuy={handleBuyNow} referrals={referrals} onSignIn={() => setView("auth")} onMessageSeller={messageSeller} onReport={fileReport} onSaveSearch={saveSearch} favorites={favorites} onToggleFavorite={toggleFavorite} />}
+        {view === "home" && <HomeView key={homeResetKey} listings={activeListings} allListings={listings} currentUser={dbUser} users={users} onShare={generateShare} onBuy={handleBuyNow} referrals={referrals} onSignIn={() => setView("auth")} onMessageSeller={messageSeller} onReport={fileReport} onSaveSearch={saveSearch} favorites={favorites} onToggleFavorite={toggleFavorite} onToggleBlock={toggleBlock} onReportUser={reportUserAction} blocks={blocks} />}
         {view === "myListings" && <MyListingsView listings={listings.filter(l => l.seller_id === currentUser?.id)} referrals={referrals} users={users} onMarkSold={markSold} onSetStatus={setListingStatus} onUpdate={updateListing} />}
         {view === "postListing" && <PostListingView onPost={postListing} />}
         {view === "messages" && currentUser && <Messages currentUser={{ ...dbUser, id: currentUser.id }} listings={listings} users={users} openThread={openThread} onOpened={() => setOpenThread(null)} />}
         {view === "savedSearches" && <SavedSearchesView savedSearches={savedSearches} onDelete={deleteSavedSearch} onBrowse={() => setView("home")} />}
         {view === "favorites" && <FavoritesView favorites={favorites} listings={listings} users={users} referrals={referrals} currentUser={dbUser} onShare={generateShare} onBuy={handleBuyNow} onMessageSeller={messageSeller} onReport={fileReport} onToggleFavorite={toggleFavorite} onBrowse={() => setView("home")} />}
+        {view === "blocked" && <BlockedUsersView blocks={blocks} users={users} onToggleBlock={toggleBlock} onBrowse={() => setView("home")} />}
         {view === "dashboard" && <PromoterDashboard currentUser={dbUser} referrals={referrals.filter(r => r.promoter_id === currentUser?.id)} listings={listings} />}
-        {view === "admin" && <AdminView listings={listings} users={users} referrals={referrals} reports={reports} feedback={feedback} onArchive={archiveListing} onMarkSold={markSold} onResolveReport={resolveReport} onToggleVerified={toggleVerified} onResetData={resetTestData} />}
+        {view === "admin" && <AdminView listings={listings} users={users} referrals={referrals} reports={reports} feedback={feedback} userReports={userReports} onArchive={archiveListing} onMarkSold={markSold} onResolveReport={resolveReport} onResolveUserReport={resolveUserReport} onToggleVerified={toggleVerified} onResetData={resetTestData} />}
         {view === "success" && <SuccessView onHome={() => setView("home")} />}
       </main>
     </div>
@@ -404,7 +444,7 @@ function SuccessView({ onHome }) {
   );
 }
 
-function HomeView({ listings, allListings, currentUser, users, onShare, onBuy, referrals, onSignIn, onMessageSeller, onReport, onSaveSearch, favorites, onToggleFavorite }) {
+function HomeView({ listings, allListings, currentUser, users, onShare, onBuy, referrals, onSignIn, onMessageSeller, onReport, onSaveSearch, favorites, onToggleFavorite, onToggleBlock, onReportUser, blocks }) {
   const [search, setSearch] = useState("");
   const [make, setMake] = useState("all");
   const [maxPrice, setMaxPrice] = useState(200000);
@@ -514,6 +554,9 @@ function HomeView({ listings, allListings, currentUser, users, onShare, onBuy, r
                 onReport={onReport}
                 isFavorited={favorites?.some(f => f.listing_id === l.id)}
                 onToggleFavorite={onToggleFavorite}
+                isBlocked={blocks?.some(b => b.blocked_id === l.seller_id)}
+                onToggleBlock={onToggleBlock}
+                onReportUser={onReportUser}
               />
             );
           })}
@@ -523,9 +566,10 @@ function HomeView({ listings, allListings, currentUser, users, onShare, onBuy, r
   );
 }
 
-function CarCard({ listing, seller, avgPrice, currentUser, onShare, onBuy, myRef, onSignIn, onMessageSeller, onReport, isFavorited, onToggleFavorite }) {
+function CarCard({ listing, seller, avgPrice, currentUser, onShare, onBuy, myRef, onSignIn, onMessageSeller, onReport, isFavorited, onToggleFavorite, isBlocked, onToggleBlock, onReportUser }) {
   const [copied, setCopied] = useState(false);
   const [reporting, setReporting] = useState(false);
+  const [reportingUser, setReportingUser] = useState(false);
   const handleShare = () => { onShare(listing.id); setCopied(true); setTimeout(() => setCopied(false), 2000); };
   const cover = (listing.images && listing.images[0]) || listing.image;
   const isOwnListing = currentUser && listing.seller_id === currentUser.id;
@@ -596,6 +640,14 @@ function CarCard({ listing, seller, avgPrice, currentUser, onShare, onBuy, myRef
           <div style={styles.cardSecondaryActions}>
             <button style={styles.messageLink} onClick={() => onMessageSeller(listing)}>💬 Message seller</button>
             <button style={styles.reportLink} onClick={() => setReporting(true)}>🚩 Report</button>
+            {onToggleBlock && (
+              <button style={styles.reportLink} onClick={() => onToggleBlock(listing.seller_id)}>
+                {isBlocked ? "✅ Unblock seller" : "🚫 Block seller"}
+              </button>
+            )}
+            {onReportUser && (
+              <button style={styles.reportLink} onClick={() => setReportingUser(true)}>⚠️ Report seller</button>
+            )}
           </div>
         )}
       </div>
@@ -603,6 +655,12 @@ function CarCard({ listing, seller, avgPrice, currentUser, onShare, onBuy, myRef
         <ReportModal
           onCancel={() => setReporting(false)}
           onSubmit={(reason, details) => { onReport(listing.id, reason, details); setReporting(false); }}
+        />
+      )}
+      {reportingUser && (
+        <ReportUserModal
+          onCancel={() => setReportingUser(false)}
+          onSubmit={(reason, details) => { onReportUser(listing.seller_id, reason, details); setReportingUser(false); }}
         />
       )}
     </div>
@@ -623,6 +681,32 @@ function ReportModal({ onCancel, onSubmit }) {
           <option>Wrong price / bait and switch</option>
           <option>Car already sold elsewhere</option>
           <option>Inappropriate content</option>
+          <option>Other</option>
+        </select>
+        <label style={styles.fieldLabel}>Details (optional)</label>
+        <textarea style={styles.textarea} rows={3} value={details} onChange={e => setDetails(e.target.value)} placeholder="Anything else we should know?" />
+        <div style={styles.modalActions}>
+          <button style={styles.cancelBtn} onClick={onCancel}>Cancel</button>
+          <button style={styles.confirmBtn} onClick={() => onSubmit(reason, details)}>Submit Report</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ReportUserModal({ onCancel, onSubmit }) {
+  const [reason, setReason] = useState("Suspicious / scam behavior");
+  const [details, setDetails] = useState("");
+  return (
+    <div style={styles.overlay} onClick={onCancel}>
+      <div style={styles.modalBox} onClick={e => e.stopPropagation()}>
+        <h3 style={styles.modalTitle}>Report this user</h3>
+        <label style={styles.fieldLabel}>Reason</label>
+        <select style={{ ...styles.selectInput, width: "100%", marginBottom: 12 }} value={reason} onChange={e => setReason(e.target.value)}>
+          <option>Suspicious / scam behavior</option>
+          <option>Harassment or abusive messages</option>
+          <option>Never showed up / wasted my time</option>
+          <option>Asked to pay outside the platform</option>
           <option>Other</option>
         </select>
         <label style={styles.fieldLabel}>Details (optional)</label>
@@ -702,6 +786,30 @@ function FavoritesView({ favorites, listings, users, referrals, currentUser, onS
   );
 }
 
+function BlockedUsersView({ blocks, users, onToggleBlock, onBrowse }) {
+  return (
+    <div style={styles.pageWrap}>
+      <h2 style={styles.pageTitle}>🚫 Blocked Users</h2>
+      {blocks.length === 0 && <p style={{ color: "#6b7280" }}>You haven't blocked anyone. Blocked sellers' listings are hidden from your browse view and they can't message you.</p>}
+      <div style={styles.tableWrap}>
+        {blocks.map(b => {
+          const user = users.find(u => u.id === b.blocked_id);
+          return (
+            <div key={b.id} style={styles.listingRow} className="app-listing-row">
+              <div style={styles.avatar}>{(user?.name || "?")[0]?.toUpperCase()}</div>
+              <div style={styles.rowInfo} className="app-row-info">
+                <div style={styles.rowTitle}>{user?.name || "Unknown user"}</div>
+                <div style={styles.rowMeta}>{user?.email}</div>
+              </div>
+              <button style={styles.removeBtn} onClick={() => onToggleBlock(b.blocked_id)}>Unblock</button>
+            </div>
+          );
+        })}
+      </div>
+      <button style={{ ...styles.confirmBtn, marginTop: 16 }} onClick={onBrowse}>Back to Browse</button>
+    </div>
+  );
+}
 
 function MyListingsView({ listings, referrals, users, onMarkSold, onSetStatus, onUpdate }) {
   const [editing, setEditing] = useState(null);
@@ -895,13 +1003,14 @@ function StatBox({ label, value, color }) {
   return <div style={styles.statBox}><div style={{ ...styles.statValue, color }}>{value}</div><div style={styles.statLabel}>{label}</div></div>;
 }
 
-function AdminView({ listings, users, referrals, reports, feedback, onArchive, onMarkSold, onResolveReport, onToggleVerified, onResetData }) {
+function AdminView({ listings, users, referrals, reports, feedback, userReports, onArchive, onMarkSold, onResolveReport, onResolveUserReport, onToggleVerified, onResetData }) {
   const [tab, setTab] = useState("listings");
   const activeAndSold = listings.filter(l => l.status !== "archived");
   const totalRevenue = activeAndSold.filter(l => l.status === "sold").reduce((s, l) => s + (l.sale_price || 0), 0);
   const platformEarnings = activeAndSold.filter(l => l.status === "sold").reduce((s, l) => s + (l.platform_fee || Math.round((l.sale_price || 0) * 0.01)), 0);
   const totalCommissions = referrals.filter(r => r.status === "paid").reduce((s, r) => s + (r.commission_amount || 0), 0);
   const openReports = reports.filter(r => r.status === "open");
+  const openUserReports = (userReports || []).filter(r => r.status === "open");
   return (
     <div style={styles.pageWrap}>
       <h2 style={styles.pageTitle}>Admin Panel</h2>
@@ -913,9 +1022,10 @@ function AdminView({ listings, users, referrals, reports, feedback, onArchive, o
         <StatBox label="Your Earnings (1%)" value={fmt(platformEarnings)} color="#16a34a" />
         <StatBox label="Promoter Commissions" value={fmt(totalCommissions)} color="#dc2626" />
         <StatBox label="Open Reports" value={openReports.length} color="#dc2626" />
+        <StatBox label="Open User Reports" value={openUserReports.length} color="#dc2626" />
       </div>
       <div style={styles.tabRow}>
-        {["listings", "archived", "users", "referrals", "reports", "feedback", "danger"].map(t => <button key={t} style={{ ...styles.tab, ...(tab === t ? styles.tabActive : {}), ...(t === "danger" ? { color: tab === "danger" ? "#dc2626" : "#dc2626" } : {}) }} onClick={() => setTab(t)}>{t === "danger" ? "⚠️ Danger Zone" : t.charAt(0).toUpperCase() + t.slice(1)}{t === "reports" && openReports.length > 0 ? ` (${openReports.length})` : ""}{t === "feedback" && feedback.length > 0 ? ` (${feedback.length})` : ""}</button>)}
+        {["listings", "archived", "users", "referrals", "reports", "userReports", "feedback", "danger"].map(t => <button key={t} style={{ ...styles.tab, ...(tab === t ? styles.tabActive : {}), ...(t === "danger" ? { color: tab === "danger" ? "#dc2626" : "#dc2626" } : {}) }} onClick={() => setTab(t)}>{t === "danger" ? "⚠️ Danger Zone" : t === "userReports" ? "User Reports" : t.charAt(0).toUpperCase() + t.slice(1)}{t === "reports" && openReports.length > 0 ? ` (${openReports.length})` : ""}{t === "userReports" && openUserReports.length > 0 ? ` (${openUserReports.length})` : ""}{t === "feedback" && feedback.length > 0 ? ` (${feedback.length})` : ""}</button>)}
       </div>
       {tab === "listings" && (
         <div style={styles.tableWrap}>
@@ -1003,6 +1113,30 @@ function AdminView({ listings, users, referrals, reports, feedback, onArchive, o
                   <>
                     <button style={styles.removeBtn} onClick={() => { if (listing) onArchive(listing.id); onResolveReport(r.id, "actioned"); }}>Remove Listing</button>
                     <button style={styles.pendingBtn} onClick={() => onResolveReport(r.id, "dismissed")}>Dismiss</button>
+                  </>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+      {tab === "userReports" && (
+        <div style={styles.tableWrap}>
+          {(userReports || []).length === 0 && <p style={{ color: "#6b7280" }}>No user reports filed.</p>}
+          {(userReports || []).map(r => {
+            const reportedUser = users.find(u => u.id === r.reported_user_id);
+            const reporter = users.find(u => u.id === r.reporter_id);
+            return (
+              <div key={r.id} style={styles.listingRow} className="app-listing-row">
+                <div style={styles.rowInfo} className="app-row-info">
+                  <div style={styles.rowTitle}>{r.reason} — {reportedUser?.name || r.reported_user_id}</div>
+                  <div style={styles.rowMeta}>Reported by {reporter?.name || "user"} {r.details ? `• "${r.details}"` : ""}</div>
+                </div>
+                <span style={{ ...styles.statusPill, background: r.status === "open" ? "#fef9c3" : r.status === "actioned" ? "#fee2e2" : "#f1f5f9", color: r.status === "open" ? "#854d0e" : r.status === "actioned" ? "#b91c1c" : "#6b7280" }}>{r.status}</span>
+                {r.status === "open" && (
+                  <>
+                    <button style={styles.removeBtn} onClick={() => onResolveUserReport(r.id, "actioned")}>Mark Actioned</button>
+                    <button style={styles.pendingBtn} onClick={() => onResolveUserReport(r.id, "dismissed")}>Dismiss</button>
                   </>
                 )}
               </div>
