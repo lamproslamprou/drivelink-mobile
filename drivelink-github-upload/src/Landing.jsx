@@ -31,7 +31,7 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn }) {
           <div style={styles.heroTagline}>The link that drives you to cash. 💸</div>
           <h1 style={styles.heroTitle} className="dl-hero-title">
             Buy & sell cars directly.<br />
-            <span style={styles.heroAccent}>Share listings. Earn 1%.</span>
+            <span style={styles.heroAccent}>Share listings. Earn cash.</span>
           </h1>
           <p style={styles.heroSub} className="dl-hero-sub">
             DriveLink connects car buyers and sellers directly — no dealerships, no middlemen.
