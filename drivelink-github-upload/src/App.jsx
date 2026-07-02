@@ -14,6 +14,31 @@ const PROMOTER_FEE = 0.01; // 1% promoter commission
 const STALE_WARN_DAYS_MS = 30 * 24 * 60 * 60 * 1000; // show "seller inactive" badge after 30 days
 const STALE_ARCHIVE_DAYS_MS = 60 * 24 * 60 * 60 * 1000; // auto-archive after 60 days
 
+// ── Free, keyless VIN decoder via NHTSA's public vPIC API. This validates that a
+// VIN is real and decodes make/model/year/trim from the VIN itself — it does NOT
+// pull accident or title history (that requires a paid provider like Carfax/
+// AutoCheck, which needs a backend to keep the API key secret).
+async function decodeVin(vin) {
+  const clean = (vin || "").trim().toUpperCase();
+  if (clean.length !== 17) return { valid: false, error: "VIN must be exactly 17 characters." };
+  try {
+    const res = await fetch(`https://vpic.nhtsa.dot.gov/api/vehicles/decodevin/${encodeURIComponent(clean)}?format=json`);
+    const data = await res.json();
+    const results = data?.Results || [];
+    const get = (name) => results.find(r => r.Variable === name)?.Value || "";
+    const errorCode = get("Error Code");
+    const make = get("Make");
+    const model = get("Model");
+    const year = get("Model Year");
+    if (!make || !model || !year || (errorCode && errorCode !== "0")) {
+      return { valid: false, error: get("Error Text") || "Couldn't decode this VIN — double check it's correct." };
+    }
+    return { valid: true, make, model, year, trim: get("Trim"), engine: get("Engine Model") || get("Displacement (L)") };
+  } catch {
+    return { valid: false, error: "Couldn't reach the VIN decoder — check your connection and try again." };
+  }
+}
+
 export default function App() {
   const [currentUser, setCurrentUser] = useState(null);
   const [dbUser, setDbUser] = useState(null);
@@ -658,6 +683,13 @@ function HomeView({ listings, allListings, currentUser, users, onShare, onBuy, r
 
   const makes = [...new Set(listings.map(l => l.make).filter(Boolean))].sort();
 
+  const seeSimilar = (l) => {
+    setMake(l.make);
+    setSearch(l.model);
+    setMode("grid");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
   const filtered = listings
     .filter(l => `${l.year} ${l.make} ${l.model}`.toLowerCase().includes(search.toLowerCase()))
     .filter(l => make === "all" || l.make === make)
@@ -742,6 +774,7 @@ function HomeView({ listings, allListings, currentUser, users, onShare, onBuy, r
             const seller = users.find(u => u.id === l.seller_id);
             const comparablePrices = avgByModel[`${l.make}|${l.model}`] || [];
             const avgPrice = comparablePrices.length > 1 ? comparablePrices.reduce((s, p) => s + p, 0) / comparablePrices.length : null;
+            const otherComparableCount = Math.max(0, comparablePrices.length - 1); // exclude this listing itself
             const sellerReviews = reviews?.filter(r => r.seller_id === l.seller_id) || [];
             const sellerRating = sellerReviews.length ? sellerReviews.reduce((s, r) => s + r.rating, 0) / sellerReviews.length : null;
             return (
@@ -750,6 +783,8 @@ function HomeView({ listings, allListings, currentUser, users, onShare, onBuy, r
                 listing={l}
                 seller={seller}
                 avgPrice={avgPrice}
+                similarCount={otherComparableCount}
+                onSeeSimilar={() => seeSimilar(l)}
                 currentUser={currentUser}
                 onShare={onShare}
                 onBuy={onBuy}
@@ -773,7 +808,7 @@ function HomeView({ listings, allListings, currentUser, users, onShare, onBuy, r
   );
 }
 
-function CarCard({ listing, seller, avgPrice, currentUser, onShare, onBuy, myRef, onSignIn, onMessageSeller, onReport, isFavorited, onToggleFavorite, isBlocked, onToggleBlock, onReportUser, sellerRating, sellerReviewCount }) {
+function CarCard({ listing, seller, avgPrice, similarCount, onSeeSimilar, currentUser, onShare, onBuy, myRef, onSignIn, onMessageSeller, onReport, isFavorited, onToggleFavorite, isBlocked, onToggleBlock, onReportUser, sellerRating, sellerReviewCount }) {
   const [copied, setCopied] = useState(false);
   const [reporting, setReporting] = useState(false);
   const [reportingUser, setReportingUser] = useState(false);
@@ -786,8 +821,8 @@ function CarCard({ listing, seller, avgPrice, currentUser, onShare, onBuy, myRef
     const diffPct = Math.round(((listing.price - avgPrice) / avgPrice) * 100);
     if (Math.abs(diffPct) >= 3) {
       priceCompare = diffPct < 0
-        ? { text: `${Math.abs(diffPct)}% below similar listings`, good: true }
-        : { text: `${diffPct}% above similar listings`, good: false };
+        ? { text: `${Math.abs(diffPct)}% below similar listings (avg ${fmt(Math.round(avgPrice))})`, good: true }
+        : { text: `${diffPct}% above similar listings (avg ${fmt(Math.round(avgPrice))})`, good: false };
     }
   }
 
@@ -827,10 +862,15 @@ function CarCard({ listing, seller, avgPrice, currentUser, onShare, onBuy, myRef
             {priceCompare.good ? "▼" : "▲"} {priceCompare.text}
           </div>
         )}
+        {similarCount > 0 && onSeeSimilar && (
+          <button type="button" style={styles.similarLink} onClick={onSeeSimilar}>
+            🔍 See {similarCount} similar {listing.make} {listing.model} listing{similarCount === 1 ? "" : "s"} →
+          </button>
+        )}
         <p style={styles.cardDesc}>{listing.description}</p>
         {listing.vin && (
           <div style={styles.vinRow}>
-            VIN: {listing.vin} · <a href={`https://www.carfax.com/vehicle/${listing.vin}`} target="_blank" rel="noreferrer" style={styles.vinLink}>Check Carfax history →</a>
+            VIN: {listing.vin} {listing.vin_verified && <span style={styles.verifiedBadge} title="VIN was decoded and matches the make/model/year on this listing">✓ VIN Verified</span>} · <a href={`https://www.carfax.com/vehicle/${listing.vin}`} target="_blank" rel="noreferrer" style={styles.vinLink}>Check Carfax history →</a>
           </div>
         )}
         {myRef && <div style={styles.refTag}>{myRef.status === "paid" ? `✅ Commission paid: ${fmt(myRef.commission_amount)}` : `🔗 Tracking active • Code: ${myRef.share_code}`}</div>}
@@ -1264,7 +1304,19 @@ function EditListingModal({ listing, onCancel, onSave }) {
   });
   const [images, setImages] = useState(listing.images && listing.images.length ? listing.images : (listing.image ? [listing.image] : []));
   const [saving, setSaving] = useState(false);
+  const [vinChecking, setVinChecking] = useState(false);
+  const [vinResult, setVinResult] = useState(null);
+  const [vinVerified, setVinVerified] = useState(listing.vin_verified || false);
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+  const checkVin = async () => {
+    setVinChecking(true);
+    setVinResult(null);
+    setVinVerified(false);
+    const result = await decodeVin(form.vin);
+    setVinResult(result);
+    setVinChecking(false);
+    if (result.valid) setVinVerified(true);
+  };
 
   const handleSave = async () => {
     if (!form.make || !form.model || !form.price) return alert("Fill in at least make, model, and price.");
@@ -1276,6 +1328,7 @@ function EditListingModal({ listing, onCancel, onSave }) {
       year: +form.year,
       images,
       image: images[0] || listing.image,
+      vin_verified: vinVerified,
     });
     setSaving(false);
   };
@@ -1292,8 +1345,23 @@ function EditListingModal({ listing, onCancel, onSave }) {
           <Field label="Price ($)" value={form.price} onChange={v => set("price", v)} type="number" />
           <Field label="Mileage" value={form.mileage} onChange={v => set("mileage", v)} type="number" />
           <Field label="Color" value={form.color} onChange={v => set("color", v)} />
-          <Field label="VIN (optional)" value={form.vin} onChange={v => set("vin", v)} />
           <Field label="Location (city or ZIP)" value={form.location_text} onChange={v => set("location_text", v)} />
+        </div>
+        <div style={{ marginTop: 12 }}>
+          <label style={styles.fieldLabel}>VIN (optional)</label>
+          <div style={{ display: "flex", gap: 8 }}>
+            <input style={{ ...styles.fieldInput, flex: 1 }} value={form.vin} onChange={e => { set("vin", e.target.value); setVinResult(null); setVinVerified(false); }} placeholder="17-character VIN" maxLength={17} />
+            <button type="button" style={{ ...styles.pendingBtn, whiteSpace: "nowrap" }} onClick={checkVin} disabled={vinChecking || form.vin.trim().length !== 17}>
+              {vinChecking ? "Checking…" : "Decode VIN"}
+            </button>
+          </div>
+          {vinResult && !vinResult.valid && <div style={{ fontSize: 13, color: "#b91c1c", marginTop: 6 }}>⚠️ {vinResult.error}</div>}
+          {vinResult?.valid && (
+            <div style={{ fontSize: 13, color: "#15803d", marginTop: 6 }}>
+              ✓ VIN verified — {vinResult.year} {vinResult.make} {vinResult.model}{vinResult.trim ? ` ${vinResult.trim}` : ""}
+            </div>
+          )}
+          {!vinResult && vinVerified && <div style={{ fontSize: 13, color: "#15803d", marginTop: 6 }}>✓ Already verified</div>}
         </div>
         <div style={{ marginTop: 16 }}>
           <label style={styles.fieldLabel}>Description</label>
@@ -1312,7 +1380,25 @@ function PostListingView({ onPost }) {
   const [form, setForm] = useState({ make: "", model: "", year: new Date().getFullYear(), price: "", mileage: "", color: "", description: "", vin: "", location_text: "" });
   const [images, setImages] = useState([]);
   const [submitting, setSubmitting] = useState(false);
+  const [vinChecking, setVinChecking] = useState(false);
+  const [vinResult, setVinResult] = useState(null); // { valid, error?, make?, model?, year?, trim?, engine? }
+  const [vinVerified, setVinVerified] = useState(false);
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+  const checkVin = async () => {
+    setVinChecking(true);
+    setVinResult(null);
+    setVinVerified(false);
+    const result = await decodeVin(form.vin);
+    setVinResult(result);
+    setVinChecking(false);
+    if (result.valid) {
+      setVinVerified(true);
+      // Auto-fill fields the seller left blank; flag (don't overwrite) if they typed something different.
+      if (!form.make) set("make", result.make);
+      if (!form.model) set("model", result.model);
+      if (!form.year) set("year", result.year);
+    }
+  };
   const handleSubmit = async () => {
     if (!form.make || !form.model || !form.price) return alert("Fill in at least make, model, and price.");
     setSubmitting(true);
@@ -1323,9 +1409,13 @@ function PostListingView({ onPost }) {
       year: +form.year,
       images,
       image: images[0] || "https://images.unsplash.com/photo-1494976388531-d1058494cdd8?w=600&q=80",
+      vin_verified: vinVerified,
     });
     setSubmitting(false);
   };
+  const vinMismatch = vinResult?.valid && form.make && form.model && (
+    vinResult.make.toLowerCase() !== form.make.toLowerCase() || vinResult.model.toLowerCase() !== form.model.toLowerCase()
+  );
   return (
     <div style={styles.pageWrap}>
       <h2 style={styles.pageTitle}>Post a Car for Sale</h2>
@@ -1338,8 +1428,29 @@ function PostListingView({ onPost }) {
           <Field label="Price ($)" value={form.price} onChange={v => set("price", v)} type="number" placeholder="e.g. 25000" />
           <Field label="Mileage" value={form.mileage} onChange={v => set("mileage", v)} type="number" placeholder="e.g. 35000" />
           <Field label="Color" value={form.color} onChange={v => set("color", v)} placeholder="e.g. Pearl White" />
-          <Field label="VIN (optional)" value={form.vin} onChange={v => set("vin", v)} placeholder="17-character VIN" />
           <Field label="Location (city or ZIP)" value={form.location_text} onChange={v => set("location_text", v)} placeholder="e.g. Austin, TX" />
+        </div>
+        <div style={{ marginTop: 12 }}>
+          <label style={styles.fieldLabel}>VIN (optional)</label>
+          <div style={{ display: "flex", gap: 8 }}>
+            <input style={{ ...styles.fieldInput, flex: 1 }} value={form.vin} onChange={e => { set("vin", e.target.value); setVinResult(null); setVinVerified(false); }} placeholder="17-character VIN" maxLength={17} />
+            <button type="button" style={{ ...styles.pendingBtn, whiteSpace: "nowrap" }} onClick={checkVin} disabled={vinChecking || form.vin.trim().length !== 17}>
+              {vinChecking ? "Checking…" : "Decode VIN"}
+            </button>
+          </div>
+          {vinResult && !vinResult.valid && (
+            <div style={{ fontSize: 13, color: "#b91c1c", marginTop: 6 }}>⚠️ {vinResult.error}</div>
+          )}
+          {vinResult?.valid && !vinMismatch && (
+            <div style={{ fontSize: 13, color: "#15803d", marginTop: 6 }}>
+              ✓ VIN verified — {vinResult.year} {vinResult.make} {vinResult.model}{vinResult.trim ? ` ${vinResult.trim}` : ""}
+            </div>
+          )}
+          {vinMismatch && (
+            <div style={{ fontSize: 13, color: "#b45309", marginTop: 6 }}>
+              ⚠️ This VIN decodes to a {vinResult.year} {vinResult.make} {vinResult.model} — that doesn't match what you entered above. Double-check the VIN or your listing details.
+            </div>
+          )}
         </div>
         <div style={{ marginTop: 16 }}>
           <label style={styles.fieldLabel}>Description</label>
@@ -1775,6 +1886,7 @@ const styles = {
   ratingBadge: { fontSize: 11, fontWeight: 700, color: "#92400e", background: "#fef3c7", padding: "2px 8px", borderRadius: 20 },
   cardMeta: { display: "flex", gap: 16, fontSize: 13, color: "#6b7280", marginBottom: 10, flexWrap: "wrap" },
   priceCompare: { fontSize: 12, fontWeight: 700, padding: "5px 10px", borderRadius: 8, display: "inline-block", marginBottom: 10 },
+  similarLink: { display: "block", background: "none", border: "none", cursor: "pointer", fontSize: 12, color: "#1d4ed8", fontWeight: 600, padding: 0, marginBottom: 10, textAlign: "left" },
   cardDesc: { fontSize: 13, color: "#374151", lineHeight: 1.5, marginBottom: 10 },
   vinRow: { fontSize: 12, color: "#6b7280", marginBottom: 12 },
   vinLink: { color: "#1d4ed8", fontWeight: 600, textDecoration: "none" },
