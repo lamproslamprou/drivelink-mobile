@@ -27,6 +27,8 @@ export default function App() {
   const [blocks, setBlocks] = useState([]);
   const [userReports, setUserReports] = useState([]);
   const [reviews, setReviews] = useState([]);
+  const [payouts, setPayouts] = useState([]);
+  const [disputes, setDisputes] = useState([]);
   const [openThread, setOpenThread] = useState(null);
   const [view, setView] = useState("landing");
   const [homeResetKey, setHomeResetKey] = useState(0);
@@ -48,6 +50,8 @@ export default function App() {
     const { data: feedbackData } = await supabase.from("feedback").select("*").order("created_at", { ascending: false });
     const { data: userReportsData } = await supabase.from("user_reports").select("*").order("created_at", { ascending: false });
     const { data: reviewsData } = await supabase.from("reviews").select("*").order("created_at", { ascending: false });
+    const { data: payoutsData } = await supabase.from("payouts").select("*").order("paid_at", { ascending: false });
+    const { data: disputesData } = await supabase.from("disputes").select("*").order("created_at", { ascending: false });
     let finalListings = listingsData || [];
     // ── Auto-archive listings whose seller has gone quiet for 60+ days (best-effort,
     // runs opportunistically whenever anyone loads the app — there's no cron here).
@@ -69,6 +73,8 @@ export default function App() {
     if (feedbackData) setFeedback(feedbackData);
     if (userReportsData) setUserReports(userReportsData);
     if (reviewsData) setReviews(reviewsData);
+    if (payoutsData) setPayouts(payoutsData);
+    if (disputesData) setDisputes(disputesData);
     setLoading(false);
   };
 
@@ -213,6 +219,38 @@ export default function App() {
     showToast("Receipt confirmed — sale finalized and commission released.");
   };
 
+  // ── Buyer disputes a pending sale instead of confirming receipt (car not as
+  // described, seller no-show, etc). Flips the listing to "disputed" so it's out
+  // of the normal flow until an admin reviews it.
+  const fileDispute = async (listingId, reason, details) => {
+    const listing = listings.find(l => l.id === listingId);
+    if (!listing) return;
+    const row = { id: "disp" + Date.now(), listing_id: listingId, buyer_id: currentUser.id, seller_id: listing.seller_id, reason, details, status: "open" };
+    const { error } = await supabase.from("disputes").insert(row);
+    if (error) { showToast("Couldn't file dispute", "error"); return; }
+    await supabase.from("listings").update({ status: "disputed" }).eq("id", listingId);
+    await loadData();
+    showToast("Dispute filed. Our team will review it — the sale is on hold until then.");
+  };
+
+  // ── Admin resolves a dispute. "refunded" means you've manually refunded the
+  // buyer via Stripe's dashion outside this app — DriveLink can't issue real refunds
+  // itself. Refunding puts the listing back up for sale; dismissing sends it back
+  // to the normal awaiting-confirmation flow.
+  const resolveDispute = async (disputeId, resolution, resolutionNote) => {
+    const dispute = disputes.find(d => d.id === disputeId);
+    if (!dispute) return;
+    await supabase.from("disputes").update({ status: resolution, resolution_note: resolutionNote, resolved_at: new Date().toISOString() }).eq("id", disputeId);
+    if (resolution === "refunded") {
+      await supabase.from("listings").update({ status: "active", sale_price: null, buyer_id: null, sold_at: null }).eq("id", dispute.listing_id);
+      showToast("Dispute marked refunded — remember to actually issue the refund in Stripe. Listing relisted.");
+    } else {
+      await supabase.from("listings").update({ status: "pending_confirmation" }).eq("id", dispute.listing_id);
+      showToast("Dispute dismissed — sale returned to awaiting confirmation.");
+    }
+    await loadData();
+  };
+
   // ── Generate share link
   const generateShare = async (listingId) => {
     const existing = referrals.find(r => r.listing_id === listingId && r.promoter_id === currentUser.id);
@@ -331,6 +369,20 @@ export default function App() {
     showToast("Thanks for the review!");
   };
 
+  // ── Admin records that a promoter's balance was paid out via an external method
+  // (bank transfer, PayPal, Venmo, etc). This app doesn't move real money — it just
+  // tracks that the payout happened and zeroes out the tracked balance to match.
+  const recordPayout = async (userId, amount, method, note) => {
+    const user = users.find(u => u.id === userId);
+    if (!user || amount <= 0 || amount > (user.balance || 0)) { showToast("Invalid payout amount.", "error"); return; }
+    const row = { id: "po" + Date.now(), user_id: userId, amount, method, note };
+    const { error } = await supabase.from("payouts").insert(row);
+    if (error) { showToast("Couldn't record payout", "error"); return; }
+    await supabase.from("users").update({ balance: (user.balance || 0) - amount }).eq("id", userId);
+    await loadData();
+    showToast(`Payout of ${fmt(amount)} recorded for ${user.name}.`);
+  };
+
   // ── Jump into (or start) a message thread with a listing's seller
   const messageSeller = (listing) => {
     if (listing.seller_id === currentUser.id) return;
@@ -443,14 +495,14 @@ export default function App() {
       <main style={styles.main} className="app-main">
         {view === "home" && <HomeView key={homeResetKey} listings={activeListings} allListings={listings} currentUser={dbUser} users={users} onShare={generateShare} onBuy={handleBuyNow} referrals={referrals} onSignIn={() => setView("auth")} onMessageSeller={messageSeller} onReport={fileReport} onSaveSearch={saveSearch} favorites={favorites} onToggleFavorite={toggleFavorite} onToggleBlock={toggleBlock} onReportUser={reportUserAction} blocks={blocks} reviews={reviews} />}
         {view === "myListings" && <MyListingsView listings={listings.filter(l => l.seller_id === currentUser?.id)} referrals={referrals} users={users} onMarkSold={markSold} onSetStatus={setListingStatus} onUpdate={updateListing} />}
-        {view === "myPurchases" && <MyPurchasesView listings={listings.filter(l => l.buyer_id === currentUser?.id)} users={users} reviews={reviews} currentUser={currentUser} onSubmitReview={submitReview} onConfirmReceipt={confirmReceipt} onBrowse={() => setView("home")} />}
+        {view === "myPurchases" && <MyPurchasesView listings={listings.filter(l => l.buyer_id === currentUser?.id)} users={users} reviews={reviews} currentUser={currentUser} onSubmitReview={submitReview} onConfirmReceipt={confirmReceipt} onFileDispute={fileDispute} onBrowse={() => setView("home")} />}
         {view === "postListing" && <PostListingView onPost={postListing} />}
         {view === "messages" && currentUser && <Messages currentUser={{ ...dbUser, id: currentUser.id }} listings={listings} users={users} openThread={openThread} onOpened={() => setOpenThread(null)} />}
         {view === "savedSearches" && <SavedSearchesView savedSearches={savedSearches} onDelete={deleteSavedSearch} onBrowse={() => setView("home")} />}
         {view === "favorites" && <FavoritesView favorites={favorites} listings={listings} users={users} referrals={referrals} currentUser={dbUser} onShare={generateShare} onBuy={handleBuyNow} onMessageSeller={messageSeller} onReport={fileReport} onToggleFavorite={toggleFavorite} onBrowse={() => setView("home")} />}
         {view === "blocked" && <BlockedUsersView blocks={blocks} users={users} onToggleBlock={toggleBlock} onBrowse={() => setView("home")} />}
-        {view === "dashboard" && <PromoterDashboard currentUser={dbUser} referrals={referrals.filter(r => r.promoter_id === currentUser?.id)} listings={listings} />}
-        {view === "admin" && <AdminView listings={listings} users={users} referrals={referrals} reports={reports} feedback={feedback} userReports={userReports} reviews={reviews} onArchive={archiveListing} onMarkSold={markSold} onConfirmReceipt={confirmReceipt} onResolveReport={resolveReport} onResolveUserReport={resolveUserReport} onToggleVerified={toggleVerified} onResetData={resetTestData} />}
+        {view === "dashboard" && <PromoterDashboard currentUser={dbUser} referrals={referrals.filter(r => r.promoter_id === currentUser?.id)} listings={listings} payouts={payouts} />}
+        {view === "admin" && <AdminView listings={listings} users={users} referrals={referrals} reports={reports} feedback={feedback} userReports={userReports} reviews={reviews} payouts={payouts} disputes={disputes} onArchive={archiveListing} onMarkSold={markSold} onConfirmReceipt={confirmReceipt} onResolveReport={resolveReport} onResolveUserReport={resolveUserReport} onToggleVerified={toggleVerified} onResetData={resetTestData} onRecordPayout={recordPayout} onResolveDispute={resolveDispute} />}
         {view === "success" && <SuccessView onHome={() => setView("home")} />}
       </main>
       <footer style={styles.appFooter}>
@@ -990,6 +1042,7 @@ function MyListingsView({ listings, referrals, users, onMarkSold, onSetStatus, o
                 <div style={styles.rowMeta}>{fmt(l.price)} • {l.mileage?.toLocaleString()} mi</div>
                 {l.status === "sold" && <div style={styles.soldBadge}>SOLD for {fmt(l.sale_price)} on {l.sold_at}</div>}
                 {l.status === "pending_confirmation" && <div style={styles.awaitingBadge}>💳 Payment received for {fmt(l.sale_price)} — awaiting buyer confirmation before payout</div>}
+                {l.status === "disputed" && <div style={{ ...styles.awaitingBadge, background: "#fee2e2", color: "#b91c1c" }}>⚠️ Buyer disputed this sale — our team is reviewing it</div>}
                 {promoter && <div style={styles.promoterTag}>Promoted by {promoter.name} {ref.status === "paid" ? `• Commission ${fmt(ref.commission_amount)} paid` : "• Pending"}</div>}
                 {l.status === "active" && l.last_active_at && (Date.now() - new Date(l.last_active_at).getTime()) > STALE_WARN_DAYS_MS && (
                   <div style={{ fontSize: 12, color: "#b45309", fontWeight: 600, marginTop: 4 }}>
@@ -997,8 +1050,8 @@ function MyListingsView({ listings, referrals, users, onMarkSold, onSetStatus, o
                   </div>
                 )}
               </div>
-              <span style={{ ...styles.statusPill, background: l.status === "active" ? "#dcfce7" : l.status === "pending" ? "#fef9c3" : l.status === "pending_confirmation" ? "#dbeafe" : "#fee2e2", color: l.status === "active" ? "#15803d" : l.status === "pending" ? "#854d0e" : l.status === "pending_confirmation" ? "#1d4ed8" : "#b91c1c" }}>{l.status === "pending_confirmation" ? "awaiting confirmation" : l.status}</span>
-              {l.status !== "sold" && l.status !== "pending_confirmation" && (
+              <span style={{ ...styles.statusPill, background: l.status === "active" ? "#dcfce7" : l.status === "pending" ? "#fef9c3" : l.status === "pending_confirmation" ? "#dbeafe" : l.status === "disputed" ? "#fee2e2" : "#fee2e2", color: l.status === "active" ? "#15803d" : l.status === "pending" ? "#854d0e" : l.status === "pending_confirmation" ? "#1d4ed8" : l.status === "disputed" ? "#b91c1c" : "#b91c1c" }}>{l.status === "pending_confirmation" ? "awaiting confirmation" : l.status}</span>
+              {l.status !== "sold" && l.status !== "pending_confirmation" && l.status !== "disputed" && (
                 <button style={styles.pendingBtn} onClick={() => setEditing(l)}>Edit</button>
               )}
               {l.status === "active" && (
@@ -1035,8 +1088,9 @@ function MyListingsView({ listings, referrals, users, onMarkSold, onSetStatus, o
   );
 }
 
-function MyPurchasesView({ listings, users, reviews, currentUser, onSubmitReview, onConfirmReceipt, onBrowse }) {
+function MyPurchasesView({ listings, users, reviews, currentUser, onSubmitReview, onConfirmReceipt, onFileDispute, onBrowse }) {
   const [reviewing, setReviewing] = useState(null);
+  const [disputing, setDisputing] = useState(null);
   return (
     <div style={styles.pageWrap}>
       <h2 style={styles.pageTitle}>My Purchases</h2>
@@ -1047,6 +1101,7 @@ function MyPurchasesView({ listings, users, reviews, currentUser, onSubmitReview
           const myReview = reviews.find(r => r.listing_id === l.id && r.buyer_id === currentUser.id);
           const cover = (l.images && l.images[0]) || l.image;
           const awaitingConfirmation = l.status === "pending_confirmation";
+          const disputed = l.status === "disputed";
           return (
             <div key={l.id} style={styles.listingRow} className="app-listing-row">
               <img src={cover} alt="" style={styles.rowImg} onError={e => { e.target.src = "https://images.unsplash.com/photo-1494976388531-d1058494cdd8?w=300&q=60"; }} />
@@ -1055,13 +1110,21 @@ function MyPurchasesView({ listings, users, reviews, currentUser, onSubmitReview
                 <div style={styles.rowMeta}>{fmt(l.sale_price || l.price)} • Sold by {seller?.name || "seller"} on {l.sold_at}</div>
                 {awaitingConfirmation && (
                   <div style={{ fontSize: 13, color: "#1d4ed8", fontWeight: 600, marginTop: 4 }}>
-                    Once you've received the car, confirm below — this finalizes the sale and releases the promoter's commission.
+                    Once you've received the car, confirm below — this finalizes the sale and releases the promoter's commission. Had a problem instead? Report it rather than confirming.
+                  </div>
+                )}
+                {disputed && (
+                  <div style={{ fontSize: 13, color: "#b91c1c", fontWeight: 600, marginTop: 4 }}>
+                    ⚠️ Dispute filed — our team is reviewing this sale. We'll follow up with you directly.
                   </div>
                 )}
                 {myReview && <div style={styles.promoterTag}>{"⭐".repeat(myReview.rating)} — you reviewed this purchase</div>}
               </div>
               {awaitingConfirmation && (
-                <button style={styles.soldBtn} onClick={() => onConfirmReceipt(l.id)}>✅ Confirm Receipt</button>
+                <>
+                  <button style={styles.soldBtn} onClick={() => onConfirmReceipt(l.id)}>✅ Confirm Receipt</button>
+                  <button style={styles.reportBtn} onClick={() => setDisputing(l)}>⚠️ Report a Problem</button>
+                </>
               )}
               {l.status === "sold" && !myReview && (
                 <button style={styles.soldBtn} onClick={() => setReviewing(l)}>Leave a Review</button>
@@ -1070,6 +1133,13 @@ function MyPurchasesView({ listings, users, reviews, currentUser, onSubmitReview
           );
         })}
       </div>
+      {disputing && (
+        <DisputeModal
+          listing={disputing}
+          onCancel={() => setDisputing(null)}
+          onSubmit={(reason, details) => { onFileDispute(disputing.id, reason, details); setDisputing(null); }}
+        />
+      )}
       {reviewing && (
         <ReviewModal
           listing={reviewing}
@@ -1106,6 +1176,33 @@ function ReviewModal({ listing, onCancel, onSubmit }) {
   );
 }
 
+function DisputeModal({ listing, onCancel, onSubmit }) {
+  const [reason, setReason] = useState("Car not as described");
+  const [details, setDetails] = useState("");
+  return (
+    <div style={styles.overlay} onClick={onCancel}>
+      <div style={styles.modalBox} onClick={e => e.stopPropagation()}>
+        <h3 style={styles.modalTitle}>Report a problem with this purchase</h3>
+        <div style={{ fontSize: 13, color: "#6b7280", marginBottom: 12 }}>This puts the sale on hold and notifies our team — don't confirm receipt if something's wrong.</div>
+        <label style={styles.fieldLabel}>What happened?</label>
+        <select style={{ ...styles.selectInput, width: "100%", marginBottom: 12 }} value={reason} onChange={e => setReason(e.target.value)}>
+          <option>Car not as described</option>
+          <option>Seller never showed up / unreachable</option>
+          <option>Car has undisclosed damage or issues</option>
+          <option>Title or paperwork problem</option>
+          <option>Other</option>
+        </select>
+        <label style={styles.fieldLabel}>Details</label>
+        <textarea style={styles.textarea} rows={4} value={details} onChange={e => setDetails(e.target.value)} placeholder="Tell us what went wrong" />
+        <div style={styles.modalActions}>
+          <button style={styles.cancelBtn} onClick={onCancel}>Cancel</button>
+          <button style={styles.confirmBtn} onClick={() => onSubmit(reason, details)} disabled={!details.trim()}>File Dispute</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function MarkSoldModal({ listing, onCancel, onConfirm }) {
   const [price, setPrice] = useState(listing.price);
   const [buyerEmail, setBuyerEmail] = useState("");
@@ -1121,6 +1218,38 @@ function MarkSoldModal({ listing, onCancel, onConfirm }) {
         <div style={styles.modalActions}>
           <button style={styles.cancelBtn} onClick={onCancel}>Cancel</button>
           <button style={styles.confirmBtn} onClick={() => onConfirm(+price, buyerEmail)}>Confirm Sale</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PayoutModal({ user, onCancel, onConfirm }) {
+  const [amount, setAmount] = useState(user.balance || 0);
+  const [method, setMethod] = useState("Bank transfer");
+  const [note, setNote] = useState("");
+  return (
+    <div style={styles.overlay} onClick={onCancel}>
+      <div style={styles.modalBox} onClick={e => e.stopPropagation()}>
+        <h3 style={styles.modalTitle}>Pay Out {user.name}</h3>
+        <div style={{ fontSize: 13, color: "#6b7280", marginBottom: 12 }}>Current tracked balance: {fmt(user.balance || 0)}</div>
+        <label style={styles.fieldLabel}>Amount ($)</label>
+        <input style={{ ...styles.fieldInput, marginBottom: 12 }} type="number" value={amount} onChange={e => setAmount(e.target.value)} />
+        <label style={styles.fieldLabel}>Paid via</label>
+        <select style={{ ...styles.selectInput, width: "100%", marginBottom: 12 }} value={method} onChange={e => setMethod(e.target.value)}>
+          <option>Bank transfer</option>
+          <option>PayPal</option>
+          <option>Venmo</option>
+          <option>Zelle</option>
+          <option>Check</option>
+          <option>Other</option>
+        </select>
+        <label style={styles.fieldLabel}>Note (optional)</label>
+        <input style={styles.fieldInput} value={note} onChange={e => setNote(e.target.value)} placeholder="Reference number, etc." />
+        <div style={{ fontSize: 12, color: "#6b7280", marginTop: 6 }}>This records that you paid {user.name} outside of DriveLink and reduces their tracked balance to match — it doesn't move any real money.</div>
+        <div style={styles.modalActions}>
+          <button style={styles.cancelBtn} onClick={onCancel}>Cancel</button>
+          <button style={styles.confirmBtn} onClick={() => onConfirm(+amount, method, note)}>Record Payout</button>
         </div>
       </div>
     </div>
@@ -1231,13 +1360,16 @@ function Field({ label, value, onChange, placeholder, type = "text" }) {
   );
 }
 
-function PromoterDashboard({ currentUser, referrals, listings }) {
+function PromoterDashboard({ currentUser, referrals, listings, payouts }) {
   const pending = referrals.filter(r => r.status === "pending");
+  const lifetimeEarned = referrals.filter(r => r.status === "paid").reduce((s, r) => s + (r.commission_amount || 0), 0);
+  const myPayouts = (payouts || []).filter(p => p.user_id === currentUser?.id);
   return (
     <div style={styles.pageWrap}>
       <h2 style={styles.pageTitle}>Earnings Dashboard</h2>
       <div style={styles.statsRow}>
-        <StatBox label="Total Earned" value={fmt(currentUser?.balance || 0)} color="#16a34a" />
+        <StatBox label="Available Balance" value={fmt(currentUser?.balance || 0)} color="#16a34a" />
+        <StatBox label="Lifetime Earned" value={fmt(lifetimeEarned)} color="#1d4ed8" />
         <StatBox label="Shares Active" value={pending.length} color="#1d4ed8" />
         <StatBox label="Sales Converted" value={referrals.filter(r => r.status === "paid").length} color="#7c3aed" />
       </div>
@@ -1260,6 +1392,21 @@ function PromoterDashboard({ currentUser, referrals, listings }) {
         })}
       </div>
       <div style={styles.infoBox}><b>How commissions work:</b> When you share a listing and a buyer completes the purchase, 1% of the sale price is automatically credited to your account.</div>
+      <h3 style={{ ...styles.sectionTitle, marginTop: 32 }}>Payout History</h3>
+      {myPayouts.length === 0 ? (
+        <p style={{ color: "#6b7280" }}>No payouts yet — your available balance above is what's owed to you.</p>
+      ) : (
+        <div style={styles.tableWrap}>
+          {myPayouts.map(p => (
+            <div key={p.id} style={styles.listingRow} className="app-listing-row">
+              <div style={styles.rowInfo} className="app-row-info">
+                <div style={styles.rowTitle}>{fmt(p.amount)} via {p.method}</div>
+                <div style={styles.rowMeta}>{new Date(p.paid_at).toLocaleDateString()} {p.note ? `• "${p.note}"` : ""}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -1268,9 +1415,10 @@ function StatBox({ label, value, color }) {
   return <div style={styles.statBox}><div style={{ ...styles.statValue, color }}>{value}</div><div style={styles.statLabel}>{label}</div></div>;
 }
 
-function AdminView({ listings, users, referrals, reports, feedback, userReports, reviews, onArchive, onMarkSold, onConfirmReceipt, onResolveReport, onResolveUserReport, onToggleVerified, onResetData }) {
+function AdminView({ listings, users, referrals, reports, feedback, userReports, reviews, payouts, disputes, onArchive, onMarkSold, onConfirmReceipt, onResolveReport, onResolveUserReport, onToggleVerified, onResetData, onRecordPayout, onResolveDispute }) {
   const [tab, setTab] = useState("listings");
   const [markingSold, setMarkingSold] = useState(null);
+  const [payingOut, setPayingOut] = useState(null);
   const activeAndSold = listings.filter(l => l.status !== "archived");
   const totalRevenue = activeAndSold.filter(l => l.status === "sold" || l.status === "pending_confirmation").reduce((s, l) => s + (l.sale_price || 0), 0);
   const platformEarnings = activeAndSold.filter(l => l.status === "sold").reduce((s, l) => s + (l.platform_fee || Math.round((l.sale_price || 0) * 0.01)), 0);
@@ -1278,6 +1426,7 @@ function AdminView({ listings, users, referrals, reports, feedback, userReports,
   const openReports = reports.filter(r => r.status === "open");
   const openUserReports = (userReports || []).filter(r => r.status === "open");
   const awaitingConfirmation = activeAndSold.filter(l => l.status === "pending_confirmation");
+  const openDisputes = (disputes || []).filter(d => d.status === "open");
   return (
     <div style={styles.pageWrap}>
       <h2 style={styles.pageTitle}>Admin Panel</h2>
@@ -1286,6 +1435,7 @@ function AdminView({ listings, users, referrals, reports, feedback, userReports,
         <StatBox label="Active" value={activeAndSold.filter(l => l.status === "active").length} color="#16a34a" />
         <StatBox label="Sold" value={activeAndSold.filter(l => l.status === "sold").length} color="#7c3aed" />
         <StatBox label="Awaiting Confirmation" value={awaitingConfirmation.length} color="#1d4ed8" />
+        <StatBox label="Open Disputes" value={openDisputes.length} color="#dc2626" />
         <StatBox label="GMV" value={fmt(totalRevenue)} color="#b45309" />
         <StatBox label="Your Earnings (1%)" value={fmt(platformEarnings)} color="#16a34a" />
         <StatBox label="Promoter Commissions" value={fmt(totalCommissions)} color="#dc2626" />
@@ -1293,7 +1443,7 @@ function AdminView({ listings, users, referrals, reports, feedback, userReports,
         <StatBox label="Open User Reports" value={openUserReports.length} color="#dc2626" />
       </div>
       <div style={styles.tabRow}>
-        {["listings", "archived", "users", "referrals", "reports", "userReports", "feedback", "danger"].map(t => <button key={t} style={{ ...styles.tab, ...(tab === t ? styles.tabActive : {}), ...(t === "danger" ? { color: tab === "danger" ? "#dc2626" : "#dc2626" } : {}) }} onClick={() => setTab(t)}>{t === "danger" ? "⚠️ Danger Zone" : t === "userReports" ? "User Reports" : t.charAt(0).toUpperCase() + t.slice(1)}{t === "reports" && openReports.length > 0 ? ` (${openReports.length})` : ""}{t === "userReports" && openUserReports.length > 0 ? ` (${openUserReports.length})` : ""}{t === "feedback" && feedback.length > 0 ? ` (${feedback.length})` : ""}</button>)}
+        {["listings", "archived", "users", "referrals", "payouts", "disputes", "reports", "userReports", "feedback", "danger"].map(t => <button key={t} style={{ ...styles.tab, ...(tab === t ? styles.tabActive : {}), ...(t === "danger" ? { color: tab === "danger" ? "#dc2626" : "#dc2626" } : {}) }} onClick={() => setTab(t)}>{t === "danger" ? "⚠️ Danger Zone" : t === "userReports" ? "User Reports" : t.charAt(0).toUpperCase() + t.slice(1)}{t === "reports" && openReports.length > 0 ? ` (${openReports.length})` : ""}{t === "userReports" && openUserReports.length > 0 ? ` (${openUserReports.length})` : ""}{t === "disputes" && openDisputes.length > 0 ? ` (${openDisputes.length})` : ""}{t === "feedback" && feedback.length > 0 ? ` (${feedback.length})` : ""}</button>)}
       </div>
       {tab === "listings" && (
         <div style={styles.tableWrap}>
@@ -1305,8 +1455,9 @@ function AdminView({ listings, users, referrals, reports, feedback, userReports,
                 <div style={styles.rowTitle}>{l.year} {l.make} {l.model}</div>
                 <div style={styles.rowMeta}>{fmt(l.price)}</div>
                 {l.status === "pending_confirmation" && <div style={{ fontSize: 12, color: "#1d4ed8", marginTop: 2 }}>Sold {fmt(l.sale_price)} on {l.sold_at} • waiting on buyer to confirm receipt</div>}
+                {l.status === "disputed" && <div style={{ fontSize: 12, color: "#b91c1c", marginTop: 2 }}>⚠️ Disputed — see Disputes tab</div>}
               </div>
-              <span style={{ ...styles.statusPill, background: l.status === "active" ? "#dcfce7" : l.status === "pending_confirmation" ? "#dbeafe" : "#fee2e2", color: l.status === "active" ? "#15803d" : l.status === "pending_confirmation" ? "#1d4ed8" : "#b91c1c" }}>{l.status === "pending_confirmation" ? "awaiting confirmation" : l.status}</span>
+              <span style={{ ...styles.statusPill, background: l.status === "active" ? "#dcfce7" : l.status === "pending_confirmation" ? "#dbeafe" : l.status === "disputed" ? "#fee2e2" : "#fee2e2", color: l.status === "active" ? "#15803d" : l.status === "pending_confirmation" ? "#1d4ed8" : "#b91c1c" }}>{l.status === "pending_confirmation" ? "awaiting confirmation" : l.status}</span>
               {l.status === "active" && <button style={styles.soldBtn} onClick={() => setMarkingSold(l)}>Mark Sold</button>}
               {l.status === "pending_confirmation" && <button style={styles.soldBtn} onClick={() => onConfirmReceipt(l.id)} title="Use only if the buyer isn't responding — normally they confirm themselves">Force Confirm</button>}
               <button style={styles.removeBtn} onClick={() => onArchive(l.id)}>Archive</button>
@@ -1351,12 +1502,20 @@ function AdminView({ listings, users, referrals, reports, feedback, userReports,
                 <div style={styles.rowMeta}>{u.email} • Balance: {fmt(u.balance || 0)}</div>
               </div>
               <span style={{ ...styles.statusPill, background: "#e0e7ff", color: "#3730a3" }}>{u.role}</span>
+              {(u.balance || 0) > 0 && <button style={styles.soldBtn} onClick={() => setPayingOut(u)}>Pay Out</button>}
               <button style={u.verified ? styles.removeBtn : styles.pendingBtn} onClick={() => onToggleVerified(u.id, !u.verified)}>
                 {u.verified ? "Unverify" : "Verify Seller"}
               </button>
             </div>
             );
           })}
+          {payingOut && (
+            <PayoutModal
+              user={payingOut}
+              onCancel={() => setPayingOut(null)}
+              onConfirm={(amount, method, note) => { onRecordPayout(payingOut.id, amount, method, note); setPayingOut(null); }}
+            />
+          )}
         </div>
       )}
       {tab === "referrals" && (
@@ -1373,6 +1532,35 @@ function AdminView({ listings, users, referrals, reports, feedback, userReports,
                 </div>
                 <span style={{ ...styles.statusPill, background: r.status === "paid" ? "#dcfce7" : "#fef9c3", color: r.status === "paid" ? "#15803d" : "#854d0e" }}>{r.status}</span>
               </div>
+            );
+          })}
+        </div>
+      )}
+      {tab === "payouts" && (
+        <div style={styles.tableWrap}>
+          {(payouts || []).length === 0 && <p style={{ color: "#6b7280" }}>No payouts recorded yet.</p>}
+          {(payouts || []).map(p => {
+            const u = users.find(x => x.id === p.user_id);
+            return (
+              <div key={p.id} style={styles.listingRow} className="app-listing-row">
+                <div style={styles.rowInfo} className="app-row-info">
+                  <div style={styles.rowTitle}>{u?.name || p.user_id} — {fmt(p.amount)}</div>
+                  <div style={styles.rowMeta}>via {p.method} {p.note ? `• "${p.note}"` : ""} • {new Date(p.paid_at).toLocaleDateString()}</div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+      {tab === "disputes" && (
+        <div style={styles.tableWrap}>
+          {(disputes || []).length === 0 && <p style={{ color: "#6b7280" }}>No disputes filed.</p>}
+          {(disputes || []).map(d => {
+            const listing = listings.find(l => l.id === d.listing_id);
+            const buyer = users.find(u => u.id === d.buyer_id);
+            const seller = users.find(u => u.id === d.seller_id);
+            return (
+              <DisputeRow key={d.id} dispute={d} listing={listing} buyer={buyer} seller={seller} onResolve={onResolveDispute} />
             );
           })}
         </div>
@@ -1439,6 +1627,30 @@ function AdminView({ listings, users, referrals, reports, feedback, userReports,
         </div>
       )}
       {tab === "danger" && <DangerZone onResetData={onResetData} />}
+    </div>
+  );
+}
+
+function DisputeRow({ dispute, listing, buyer, seller, onResolve }) {
+  const [note, setNote] = useState("");
+  return (
+    <div style={styles.listingRow} className="app-listing-row">
+      <div style={styles.rowInfo} className="app-row-info">
+        <div style={styles.rowTitle}>{dispute.reason} — {listing ? `${listing.year} ${listing.make} ${listing.model}` : dispute.listing_id}</div>
+        <div style={styles.rowMeta}>Buyer: {buyer?.name || dispute.buyer_id} • Seller: {seller?.name || dispute.seller_id}</div>
+        {dispute.details && <div style={{ fontSize: 13, color: "#374151", marginTop: 4 }}>"{dispute.details}"</div>}
+        {dispute.status === "open" && (
+          <input style={{ ...styles.fieldInput, marginTop: 8, maxWidth: 320 }} placeholder="Resolution note (optional)" value={note} onChange={e => setNote(e.target.value)} />
+        )}
+        {dispute.status !== "open" && dispute.resolution_note && <div style={{ fontSize: 12, color: "#6b7280", marginTop: 4 }}>Note: "{dispute.resolution_note}"</div>}
+      </div>
+      <span style={{ ...styles.statusPill, background: dispute.status === "open" ? "#fef9c3" : dispute.status === "refunded" ? "#fee2e2" : "#f1f5f9", color: dispute.status === "open" ? "#854d0e" : dispute.status === "refunded" ? "#b91c1c" : "#6b7280" }}>{dispute.status}</span>
+      {dispute.status === "open" && (
+        <>
+          <button style={styles.removeBtn} onClick={() => onResolve(dispute.id, "refunded", note)} title="Only marks it here — you still issue the actual refund in Stripe">Mark Refunded</button>
+          <button style={styles.pendingBtn} onClick={() => onResolve(dispute.id, "dismissed", note)}>Dismiss</button>
+        </>
+      )}
     </div>
   );
 }
@@ -1595,6 +1807,7 @@ const styles = {
   soldBtn: { background: "#dcfce7", color: "#15803d", border: "none", padding: "7px 14px", borderRadius: 8, cursor: "pointer", fontSize: 13, fontWeight: 600 },
   pendingBtn: { background: "#fef9c3", color: "#854d0e", border: "none", padding: "7px 14px", borderRadius: 8, cursor: "pointer", fontSize: 13, fontWeight: 600 },
   removeBtn: { background: "#fee2e2", color: "#dc2626", border: "none", padding: "7px 14px", borderRadius: 8, cursor: "pointer", fontSize: 13, fontWeight: 600 },
+  reportBtn: { background: "#fff", color: "#b91c1c", border: "1px solid #fecaca", padding: "7px 14px", borderRadius: 8, cursor: "pointer", fontSize: 13, fontWeight: 600 },
   formCard: { background: "#fff", borderRadius: 16, padding: 32, maxWidth: 640, boxShadow: "0 1px 4px rgba(0,0,0,.07)" },
   formGrid: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 },
   fieldLabel: { display: "block", fontSize: 12, fontWeight: 600, color: "#374151", marginBottom: 6, textTransform: "uppercase", letterSpacing: ".04em" },
