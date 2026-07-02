@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { supabase } from "./supabase.js";
 
-const MAX_PHOTOS = 5;
+const MAX_PHOTOS = 20;
 const MAX_SIZE = 5 * 1024 * 1024;
 const ALLOWED = ["image/jpeg", "image/png", "image/webp"];
 

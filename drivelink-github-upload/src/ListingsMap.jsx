@@ -46,7 +46,7 @@ export default function ListingsMap({ listings, onSelect }) {
 export async function geocode(locationText) {
   if (!locationText?.trim()) return null;
   try {
-    const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(locationText)}`, {
+    const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=us&q=${encodeURIComponent(locationText)}`, {
       headers: { "Accept-Language": "en" },
     });
     const data = await res.json();

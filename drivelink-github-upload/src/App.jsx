@@ -238,8 +238,10 @@ export default function App() {
   // ── Admin: wipe test data. Deletes rows from selected tables; optionally resets
   // user balances to 0. Never deletes user accounts themselves (would break auth).
   const resetTestData = async (options) => {
-    const { listings: wipeListings, referrals: wipeReferrals, messages: wipeMessages, reports: wipeReports, savedSearchesFlag, feedbackFlag, resetBalances } = options;
-    if (wipeListings) await supabase.from("listings").delete().not("id", "is", null);
+    const { activeListings: wipeActive, soldListings: wipeSold, archivedListings: wipeArchived, referrals: wipeReferrals, messages: wipeMessages, reports: wipeReports, savedSearchesFlag, feedbackFlag, resetBalances } = options;
+    if (wipeActive) await supabase.from("listings").delete().eq("status", "active");
+    if (wipeSold) await supabase.from("listings").delete().eq("status", "sold");
+    if (wipeArchived) await supabase.from("listings").delete().eq("status", "archived");
     if (wipeReferrals) await supabase.from("referrals").delete().not("id", "is", null);
     if (wipeMessages) await supabase.from("messages").delete().not("id", "is", null);
     if (wipeReports) await supabase.from("reports").delete().not("id", "is", null);
@@ -952,7 +954,8 @@ function AdminView({ listings, users, referrals, reports, feedback, onArchive, o
 
 function DangerZone({ onResetData }) {
   const [selected, setSelected] = useState({
-    listings: true, referrals: true, messages: true, reports: true,
+    activeListings: false, soldListings: false, archivedListings: false,
+    referrals: true, messages: true, reports: true,
     savedSearchesFlag: true, feedbackFlag: false, resetBalances: true,
   });
   const [confirmText, setConfirmText] = useState("");
@@ -980,7 +983,9 @@ function DangerZone({ onResetData }) {
         entries before real users show up — it does <b>not</b> delete user accounts, so nobody loses their login.
       </p>
       <div style={styles.dangerChecks}>
-        <label style={styles.dangerCheckRow}><input type="checkbox" checked={selected.listings} onChange={() => toggle("listings")} /> Listings (all — active, sold, archived)</label>
+        <label style={styles.dangerCheckRow}><input type="checkbox" checked={selected.activeListings} onChange={() => toggle("activeListings")} /> Active listings</label>
+        <label style={styles.dangerCheckRow}><input type="checkbox" checked={selected.soldListings} onChange={() => toggle("soldListings")} /> Sold listings</label>
+        <label style={styles.dangerCheckRow}><input type="checkbox" checked={selected.archivedListings} onChange={() => toggle("archivedListings")} /> Archived listings</label>
         <label style={styles.dangerCheckRow}><input type="checkbox" checked={selected.referrals} onChange={() => toggle("referrals")} /> Referrals & share links</label>
         <label style={styles.dangerCheckRow}><input type="checkbox" checked={selected.messages} onChange={() => toggle("messages")} /> Messages</label>
         <label style={styles.dangerCheckRow}><input type="checkbox" checked={selected.reports} onChange={() => toggle("reports")} /> Reports</label>
