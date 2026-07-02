@@ -21,6 +21,7 @@ export default function App() {
   const [reports, setReports] = useState([]);
   const [feedback, setFeedback] = useState([]);
   const [savedSearches, setSavedSearches] = useState([]);
+  const [favorites, setFavorites] = useState([]);
   const [openThread, setOpenThread] = useState(null);
   const [view, setView] = useState("landing");
   const [homeResetKey, setHomeResetKey] = useState(0);
@@ -53,11 +54,17 @@ export default function App() {
     if (data) setSavedSearches(data);
   };
 
+  const loadFavorites = async (userId) => {
+    const { data } = await supabase.from("favorites").select("*").eq("user_id", userId).order("created_at", { ascending: false });
+    if (data) setFavorites(data);
+  };
+
   const loadDbUser = async (authUser) => {
-    if (!authUser) { setDbUser(null); setSavedSearches([]); return; }
+    if (!authUser) { setDbUser(null); setSavedSearches([]); setFavorites([]); return; }
     const { data } = await supabase.from("users").select("*").eq("id", authUser.id).single();
     setDbUser(data);
     loadSavedSearches(authUser.id);
+    loadFavorites(authUser.id);
   };
 
   // ── Detect a Supabase email-confirmation redirect (link clicked in the confirmation email)
@@ -229,6 +236,17 @@ export default function App() {
     await loadSavedSearches(currentUser.id);
   };
 
+  const toggleFavorite = async (listingId) => {
+    if (!currentUser) { setView("auth"); return; }
+    const existing = favorites.find(f => f.listing_id === listingId);
+    if (existing) {
+      await supabase.from("favorites").delete().eq("id", existing.id);
+    } else {
+      await supabase.from("favorites").insert({ id: "fav" + Date.now(), user_id: currentUser.id, listing_id: listingId });
+    }
+    await loadFavorites(currentUser.id);
+  };
+
   // ── Jump into (or start) a message thread with a listing's seller
   const messageSeller = (listing) => {
     if (listing.seller_id === currentUser.id) return;
@@ -306,6 +324,7 @@ export default function App() {
             {currentUser && <NavBtn active={view === "postListing"} onClick={() => setView("postListing")}>+ Post Car</NavBtn>}
             {currentUser && <NavBtn active={view === "messages"} onClick={() => setView("messages")}>Messages</NavBtn>}
             {currentUser && <NavBtn active={view === "savedSearches"} onClick={() => setView("savedSearches")}>Saved Searches</NavBtn>}
+            {currentUser && <NavBtn active={view === "favorites"} onClick={() => setView("favorites")}>❤️ Saved Cars</NavBtn>}
             {currentUser && <NavBtn active={view === "dashboard"} onClick={() => setView("dashboard")}>Earnings</NavBtn>}
             {dbUser?.role === "admin" && <NavBtn active={view === "admin"} onClick={() => setView("admin")}>Admin</NavBtn>}
           </div>
@@ -330,11 +349,12 @@ export default function App() {
       {toast && <div style={{ ...styles.toast, background: toast.type === "info" ? "#1d4ed8" : toast.type === "error" ? "#dc2626" : "#16a34a" }} className="app-toast">{toast.msg}</div>}
 
       <main style={styles.main} className="app-main">
-        {view === "home" && <HomeView key={homeResetKey} listings={activeListings} allListings={listings} currentUser={dbUser} users={users} onShare={generateShare} onBuy={handleBuyNow} referrals={referrals} onSignIn={() => setView("auth")} onMessageSeller={messageSeller} onReport={fileReport} onSaveSearch={saveSearch} />}
+        {view === "home" && <HomeView key={homeResetKey} listings={activeListings} allListings={listings} currentUser={dbUser} users={users} onShare={generateShare} onBuy={handleBuyNow} referrals={referrals} onSignIn={() => setView("auth")} onMessageSeller={messageSeller} onReport={fileReport} onSaveSearch={saveSearch} favorites={favorites} onToggleFavorite={toggleFavorite} />}
         {view === "myListings" && <MyListingsView listings={listings.filter(l => l.seller_id === currentUser?.id)} referrals={referrals} users={users} onMarkSold={markSold} onSetStatus={setListingStatus} onUpdate={updateListing} />}
         {view === "postListing" && <PostListingView onPost={postListing} />}
         {view === "messages" && currentUser && <Messages currentUser={{ ...dbUser, id: currentUser.id }} listings={listings} users={users} openThread={openThread} onOpened={() => setOpenThread(null)} />}
         {view === "savedSearches" && <SavedSearchesView savedSearches={savedSearches} onDelete={deleteSavedSearch} onBrowse={() => setView("home")} />}
+        {view === "favorites" && <FavoritesView favorites={favorites} listings={listings} users={users} referrals={referrals} currentUser={dbUser} onShare={generateShare} onBuy={handleBuyNow} onMessageSeller={messageSeller} onReport={fileReport} onToggleFavorite={toggleFavorite} onBrowse={() => setView("home")} />}
         {view === "dashboard" && <PromoterDashboard currentUser={dbUser} referrals={referrals.filter(r => r.promoter_id === currentUser?.id)} listings={listings} />}
         {view === "admin" && <AdminView listings={listings} users={users} referrals={referrals} reports={reports} feedback={feedback} onArchive={archiveListing} onMarkSold={markSold} onResolveReport={resolveReport} onToggleVerified={toggleVerified} onResetData={resetTestData} />}
         {view === "success" && <SuccessView onHome={() => setView("home")} />}
@@ -384,7 +404,7 @@ function SuccessView({ onHome }) {
   );
 }
 
-function HomeView({ listings, allListings, currentUser, users, onShare, onBuy, referrals, onSignIn, onMessageSeller, onReport, onSaveSearch }) {
+function HomeView({ listings, allListings, currentUser, users, onShare, onBuy, referrals, onSignIn, onMessageSeller, onReport, onSaveSearch, favorites, onToggleFavorite }) {
   const [search, setSearch] = useState("");
   const [make, setMake] = useState("all");
   const [maxPrice, setMaxPrice] = useState(200000);
@@ -492,6 +512,8 @@ function HomeView({ listings, allListings, currentUser, users, onShare, onBuy, r
                 onSignIn={onSignIn}
                 onMessageSeller={onMessageSeller}
                 onReport={onReport}
+                isFavorited={favorites?.some(f => f.listing_id === l.id)}
+                onToggleFavorite={onToggleFavorite}
               />
             );
           })}
@@ -501,7 +523,7 @@ function HomeView({ listings, allListings, currentUser, users, onShare, onBuy, r
   );
 }
 
-function CarCard({ listing, seller, avgPrice, currentUser, onShare, onBuy, myRef, onSignIn, onMessageSeller, onReport }) {
+function CarCard({ listing, seller, avgPrice, currentUser, onShare, onBuy, myRef, onSignIn, onMessageSeller, onReport, isFavorited, onToggleFavorite }) {
   const [copied, setCopied] = useState(false);
   const [reporting, setReporting] = useState(false);
   const handleShare = () => { onShare(listing.id); setCopied(true); setTimeout(() => setCopied(false), 2000); };
@@ -524,6 +546,16 @@ function CarCard({ listing, seller, avgPrice, currentUser, onShare, onBuy, myRef
         <img src={cover} alt={`${listing.make} ${listing.model}`} style={styles.cardImg} onError={e => { e.target.src = "https://images.unsplash.com/photo-1494976388531-d1058494cdd8?w=600&q=80"; }} />
         <div style={styles.cardPrice}>{fmt(listing.price)}</div>
         {listing.status === "pending" && <div style={styles.pendingRibbon}>Sale Pending</div>}
+        {onToggleFavorite && (
+          <button
+            type="button"
+            style={styles.favoriteBtn}
+            onClick={() => onToggleFavorite(listing.id)}
+            title={isFavorited ? "Remove from saved cars" : "Save this car"}
+          >
+            {isFavorited ? "❤️" : "🤍"}
+          </button>
+        )}
       </div>
       <div style={styles.cardBody}>
         <div style={styles.cardTitleRow}>
@@ -627,6 +659,49 @@ function SavedSearchesView({ savedSearches, onDelete, onBrowse }) {
     </div>
   );
 }
+
+function FavoritesView({ favorites, listings, users, referrals, currentUser, onShare, onBuy, onMessageSeller, onReport, onToggleFavorite, onBrowse }) {
+  const favoritedListings = favorites
+    .map(f => listings.find(l => l.id === f.listing_id))
+    .filter(Boolean);
+
+  return (
+    <div style={styles.pageWrap}>
+      <h2 style={styles.pageTitle}>❤️ Saved Cars</h2>
+      {favoritedListings.length === 0 ? (
+        <>
+          <p style={{ color: "#6b7280" }}>No saved cars yet. Tap the heart on any listing to add it here.</p>
+          <button style={{ ...styles.confirmBtn, marginTop: 16 }} onClick={onBrowse}>Back to Browse</button>
+        </>
+      ) : (
+        <div style={styles.grid} className="app-grid">
+          {favoritedListings.map(l => {
+            const myRef = currentUser ? referrals.find(r => r.listing_id === l.id && r.promoter_id === currentUser.id) : null;
+            const seller = users.find(u => u.id === l.seller_id);
+            return (
+              <CarCard
+                key={l.id}
+                listing={l}
+                seller={seller}
+                avgPrice={null}
+                currentUser={currentUser}
+                onShare={onShare}
+                onBuy={onBuy}
+                myRef={myRef}
+                onSignIn={() => {}}
+                onMessageSeller={onMessageSeller}
+                onReport={onReport}
+                isFavorited={true}
+                onToggleFavorite={onToggleFavorite}
+              />
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 
 function MyListingsView({ listings, referrals, users, onMarkSold, onSetStatus, onUpdate }) {
   const [editing, setEditing] = useState(null);
@@ -1055,6 +1130,7 @@ const styles = {
   cardImgWrap: { position: "relative", height: 200, overflow: "hidden" },
   cardImg: { width: "100%", height: "100%", objectFit: "cover" },
   cardPrice: { position: "absolute", bottom: 12, right: 12, background: "#0f172a", color: "#fff", fontWeight: 800, fontSize: 16, padding: "6px 14px", borderRadius: 10 },
+  favoriteBtn: { position: "absolute", top: 12, right: 12, background: "rgba(255,255,255,.9)", border: "none", width: 34, height: 34, borderRadius: "50%", cursor: "pointer", fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 1px 4px rgba(0,0,0,.15)" },
   pendingRibbon: { position: "absolute", top: 12, left: 12, background: "#f59e0b", color: "#fff", fontWeight: 700, fontSize: 11, padding: "4px 10px", borderRadius: 8, textTransform: "uppercase", letterSpacing: ".03em" },
   cardBody: { padding: "18px 20px 20px" },
   cardTitleRow: { display: "flex", alignItems: "center", gap: 8, marginBottom: 8 },
