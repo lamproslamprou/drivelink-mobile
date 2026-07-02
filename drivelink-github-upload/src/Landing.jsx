@@ -2,8 +2,9 @@ import { useState } from "react";
 import { supabase } from "./supabase.js";
 import logoIcon from "./assets/logo-icon.png";
 
-export default function Landing({ onSignIn, onBrowse, onNavigate }) {
+export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn }) {
   const [email, setEmail] = useState("");
+  const handleCta = signedIn ? onBrowse : onSignIn;
 
   return (
     <div style={styles.page}>
@@ -18,7 +19,7 @@ export default function Landing({ onSignIn, onBrowse, onNavigate }) {
           </div>
           <div style={styles.navRight} className="dl-nav-right">
             <button style={styles.browseBtn} onClick={onBrowse}>Browse Cars</button>
-            <button style={styles.signInBtn} onClick={onSignIn}>Sign In</button>
+            <button style={styles.signInBtn} onClick={signedIn ? onBrowse : onSignIn}>{signedIn ? "Go to App →" : "Sign In"}</button>
           </div>
         </div>
       </nav>
@@ -38,7 +39,7 @@ export default function Landing({ onSignIn, onBrowse, onNavigate }) {
           </p>
           <div style={styles.heroActions} className="dl-hero-actions">
             <button style={styles.ctaPrimary} onClick={onBrowse}>Browse Cars →</button>
-            <button style={styles.ctaSecondary} onClick={onSignIn}>List My Car</button>
+            <button style={styles.ctaSecondary} onClick={handleCta}>List My Car</button>
           </div>
           <div style={styles.heroStats} className="dl-hero-stats">
             <div style={styles.heroStat}>
@@ -78,7 +79,7 @@ export default function Landing({ onSignIn, onBrowse, onNavigate }) {
                 <li>✅ Real buyers, no tire kickers</li>
                 <li>✅ Only 1% fee on sale</li>
               </ul>
-              <button style={styles.roleBtn} onClick={onSignIn}>List My Car →</button>
+              <button style={styles.roleBtn} onClick={handleCta}>List My Car →</button>
             </div>
 
             <div style={{ ...styles.roleCard, ...styles.roleCardFeatured }}>
@@ -92,7 +93,7 @@ export default function Landing({ onSignIn, onBrowse, onNavigate }) {
                 <li>✅ No experience needed</li>
                 <li>✅ Paid automatically</li>
               </ul>
-              <button style={{ ...styles.roleBtn, background: "#3b82f6" }} onClick={onSignIn}>Start Earning →</button>
+              <button style={{ ...styles.roleBtn, background: "#3b82f6" }} onClick={handleCta}>Start Earning →</button>
             </div>
 
             <div style={styles.roleCard}>
@@ -148,7 +149,7 @@ export default function Landing({ onSignIn, onBrowse, onNavigate }) {
           <p style={styles.ctaSub}>Join DriveLink today — it's free to sign up.</p>
           <div style={styles.heroActions} className="dl-hero-actions">
             <button style={styles.ctaPrimary} onClick={onBrowse}>Browse Cars →</button>
-            <button style={{ ...styles.ctaSecondary, borderColor: "rgba(255,255,255,.3)", color: "#fff" }} onClick={onSignIn}>Create Account</button>
+            <button style={{ ...styles.ctaSecondary, borderColor: "rgba(255,255,255,.3)", color: "#fff" }} onClick={handleCta}>Create Account</button>
           </div>
         </div>
       </section>

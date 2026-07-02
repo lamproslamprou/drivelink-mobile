@@ -496,11 +496,12 @@ export default function App() {
     <SafetyTipsView onBack={() => setView(currentUser ? "home" : "landing")} />
   );
 
-  if (!currentUser && view === "landing") return (
+  if (view === "landing") return (
     <Landing
       onSignIn={() => setView("auth")}
       onBrowse={() => setView("home")}
       onNavigate={setView}
+      signedIn={!!currentUser}
     />
   );
 
@@ -572,6 +573,8 @@ export default function App() {
         {view === "success" && <SuccessView onHome={() => setView("home")} />}
       </main>
       <footer style={styles.appFooter}>
+        <button style={styles.appFooterLink} onClick={() => setView("landing")}>About DriveLink</button>
+        <span style={{ color: "#d1d5db" }}>·</span>
         <button style={styles.appFooterLink} onClick={() => setView("safety")}>🛡️ Safety Tips</button>
         <span style={{ color: "#d1d5db" }}>·</span>
         <button style={styles.appFooterLink} onClick={() => setView("terms")}>Terms of Service</button>
