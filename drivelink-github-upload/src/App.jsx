@@ -580,6 +580,8 @@ export default function App() {
         <button style={styles.appFooterLink} onClick={() => setView("terms")}>Terms of Service</button>
         <span style={{ color: "#d1d5db" }}>·</span>
         <button style={styles.appFooterLink} onClick={() => setView("privacy")}>Privacy Policy</button>
+        <span style={{ color: "#d1d5db" }}>·</span>
+        <a href="mailto:support@drivelink.deals" style={styles.appFooterLink}>support@drivelink.deals</a>
       </footer>
     </div>
   );
@@ -635,7 +637,7 @@ function LegalPageView({ type, onBack }) {
             <p>We may update these terms from time to time. Continued use of DriveLink after a change means you accept the updated terms.</p>
 
             <h2>12. Contact</h2>
-            <p>Questions about these terms can be sent through the feedback form on our homepage.</p>
+            <p>Questions about these terms can be sent through the feedback form on our homepage, or emailed to <a href="mailto:support@drivelink.deals" style={styles.vinLink}>support@drivelink.deals</a>.</p>
           </div>
         ) : (
           <div style={styles.legalBody} className="legalBody">
@@ -661,7 +663,7 @@ function LegalPageView({ type, onBack }) {
             <p>We keep account and transaction data for as long as your account is active, and for a reasonable period after in case it's needed for dispute resolution, fraud prevention, or legal compliance.</p>
 
             <h2>8. Your Choices</h2>
-            <p>You can edit or delete your listings at any time. To delete your account or request a copy of your data, contact us through the feedback form on our homepage.</p>
+            <p>You can edit or delete your listings at any time. To delete your account or request a copy of your data, contact us through the feedback form on our homepage, or email <a href="mailto:support@drivelink.deals" style={styles.vinLink}>support@drivelink.deals</a>.</p>
 
             <h2>9. Cookies &amp; Analytics</h2>
             <p>DriveLink uses standard session storage to keep you signed in. We don't currently use third-party advertising trackers.</p>
@@ -670,7 +672,7 @@ function LegalPageView({ type, onBack }) {
             <p>If we materially change how we handle your data, we'll update this page and adjust the "last updated" date above.</p>
 
             <h2>11. Contact</h2>
-            <p>Questions about this policy can be sent through the feedback form on our homepage.</p>
+            <p>Questions about this policy can be sent through the feedback form on our homepage, or emailed to <a href="mailto:support@drivelink.deals" style={styles.vinLink}>support@drivelink.deals</a>.</p>
           </div>
         )}
       </div>

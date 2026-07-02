@@ -172,6 +172,8 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn }) {
             <button style={styles.footerLinkBtn} onClick={() => onNavigate?.("terms")}>Terms of Service</button>
             <span style={{ color: "#d1d5db" }}>·</span>
             <button style={styles.footerLinkBtn} onClick={() => onNavigate?.("privacy")}>Privacy Policy</button>
+            <span style={{ color: "#d1d5db" }}>·</span>
+            <a href="mailto:support@drivelink.deals" style={styles.footerLinkBtn}>support@drivelink.deals</a>
           </div>
         </div>
       </footer>
