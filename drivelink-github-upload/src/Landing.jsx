@@ -27,7 +27,7 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn }) {
       {/* HERO */}
       <section style={styles.hero} className="dl-hero">
         <div style={styles.heroInner}>
-          <div style={styles.heroBadge}>🇺🇸 Nationwide • Peer-to-peer • Commission-backed</div>
+          <div style={styles.heroBadge}>Nationwide • Peer-to-peer • Commission-backed</div>
           <div style={styles.heroTagline}>The link that drives you to cash. 💸</div>
           <h1 style={styles.heroTitle} className="dl-hero-title">
             Buy & sell cars directly.<br />
