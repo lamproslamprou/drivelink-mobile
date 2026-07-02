@@ -12,7 +12,7 @@ export default function Landing({ onSignIn, onBrowse }) {
       {/* NAV */}
       <nav style={styles.nav}>
         <div style={styles.navInner} className="dl-nav-inner">
-          <div style={styles.logo}>
+          <div style={styles.logo} onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}>
             <img src={logoIcon} alt="DriveLink" style={styles.logoImg} />
             <span style={styles.logoText}>DriveLink</span>
           </div>
@@ -159,7 +159,7 @@ export default function Landing({ onSignIn, onBrowse }) {
       {/* FOOTER */}
       <footer style={styles.footer}>
         <div style={styles.footerInner}>
-          <div style={styles.footerLogo}>
+          <div style={{ ...styles.footerLogo, cursor: "pointer" }} onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}>
             <img src={logoIcon} alt="DriveLink" style={{ height: 26, width: "auto" }} />
             <span style={{ fontWeight: 800, color: "#0f172a" }}>DriveLink</span>
           </div>
@@ -231,7 +231,7 @@ const styles = {
   page: { fontFamily: "'Inter', system-ui, sans-serif", background: "#fff", minHeight: "100vh", color: "#111827" },
   nav: { background: "#fff", borderBottom: "1px solid #e5e7eb", position: "sticky", top: 0, zIndex: 100 },
   navInner: { maxWidth: 1200, margin: "0 auto", padding: "0 24px", height: 64, display: "flex", alignItems: "center", justifyContent: "space-between" },
-  logo: { display: "flex", alignItems: "center", gap: 8 },
+  logo: { display: "flex", alignItems: "center", gap: 8, cursor: "pointer" },
   logoImg: { height: 34, width: "auto", display: "block" },
   logoIcon: { fontSize: 22 },
   logoText: { fontWeight: 800, fontSize: 20, color: "#0f172a", letterSpacing: "-0.03em" },
