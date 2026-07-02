@@ -23,6 +23,7 @@ export default function App() {
   const [savedSearches, setSavedSearches] = useState([]);
   const [openThread, setOpenThread] = useState(null);
   const [view, setView] = useState("landing");
+  const [homeResetKey, setHomeResetKey] = useState(0);
   const [toast, setToast] = useState(null);
   const [loading, setLoading] = useState(true);
   const [authChecked, setAuthChecked] = useState(false);
@@ -295,12 +296,12 @@ export default function App() {
       <style>{css}</style>
       <nav style={styles.nav}>
         <div style={styles.navInner} className="app-nav-inner">
-          <div style={styles.logo} className="app-logo" onClick={() => setView("home")}>
+          <div style={styles.logo} className="app-logo" onClick={() => { setView("home"); setHomeResetKey(k => k + 1); }}>
             <img src={logoIcon} alt="DriveLink" style={styles.logoImg} />
             <span style={styles.logoText}>DriveLink</span>
           </div>
           <div style={styles.navLinks} className="app-nav-links">
-            <NavBtn active={view === "home"} onClick={() => setView("home")}>Browse</NavBtn>
+            <NavBtn active={view === "home"} onClick={() => { setView("home"); setHomeResetKey(k => k + 1); }}>Browse</NavBtn>
             {currentUser && <NavBtn active={view === "myListings"} onClick={() => setView("myListings")}>My Listings</NavBtn>}
             {currentUser && <NavBtn active={view === "postListing"} onClick={() => setView("postListing")}>+ Post Car</NavBtn>}
             {currentUser && <NavBtn active={view === "messages"} onClick={() => setView("messages")}>Messages</NavBtn>}
@@ -329,7 +330,7 @@ export default function App() {
       {toast && <div style={{ ...styles.toast, background: toast.type === "info" ? "#1d4ed8" : toast.type === "error" ? "#dc2626" : "#16a34a" }} className="app-toast">{toast.msg}</div>}
 
       <main style={styles.main} className="app-main">
-        {view === "home" && <HomeView listings={activeListings} allListings={listings} currentUser={dbUser} users={users} onShare={generateShare} onBuy={handleBuyNow} referrals={referrals} onSignIn={() => setView("auth")} onMessageSeller={messageSeller} onReport={fileReport} onSaveSearch={saveSearch} />}
+        {view === "home" && <HomeView key={homeResetKey} listings={activeListings} allListings={listings} currentUser={dbUser} users={users} onShare={generateShare} onBuy={handleBuyNow} referrals={referrals} onSignIn={() => setView("auth")} onMessageSeller={messageSeller} onReport={fileReport} onSaveSearch={saveSearch} />}
         {view === "myListings" && <MyListingsView listings={listings.filter(l => l.seller_id === currentUser?.id)} referrals={referrals} users={users} onMarkSold={markSold} onSetStatus={setListingStatus} onUpdate={updateListing} />}
         {view === "postListing" && <PostListingView onPost={postListing} />}
         {view === "messages" && currentUser && <Messages currentUser={{ ...dbUser, id: currentUser.id }} listings={listings} users={users} openThread={openThread} onOpened={() => setOpenThread(null)} />}
