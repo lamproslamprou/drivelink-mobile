@@ -24,6 +24,7 @@ export default function App() {
   const [favorites, setFavorites] = useState([]);
   const [blocks, setBlocks] = useState([]);
   const [userReports, setUserReports] = useState([]);
+  const [reviews, setReviews] = useState([]);
   const [openThread, setOpenThread] = useState(null);
   const [view, setView] = useState("landing");
   const [homeResetKey, setHomeResetKey] = useState(0);
@@ -44,12 +45,14 @@ export default function App() {
     const { data: reportsData } = await supabase.from("reports").select("*").order("created_at", { ascending: false });
     const { data: feedbackData } = await supabase.from("feedback").select("*").order("created_at", { ascending: false });
     const { data: userReportsData } = await supabase.from("user_reports").select("*").order("created_at", { ascending: false });
+    const { data: reviewsData } = await supabase.from("reviews").select("*").order("created_at", { ascending: false });
     if (listingsData) setListings(listingsData);
     if (referralsData) setReferrals(referralsData);
     if (usersData) setUsers(usersData);
     if (reportsData) setReports(reportsData);
     if (feedbackData) setFeedback(feedbackData);
     if (userReportsData) setUserReports(userReportsData);
+    if (reviewsData) setReviews(reviewsData);
     setLoading(false);
   };
 
@@ -151,16 +154,21 @@ export default function App() {
   };
 
   // ── Mark sold (admin manual override)
-  const markSold = async (listingId, salePrice) => {
+  const markSold = async (listingId, salePrice, buyerEmail) => {
     const platformFee = Math.round(salePrice * PLATFORM_FEE);
     const promoterCommission = Math.round(salePrice * PROMOTER_FEE);
     const sellerNet = salePrice - platformFee - promoterCommission;
+    const buyer = buyerEmail ? users.find(u => u.email.toLowerCase() === buyerEmail.trim().toLowerCase()) : null;
+    if (buyerEmail && !buyer) {
+      showToast("No account found with that buyer email — sale recorded without linking a buyer.", "info");
+    }
     await supabase.from("listings").update({ 
       status: "sold", 
       sale_price: salePrice, 
       sold_at: new Date().toISOString().slice(0, 10),
       platform_fee: platformFee,
-      seller_net: sellerNet
+      seller_net: sellerNet,
+      buyer_id: buyer?.id || null,
     }).eq("id", listingId);
     const ref = referrals.find(r => r.listing_id === listingId && r.status === "pending");
     if (ref) {
@@ -284,6 +292,14 @@ export default function App() {
     showToast("Report updated.");
   };
 
+  const submitReview = async (listingId, sellerId, rating, comment) => {
+    const row = { id: "rev" + Date.now(), listing_id: listingId, seller_id: sellerId, buyer_id: currentUser.id, rating, comment };
+    const { error } = await supabase.from("reviews").insert(row);
+    if (error) { showToast("Couldn't submit review — you may have already reviewed this purchase.", "error"); return; }
+    await loadData();
+    showToast("Thanks for the review!");
+  };
+
   // ── Jump into (or start) a message thread with a listing's seller
   const messageSeller = (listing) => {
     if (listing.seller_id === currentUser.id) return;
@@ -359,6 +375,7 @@ export default function App() {
           <div style={styles.navLinks} className="app-nav-links">
             <NavBtn active={view === "home"} onClick={() => { setView("home"); setHomeResetKey(k => k + 1); }}>Browse</NavBtn>
             {currentUser && <NavBtn active={view === "myListings"} onClick={() => setView("myListings")}>My Listings</NavBtn>}
+            {currentUser && <NavBtn active={view === "myPurchases"} onClick={() => setView("myPurchases")}>My Purchases</NavBtn>}
             {currentUser && <NavBtn active={view === "postListing"} onClick={() => setView("postListing")}>+ Post Car</NavBtn>}
             {currentUser && <NavBtn active={view === "messages"} onClick={() => setView("messages")}>Messages</NavBtn>}
             {currentUser && <NavBtn active={view === "savedSearches"} onClick={() => setView("savedSearches")}>Saved Searches</NavBtn>}
@@ -388,15 +405,16 @@ export default function App() {
       {toast && <div style={{ ...styles.toast, background: toast.type === "info" ? "#1d4ed8" : toast.type === "error" ? "#dc2626" : "#16a34a" }} className="app-toast">{toast.msg}</div>}
 
       <main style={styles.main} className="app-main">
-        {view === "home" && <HomeView key={homeResetKey} listings={activeListings} allListings={listings} currentUser={dbUser} users={users} onShare={generateShare} onBuy={handleBuyNow} referrals={referrals} onSignIn={() => setView("auth")} onMessageSeller={messageSeller} onReport={fileReport} onSaveSearch={saveSearch} favorites={favorites} onToggleFavorite={toggleFavorite} onToggleBlock={toggleBlock} onReportUser={reportUserAction} blocks={blocks} />}
+        {view === "home" && <HomeView key={homeResetKey} listings={activeListings} allListings={listings} currentUser={dbUser} users={users} onShare={generateShare} onBuy={handleBuyNow} referrals={referrals} onSignIn={() => setView("auth")} onMessageSeller={messageSeller} onReport={fileReport} onSaveSearch={saveSearch} favorites={favorites} onToggleFavorite={toggleFavorite} onToggleBlock={toggleBlock} onReportUser={reportUserAction} blocks={blocks} reviews={reviews} />}
         {view === "myListings" && <MyListingsView listings={listings.filter(l => l.seller_id === currentUser?.id)} referrals={referrals} users={users} onMarkSold={markSold} onSetStatus={setListingStatus} onUpdate={updateListing} />}
+        {view === "myPurchases" && <MyPurchasesView listings={listings.filter(l => l.buyer_id === currentUser?.id)} users={users} reviews={reviews} currentUser={currentUser} onSubmitReview={submitReview} onBrowse={() => setView("home")} />}
         {view === "postListing" && <PostListingView onPost={postListing} />}
         {view === "messages" && currentUser && <Messages currentUser={{ ...dbUser, id: currentUser.id }} listings={listings} users={users} openThread={openThread} onOpened={() => setOpenThread(null)} />}
         {view === "savedSearches" && <SavedSearchesView savedSearches={savedSearches} onDelete={deleteSavedSearch} onBrowse={() => setView("home")} />}
         {view === "favorites" && <FavoritesView favorites={favorites} listings={listings} users={users} referrals={referrals} currentUser={dbUser} onShare={generateShare} onBuy={handleBuyNow} onMessageSeller={messageSeller} onReport={fileReport} onToggleFavorite={toggleFavorite} onBrowse={() => setView("home")} />}
         {view === "blocked" && <BlockedUsersView blocks={blocks} users={users} onToggleBlock={toggleBlock} onBrowse={() => setView("home")} />}
         {view === "dashboard" && <PromoterDashboard currentUser={dbUser} referrals={referrals.filter(r => r.promoter_id === currentUser?.id)} listings={listings} />}
-        {view === "admin" && <AdminView listings={listings} users={users} referrals={referrals} reports={reports} feedback={feedback} userReports={userReports} onArchive={archiveListing} onMarkSold={markSold} onResolveReport={resolveReport} onResolveUserReport={resolveUserReport} onToggleVerified={toggleVerified} onResetData={resetTestData} />}
+        {view === "admin" && <AdminView listings={listings} users={users} referrals={referrals} reports={reports} feedback={feedback} userReports={userReports} reviews={reviews} onArchive={archiveListing} onMarkSold={markSold} onResolveReport={resolveReport} onResolveUserReport={resolveUserReport} onToggleVerified={toggleVerified} onResetData={resetTestData} />}
         {view === "success" && <SuccessView onHome={() => setView("home")} />}
       </main>
     </div>
@@ -444,7 +462,7 @@ function SuccessView({ onHome }) {
   );
 }
 
-function HomeView({ listings, allListings, currentUser, users, onShare, onBuy, referrals, onSignIn, onMessageSeller, onReport, onSaveSearch, favorites, onToggleFavorite, onToggleBlock, onReportUser, blocks }) {
+function HomeView({ listings, allListings, currentUser, users, onShare, onBuy, referrals, onSignIn, onMessageSeller, onReport, onSaveSearch, favorites, onToggleFavorite, onToggleBlock, onReportUser, blocks, reviews }) {
   const [search, setSearch] = useState("");
   const [make, setMake] = useState("all");
   const [maxPrice, setMaxPrice] = useState(200000);
@@ -539,6 +557,8 @@ function HomeView({ listings, allListings, currentUser, users, onShare, onBuy, r
             const seller = users.find(u => u.id === l.seller_id);
             const comparablePrices = avgByModel[`${l.make}|${l.model}`] || [];
             const avgPrice = comparablePrices.length > 1 ? comparablePrices.reduce((s, p) => s + p, 0) / comparablePrices.length : null;
+            const sellerReviews = reviews?.filter(r => r.seller_id === l.seller_id) || [];
+            const sellerRating = sellerReviews.length ? sellerReviews.reduce((s, r) => s + r.rating, 0) / sellerReviews.length : null;
             return (
               <CarCard
                 key={l.id}
@@ -557,6 +577,8 @@ function HomeView({ listings, allListings, currentUser, users, onShare, onBuy, r
                 isBlocked={blocks?.some(b => b.blocked_id === l.seller_id)}
                 onToggleBlock={onToggleBlock}
                 onReportUser={onReportUser}
+                sellerRating={sellerRating}
+                sellerReviewCount={sellerReviews.length}
               />
             );
           })}
@@ -566,7 +588,7 @@ function HomeView({ listings, allListings, currentUser, users, onShare, onBuy, r
   );
 }
 
-function CarCard({ listing, seller, avgPrice, currentUser, onShare, onBuy, myRef, onSignIn, onMessageSeller, onReport, isFavorited, onToggleFavorite, isBlocked, onToggleBlock, onReportUser }) {
+function CarCard({ listing, seller, avgPrice, currentUser, onShare, onBuy, myRef, onSignIn, onMessageSeller, onReport, isFavorited, onToggleFavorite, isBlocked, onToggleBlock, onReportUser, sellerRating, sellerReviewCount }) {
   const [copied, setCopied] = useState(false);
   const [reporting, setReporting] = useState(false);
   const [reportingUser, setReportingUser] = useState(false);
@@ -605,6 +627,7 @@ function CarCard({ listing, seller, avgPrice, currentUser, onShare, onBuy, myRef
         <div style={styles.cardTitleRow}>
           <div style={styles.cardTitle}>{listing.year} {listing.make} {listing.model}</div>
           {seller?.verified && <span style={styles.verifiedBadge} title="Verified seller">✓ Verified</span>}
+          {sellerRating != null && <span style={styles.ratingBadge} title={`${sellerReviewCount} review${sellerReviewCount === 1 ? "" : "s"}`}>⭐ {sellerRating.toFixed(1)} ({sellerReviewCount})</span>}
         </div>
         <div style={styles.cardMeta}>
           <span>🛣 {listing.mileage?.toLocaleString()} mi</span>
@@ -813,6 +836,7 @@ function BlockedUsersView({ blocks, users, onToggleBlock, onBrowse }) {
 
 function MyListingsView({ listings, referrals, users, onMarkSold, onSetStatus, onUpdate }) {
   const [editing, setEditing] = useState(null);
+  const [markingSold, setMarkingSold] = useState(null);
   return (
     <div style={styles.pageWrap}>
       <h2 style={styles.pageTitle}>My Listings</h2>
@@ -838,19 +862,26 @@ function MyListingsView({ listings, referrals, users, onMarkSold, onSetStatus, o
               {l.status === "active" && (
                 <>
                   <button style={styles.pendingBtn} onClick={() => onSetStatus(l.id, "pending")}>Mark Pending</button>
-                  <button style={styles.soldBtn} onClick={() => onMarkSold(l.id, l.price)}>Mark Sold</button>
+                  <button style={styles.soldBtn} onClick={() => setMarkingSold(l)}>Mark Sold</button>
                 </>
               )}
               {l.status === "pending" && (
                 <>
                   <button style={styles.pendingBtn} onClick={() => onSetStatus(l.id, "active")}>Reactivate</button>
-                  <button style={styles.soldBtn} onClick={() => onMarkSold(l.id, l.price)}>Mark Sold</button>
+                  <button style={styles.soldBtn} onClick={() => setMarkingSold(l)}>Mark Sold</button>
                 </>
               )}
             </div>
           );
         })}
       </div>
+      {markingSold && (
+        <MarkSoldModal
+          listing={markingSold}
+          onCancel={() => setMarkingSold(null)}
+          onConfirm={(price, buyerEmail) => { onMarkSold(markingSold.id, price, buyerEmail); setMarkingSold(null); }}
+        />
+      )}
       {editing && (
         <EditListingModal
           listing={editing}
@@ -858,6 +889,89 @@ function MyListingsView({ listings, referrals, users, onMarkSold, onSetStatus, o
           onSave={async (data) => { await onUpdate(editing.id, data); setEditing(null); }}
         />
       )}
+    </div>
+  );
+}
+
+function MyPurchasesView({ listings, users, reviews, currentUser, onSubmitReview, onBrowse }) {
+  const [reviewing, setReviewing] = useState(null);
+  return (
+    <div style={styles.pageWrap}>
+      <h2 style={styles.pageTitle}>My Purchases</h2>
+      {listings.length === 0 && <p style={{ color: "#6b7280" }}>No purchases linked to your account yet. When a seller marks a sale complete with your email, it'll show up here.</p>}
+      <div style={styles.tableWrap}>
+        {listings.map(l => {
+          const seller = users.find(u => u.id === l.seller_id);
+          const myReview = reviews.find(r => r.listing_id === l.id && r.buyer_id === currentUser.id);
+          const cover = (l.images && l.images[0]) || l.image;
+          return (
+            <div key={l.id} style={styles.listingRow} className="app-listing-row">
+              <img src={cover} alt="" style={styles.rowImg} onError={e => { e.target.src = "https://images.unsplash.com/photo-1494976388531-d1058494cdd8?w=300&q=60"; }} />
+              <div style={styles.rowInfo} className="app-row-info">
+                <div style={styles.rowTitle}>{l.year} {l.make} {l.model}</div>
+                <div style={styles.rowMeta}>{fmt(l.sale_price || l.price)} • Sold by {seller?.name || "seller"} on {l.sold_at}</div>
+                {myReview && <div style={styles.promoterTag}>{"⭐".repeat(myReview.rating)} — you reviewed this purchase</div>}
+              </div>
+              {!myReview && (
+                <button style={styles.soldBtn} onClick={() => setReviewing(l)}>Leave a Review</button>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      {reviewing && (
+        <ReviewModal
+          listing={reviewing}
+          onCancel={() => setReviewing(null)}
+          onSubmit={(rating, comment) => { onSubmitReview(reviewing.id, reviewing.seller_id, rating, comment); setReviewing(null); }}
+        />
+      )}
+      <button style={{ ...styles.confirmBtn, marginTop: 16 }} onClick={onBrowse}>Back to Browse</button>
+    </div>
+  );
+}
+
+function ReviewModal({ listing, onCancel, onSubmit }) {
+  const [rating, setRating] = useState(5);
+  const [comment, setComment] = useState("");
+  return (
+    <div style={styles.overlay} onClick={onCancel}>
+      <div style={styles.modalBox} onClick={e => e.stopPropagation()}>
+        <h3 style={styles.modalTitle}>Review your {listing.year} {listing.make} {listing.model}</h3>
+        <label style={styles.fieldLabel}>Rating</label>
+        <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
+          {[1, 2, 3, 4, 5].map(n => (
+            <button key={n} type="button" onClick={() => setRating(n)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 26, padding: 0, opacity: n <= rating ? 1 : 0.3 }}>⭐</button>
+          ))}
+        </div>
+        <label style={styles.fieldLabel}>Comment (optional)</label>
+        <textarea style={styles.textarea} rows={3} value={comment} onChange={e => setComment(e.target.value)} placeholder="How was your experience with this seller?" />
+        <div style={styles.modalActions}>
+          <button style={styles.cancelBtn} onClick={onCancel}>Cancel</button>
+          <button style={styles.confirmBtn} onClick={() => onSubmit(rating, comment)}>Submit Review</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MarkSoldModal({ listing, onCancel, onConfirm }) {
+  const [price, setPrice] = useState(listing.price);
+  const [buyerEmail, setBuyerEmail] = useState("");
+  return (
+    <div style={styles.overlay} onClick={onCancel}>
+      <div style={styles.modalBox} onClick={e => e.stopPropagation()}>
+        <h3 style={styles.modalTitle}>Mark as Sold</h3>
+        <label style={styles.fieldLabel}>Final sale price ($)</label>
+        <input style={{ ...styles.fieldInput, marginBottom: 12 }} type="number" value={price} onChange={e => setPrice(e.target.value)} />
+        <label style={styles.fieldLabel}>Buyer's email (optional)</label>
+        <input style={styles.fieldInput} type="email" value={buyerEmail} onChange={e => setBuyerEmail(e.target.value)} placeholder="buyer@example.com" />
+        <div style={{ fontSize: 12, color: "#6b7280", marginTop: 6 }}>If the buyer has a DriveLink account, adding their email links the sale so they can leave a review.</div>
+        <div style={styles.modalActions}>
+          <button style={styles.cancelBtn} onClick={onCancel}>Cancel</button>
+          <button style={styles.confirmBtn} onClick={() => onConfirm(+price, buyerEmail)}>Confirm Sale</button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -1003,8 +1117,9 @@ function StatBox({ label, value, color }) {
   return <div style={styles.statBox}><div style={{ ...styles.statValue, color }}>{value}</div><div style={styles.statLabel}>{label}</div></div>;
 }
 
-function AdminView({ listings, users, referrals, reports, feedback, userReports, onArchive, onMarkSold, onResolveReport, onResolveUserReport, onToggleVerified, onResetData }) {
+function AdminView({ listings, users, referrals, reports, feedback, userReports, reviews, onArchive, onMarkSold, onResolveReport, onResolveUserReport, onToggleVerified, onResetData }) {
   const [tab, setTab] = useState("listings");
+  const [markingSold, setMarkingSold] = useState(null);
   const activeAndSold = listings.filter(l => l.status !== "archived");
   const totalRevenue = activeAndSold.filter(l => l.status === "sold").reduce((s, l) => s + (l.sale_price || 0), 0);
   const platformEarnings = activeAndSold.filter(l => l.status === "sold").reduce((s, l) => s + (l.platform_fee || Math.round((l.sale_price || 0) * 0.01)), 0);
@@ -1038,10 +1153,17 @@ function AdminView({ listings, users, referrals, reports, feedback, userReports,
                 <div style={styles.rowMeta}>{fmt(l.price)}</div>
               </div>
               <span style={{ ...styles.statusPill, background: l.status === "active" ? "#dcfce7" : "#fee2e2", color: l.status === "active" ? "#15803d" : "#b91c1c" }}>{l.status}</span>
-              {l.status === "active" && <button style={styles.soldBtn} onClick={() => onMarkSold(l.id, l.price)}>Mark Sold</button>}
+              {l.status === "active" && <button style={styles.soldBtn} onClick={() => setMarkingSold(l)}>Mark Sold</button>}
               <button style={styles.removeBtn} onClick={() => onArchive(l.id)}>Archive</button>
             </div>
           ))}
+          {markingSold && (
+            <MarkSoldModal
+              listing={markingSold}
+              onCancel={() => setMarkingSold(null)}
+              onConfirm={(price, buyerEmail) => { onMarkSold(markingSold.id, price, buyerEmail); setMarkingSold(null); }}
+            />
+          )}
         </div>
       )}
       {tab === "archived" && (
@@ -1063,11 +1185,14 @@ function AdminView({ listings, users, referrals, reports, feedback, userReports,
       )}
       {tab === "users" && (
         <div style={styles.tableWrap}>
-          {users.map(u => (
+          {users.map(u => {
+            const uReviews = (reviews || []).filter(r => r.seller_id === u.id);
+            const uRating = uReviews.length ? uReviews.reduce((s, r) => s + r.rating, 0) / uReviews.length : null;
+            return (
             <div key={u.id} style={styles.listingRow} className="app-listing-row">
               <div style={styles.avatar}>{u.name[0]}</div>
               <div style={styles.rowInfo} className="app-row-info">
-                <div style={styles.rowTitle}>{u.name} {u.verified && <span style={styles.verifiedBadge}>✓ Verified</span>}</div>
+                <div style={styles.rowTitle}>{u.name} {u.verified && <span style={styles.verifiedBadge}>✓ Verified</span>} {uRating != null && <span style={styles.ratingBadge}>⭐ {uRating.toFixed(1)} ({uReviews.length})</span>}</div>
                 <div style={styles.rowMeta}>{u.email} • Balance: {fmt(u.balance || 0)}</div>
               </div>
               <span style={{ ...styles.statusPill, background: "#e0e7ff", color: "#3730a3" }}>{u.role}</span>
@@ -1075,7 +1200,8 @@ function AdminView({ listings, users, referrals, reports, feedback, userReports,
                 {u.verified ? "Unverify" : "Verify Seller"}
               </button>
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
       {tab === "referrals" && (
@@ -1270,6 +1396,7 @@ const styles = {
   cardTitleRow: { display: "flex", alignItems: "center", gap: 8, marginBottom: 8 },
   cardTitle: { fontSize: 18, fontWeight: 700, color: "#0f172a" },
   verifiedBadge: { fontSize: 11, fontWeight: 700, color: "#1d4ed8", background: "#eff6ff", padding: "2px 8px", borderRadius: 20 },
+  ratingBadge: { fontSize: 11, fontWeight: 700, color: "#92400e", background: "#fef3c7", padding: "2px 8px", borderRadius: 20 },
   cardMeta: { display: "flex", gap: 16, fontSize: 13, color: "#6b7280", marginBottom: 10, flexWrap: "wrap" },
   priceCompare: { fontSize: 12, fontWeight: 700, padding: "5px 10px", borderRadius: 8, display: "inline-block", marginBottom: 10 },
   cardDesc: { fontSize: 13, color: "#374151", lineHeight: 1.5, marginBottom: 10 },
