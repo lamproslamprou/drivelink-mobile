@@ -54,6 +54,7 @@ export default function App() {
   const [reviews, setReviews] = useState([]);
   const [payouts, setPayouts] = useState([]);
   const [disputes, setDisputes] = useState([]);
+  const [offers, setOffers] = useState([]);
   const [openThread, setOpenThread] = useState(null);
   const [view, setView] = useState("landing");
   const [homeResetKey, setHomeResetKey] = useState(0);
@@ -77,6 +78,7 @@ export default function App() {
     const { data: reviewsData } = await supabase.from("reviews").select("*").order("created_at", { ascending: false });
     const { data: payoutsData } = await supabase.from("payouts").select("*").order("paid_at", { ascending: false });
     const { data: disputesData } = await supabase.from("disputes").select("*").order("created_at", { ascending: false });
+    const { data: offersData } = await supabase.from("offers").select("*").order("created_at", { ascending: false });
     let finalListings = listingsData || [];
     // ── Auto-archive listings whose seller has gone quiet for 60+ days (best-effort,
     // runs opportunistically whenever anyone loads the app — there's no cron here).
@@ -100,6 +102,7 @@ export default function App() {
     if (reviewsData) setReviews(reviewsData);
     if (payoutsData) setPayouts(payoutsData);
     if (disputesData) setDisputes(disputesData);
+    if (offersData) setOffers(offersData);
     setLoading(false);
   };
 
@@ -274,6 +277,38 @@ export default function App() {
       showToast("Dispute dismissed — sale returned to awaiting confirmation.");
     }
     await loadData();
+  };
+
+  // ── Buyer makes an offer on a listing. Note: this doesn't change what Stripe
+  // charges at checkout (that's a fixed payment link) — if a seller accepts an
+  // offer, the two of you close the deal the same way any negotiated in-person
+  // sale works: the seller marks it sold and types in the agreed price there.
+  const makeOffer = async (listingId, sellerId, amount, message) => {
+    const row = { id: "off" + Date.now(), listing_id: listingId, buyer_id: currentUser.id, seller_id: sellerId, amount, message, status: "pending" };
+    const { error } = await supabase.from("offers").insert(row);
+    if (error) { showToast("Couldn't submit offer", "error"); return; }
+    await loadData();
+    showToast("Offer sent to the seller.");
+  };
+
+  // ── Seller accepts, declines, or counters an offer.
+  const respondToOffer = async (offerId, action, counterAmount, counterMessage) => {
+    const patch = { status: action, responded_at: new Date().toISOString() };
+    if (action === "countered") { patch.counter_amount = counterAmount; patch.counter_message = counterMessage; }
+    await supabase.from("offers").update(patch).eq("id", offerId);
+    await loadData();
+    showToast(
+      action === "accepted" ? "Offer accepted — coordinate with the buyer and mark the listing sold at this price when the deal closes."
+      : action === "declined" ? "Offer declined."
+      : "Counter-offer sent."
+    );
+  };
+
+  // ── Buyer accepts a seller's counter-offer, or withdraws their offer entirely.
+  const respondToCounter = async (offerId, accept) => {
+    await supabase.from("offers").update({ status: accept ? "accepted" : "withdrawn", responded_at: new Date().toISOString() }).eq("id", offerId);
+    await loadData();
+    showToast(accept ? "Counter-offer accepted — the seller will follow up to close the sale." : "Offer withdrawn.");
   };
 
   // ── Generate share link
@@ -489,6 +524,7 @@ export default function App() {
             <NavBtn active={view === "home"} onClick={() => { setView("home"); setHomeResetKey(k => k + 1); }}>Browse</NavBtn>
             {currentUser && <NavBtn active={view === "myListings"} onClick={() => setView("myListings")}>My Listings</NavBtn>}
             {currentUser && <NavBtn active={view === "myPurchases"} onClick={() => setView("myPurchases")}>My Purchases</NavBtn>}
+            {currentUser && <NavBtn active={view === "myOffers"} onClick={() => setView("myOffers")}>💰 My Offers</NavBtn>}
             {currentUser && <NavBtn active={view === "postListing"} onClick={() => setView("postListing")}>+ Post Car</NavBtn>}
             {currentUser && <NavBtn active={view === "messages"} onClick={() => setView("messages")}>Messages</NavBtn>}
             {currentUser && <NavBtn active={view === "savedSearches"} onClick={() => setView("savedSearches")}>Saved Searches</NavBtn>}
@@ -518,9 +554,10 @@ export default function App() {
       {toast && <div style={{ ...styles.toast, background: toast.type === "info" ? "#1d4ed8" : toast.type === "error" ? "#dc2626" : "#16a34a" }} className="app-toast">{toast.msg}</div>}
 
       <main style={styles.main} className="app-main">
-        {view === "home" && <HomeView key={homeResetKey} listings={activeListings} allListings={listings} currentUser={dbUser} users={users} onShare={generateShare} onBuy={handleBuyNow} referrals={referrals} onSignIn={() => setView("auth")} onMessageSeller={messageSeller} onReport={fileReport} onSaveSearch={saveSearch} favorites={favorites} onToggleFavorite={toggleFavorite} onToggleBlock={toggleBlock} onReportUser={reportUserAction} blocks={blocks} reviews={reviews} />}
-        {view === "myListings" && <MyListingsView listings={listings.filter(l => l.seller_id === currentUser?.id)} referrals={referrals} users={users} onMarkSold={markSold} onSetStatus={setListingStatus} onUpdate={updateListing} />}
+        {view === "home" && <HomeView key={homeResetKey} listings={activeListings} allListings={listings} currentUser={dbUser} users={users} onShare={generateShare} onBuy={handleBuyNow} referrals={referrals} onSignIn={() => setView("auth")} onMessageSeller={messageSeller} onReport={fileReport} onSaveSearch={saveSearch} favorites={favorites} onToggleFavorite={toggleFavorite} onToggleBlock={toggleBlock} onReportUser={reportUserAction} blocks={blocks} reviews={reviews} offers={offers} onMakeOffer={makeOffer} />}
+        {view === "myListings" && <MyListingsView listings={listings.filter(l => l.seller_id === currentUser?.id)} referrals={referrals} users={users} offers={offers} onMarkSold={markSold} onSetStatus={setListingStatus} onUpdate={updateListing} onRespondToOffer={respondToOffer} />}
         {view === "myPurchases" && <MyPurchasesView listings={listings.filter(l => l.buyer_id === currentUser?.id)} users={users} reviews={reviews} currentUser={currentUser} onSubmitReview={submitReview} onConfirmReceipt={confirmReceipt} onFileDispute={fileDispute} onBrowse={() => setView("home")} />}
+        {view === "myOffers" && <MyOffersView offers={offers.filter(o => o.buyer_id === currentUser?.id)} listings={listings} onRespondToCounter={respondToCounter} onBrowse={() => setView("home")} />}
         {view === "postListing" && <PostListingView onPost={postListing} />}
         {view === "messages" && currentUser && <Messages currentUser={{ ...dbUser, id: currentUser.id }} listings={listings} users={users} openThread={openThread} onOpened={() => setOpenThread(null)} />}
         {view === "savedSearches" && <SavedSearchesView savedSearches={savedSearches} onDelete={deleteSavedSearch} onBrowse={() => setView("home")} />}
@@ -672,7 +709,7 @@ function SuccessView({ onHome }) {
   );
 }
 
-function HomeView({ listings, allListings, currentUser, users, onShare, onBuy, referrals, onSignIn, onMessageSeller, onReport, onSaveSearch, favorites, onToggleFavorite, onToggleBlock, onReportUser, blocks, reviews }) {
+function HomeView({ listings, allListings, currentUser, users, onShare, onBuy, referrals, onSignIn, onMessageSeller, onReport, onSaveSearch, favorites, onToggleFavorite, onToggleBlock, onReportUser, blocks, reviews, offers, onMakeOffer }) {
   const [search, setSearch] = useState("");
   const [make, setMake] = useState("all");
   const [maxPrice, setMaxPrice] = useState(200000);
@@ -777,6 +814,7 @@ function HomeView({ listings, allListings, currentUser, users, onShare, onBuy, r
             const otherComparableCount = Math.max(0, comparablePrices.length - 1); // exclude this listing itself
             const sellerReviews = reviews?.filter(r => r.seller_id === l.seller_id) || [];
             const sellerRating = sellerReviews.length ? sellerReviews.reduce((s, r) => s + r.rating, 0) / sellerReviews.length : null;
+            const myOffer = currentUser ? offers?.find(o => o.listing_id === l.id && o.buyer_id === currentUser.id && o.status !== "withdrawn" && o.status !== "declined") : null;
             return (
               <CarCard
                 key={l.id}
@@ -799,6 +837,8 @@ function HomeView({ listings, allListings, currentUser, users, onShare, onBuy, r
                 onReportUser={onReportUser}
                 sellerRating={sellerRating}
                 sellerReviewCount={sellerReviews.length}
+                myOffer={myOffer}
+                onMakeOffer={onMakeOffer}
               />
             );
           })}
@@ -808,10 +848,11 @@ function HomeView({ listings, allListings, currentUser, users, onShare, onBuy, r
   );
 }
 
-function CarCard({ listing, seller, avgPrice, similarCount, onSeeSimilar, currentUser, onShare, onBuy, myRef, onSignIn, onMessageSeller, onReport, isFavorited, onToggleFavorite, isBlocked, onToggleBlock, onReportUser, sellerRating, sellerReviewCount }) {
+function CarCard({ listing, seller, avgPrice, similarCount, onSeeSimilar, currentUser, onShare, onBuy, myRef, onSignIn, onMessageSeller, onReport, isFavorited, onToggleFavorite, isBlocked, onToggleBlock, onReportUser, sellerRating, sellerReviewCount, myOffer, onMakeOffer }) {
   const [copied, setCopied] = useState(false);
   const [reporting, setReporting] = useState(false);
   const [reportingUser, setReportingUser] = useState(false);
+  const [offering, setOffering] = useState(false);
   const handleShare = () => { onShare(listing.id); setCopied(true); setTimeout(() => setCopied(false), 2000); };
   const cover = (listing.images && listing.images[0]) || listing.image;
   const isOwnListing = currentUser && listing.seller_id === currentUser.id;
@@ -887,6 +928,19 @@ function CarCard({ listing, seller, avgPrice, similarCount, onSeeSimilar, curren
             <button style={styles.buyBtn} onClick={onSignIn}>Sign in to buy or share →</button>
           )}
         </div>
+        {currentUser && !isOwnListing && onMakeOffer && (
+          myOffer ? (
+            <div style={styles.offerStatusRow}>
+              {myOffer.status === "pending" && <span>💰 Your offer of {fmt(myOffer.amount)} is pending</span>}
+              {myOffer.status === "countered" && <span>💰 Seller countered at {fmt(myOffer.counter_amount)}</span>}
+              {myOffer.status === "accepted" && <span>✅ Offer of {fmt(myOffer.amount)} accepted — the seller will follow up</span>}
+              {myOffer.status === "declined" && <span>Offer declined</span>}
+              {myOffer.status === "withdrawn" && <span>Offer withdrawn</span>}
+            </div>
+          ) : (
+            <button style={styles.offerBtn} onClick={() => setOffering(true)}>💰 Make an Offer</button>
+          )
+        )}
         {currentUser && !isOwnListing && (
           <div style={styles.cardSecondaryActions}>
             <button style={styles.messageLink} onClick={() => onMessageSeller(listing)}>💬 Message seller</button>
@@ -902,6 +956,13 @@ function CarCard({ listing, seller, avgPrice, similarCount, onSeeSimilar, curren
           </div>
         )}
       </div>
+      {offering && (
+        <OfferModal
+          listing={listing}
+          onCancel={() => setOffering(false)}
+          onSubmit={(amount, message) => { onMakeOffer(listing.id, listing.seller_id, amount, message); setOffering(false); }}
+        />
+      )}
       {reporting && (
         <ReportModal
           onCancel={() => setReporting(false)}
@@ -1062,7 +1123,7 @@ function BlockedUsersView({ blocks, users, onToggleBlock, onBrowse }) {
   );
 }
 
-function MyListingsView({ listings, referrals, users, onMarkSold, onSetStatus, onUpdate }) {
+function MyListingsView({ listings, referrals, users, offers, onMarkSold, onSetStatus, onUpdate, onRespondToOffer }) {
   const [editing, setEditing] = useState(null);
   const [markingSold, setMarkingSold] = useState(null);
   return (
@@ -1074,38 +1135,45 @@ function MyListingsView({ listings, referrals, users, onMarkSold, onSetStatus, o
           const ref = referrals.find(r => r.listing_id === l.id);
           const promoter = ref ? users.find(u => u.id === ref.promoter_id) : null;
           const cover = (l.images && l.images[0]) || l.image;
+          const listingOffers = (offers || []).filter(o => o.listing_id === l.id && (o.status === "pending" || o.status === "countered"));
           return (
-            <div key={l.id} style={styles.listingRow} className="app-listing-row">
-              <img src={cover} alt="" style={styles.rowImg} onError={e => { e.target.src = "https://images.unsplash.com/photo-1494976388531-d1058494cdd8?w=300&q=60"; }} />
-              <div style={styles.rowInfo} className="app-row-info">
-                <div style={styles.rowTitle}>{l.year} {l.make} {l.model}</div>
-                <div style={styles.rowMeta}>{fmt(l.price)} • {l.mileage?.toLocaleString()} mi</div>
-                {l.status === "sold" && <div style={styles.soldBadge}>SOLD for {fmt(l.sale_price)} on {l.sold_at}</div>}
-                {l.status === "pending_confirmation" && <div style={styles.awaitingBadge}>💳 Payment received for {fmt(l.sale_price)} — awaiting buyer confirmation before payout</div>}
-                {l.status === "disputed" && <div style={{ ...styles.awaitingBadge, background: "#fee2e2", color: "#b91c1c" }}>⚠️ Buyer disputed this sale — our team is reviewing it</div>}
-                {promoter && <div style={styles.promoterTag}>Promoted by {promoter.name} {ref.status === "paid" ? `• Commission ${fmt(ref.commission_amount)} paid` : "• Pending"}</div>}
-                {l.status === "active" && l.last_active_at && (Date.now() - new Date(l.last_active_at).getTime()) > STALE_WARN_DAYS_MS && (
-                  <div style={{ fontSize: 12, color: "#b45309", fontWeight: 600, marginTop: 4 }}>
-                    ⏰ This listing looks inactive to buyers — edit and save it to refresh, or it'll auto-archive after 60 days.
-                  </div>
+            <div key={l.id}>
+              <div style={styles.listingRow} className="app-listing-row">
+                <img src={cover} alt="" style={styles.rowImg} onError={e => { e.target.src = "https://images.unsplash.com/photo-1494976388531-d1058494cdd8?w=300&q=60"; }} />
+                <div style={styles.rowInfo} className="app-row-info">
+                  <div style={styles.rowTitle}>{l.year} {l.make} {l.model}</div>
+                  <div style={styles.rowMeta}>{fmt(l.price)} • {l.mileage?.toLocaleString()} mi</div>
+                  {l.status === "sold" && <div style={styles.soldBadge}>SOLD for {fmt(l.sale_price)} on {l.sold_at}</div>}
+                  {l.status === "pending_confirmation" && <div style={styles.awaitingBadge}>💳 Payment received for {fmt(l.sale_price)} — awaiting buyer confirmation before payout</div>}
+                  {l.status === "disputed" && <div style={{ ...styles.awaitingBadge, background: "#fee2e2", color: "#b91c1c" }}>⚠️ Buyer disputed this sale — our team is reviewing it</div>}
+                  {listingOffers.length > 0 && <div style={styles.awaitingBadge}>💰 {listingOffers.length} offer{listingOffers.length === 1 ? "" : "s"} waiting on your response</div>}
+                  {promoter && <div style={styles.promoterTag}>Promoted by {promoter.name} {ref.status === "paid" ? `• Commission ${fmt(ref.commission_amount)} paid` : "• Pending"}</div>}
+                  {l.status === "active" && l.last_active_at && (Date.now() - new Date(l.last_active_at).getTime()) > STALE_WARN_DAYS_MS && (
+                    <div style={{ fontSize: 12, color: "#b45309", fontWeight: 600, marginTop: 4 }}>
+                      ⏰ This listing looks inactive to buyers — edit and save it to refresh, or it'll auto-archive after 60 days.
+                    </div>
+                  )}
+                </div>
+                <span style={{ ...styles.statusPill, background: l.status === "active" ? "#dcfce7" : l.status === "pending" ? "#fef9c3" : l.status === "pending_confirmation" ? "#dbeafe" : l.status === "disputed" ? "#fee2e2" : "#fee2e2", color: l.status === "active" ? "#15803d" : l.status === "pending" ? "#854d0e" : l.status === "pending_confirmation" ? "#1d4ed8" : l.status === "disputed" ? "#b91c1c" : "#b91c1c" }}>{l.status === "pending_confirmation" ? "awaiting confirmation" : l.status}</span>
+                {l.status !== "sold" && l.status !== "pending_confirmation" && l.status !== "disputed" && (
+                  <button style={styles.pendingBtn} onClick={() => setEditing(l)}>Edit</button>
+                )}
+                {l.status === "active" && (
+                  <>
+                    <button style={styles.pendingBtn} onClick={() => onSetStatus(l.id, "pending")}>Mark Pending</button>
+                    <button style={styles.soldBtn} onClick={() => setMarkingSold(l)}>Mark Sold</button>
+                  </>
+                )}
+                {l.status === "pending" && (
+                  <>
+                    <button style={styles.pendingBtn} onClick={() => onSetStatus(l.id, "active")}>Reactivate</button>
+                    <button style={styles.soldBtn} onClick={() => setMarkingSold(l)}>Mark Sold</button>
+                  </>
                 )}
               </div>
-              <span style={{ ...styles.statusPill, background: l.status === "active" ? "#dcfce7" : l.status === "pending" ? "#fef9c3" : l.status === "pending_confirmation" ? "#dbeafe" : l.status === "disputed" ? "#fee2e2" : "#fee2e2", color: l.status === "active" ? "#15803d" : l.status === "pending" ? "#854d0e" : l.status === "pending_confirmation" ? "#1d4ed8" : l.status === "disputed" ? "#b91c1c" : "#b91c1c" }}>{l.status === "pending_confirmation" ? "awaiting confirmation" : l.status}</span>
-              {l.status !== "sold" && l.status !== "pending_confirmation" && l.status !== "disputed" && (
-                <button style={styles.pendingBtn} onClick={() => setEditing(l)}>Edit</button>
-              )}
-              {l.status === "active" && (
-                <>
-                  <button style={styles.pendingBtn} onClick={() => onSetStatus(l.id, "pending")}>Mark Pending</button>
-                  <button style={styles.soldBtn} onClick={() => setMarkingSold(l)}>Mark Sold</button>
-                </>
-              )}
-              {l.status === "pending" && (
-                <>
-                  <button style={styles.pendingBtn} onClick={() => onSetStatus(l.id, "active")}>Reactivate</button>
-                  <button style={styles.soldBtn} onClick={() => setMarkingSold(l)}>Mark Sold</button>
-                </>
-              )}
+              {listingOffers.map(o => (
+                <SellerOfferRow key={o.id} offer={o} buyer={users.find(u => u.id === o.buyer_id)} onRespond={onRespondToOffer} />
+              ))}
             </div>
           );
         })}
@@ -1123,6 +1191,36 @@ function MyListingsView({ listings, referrals, users, onMarkSold, onSetStatus, o
           onCancel={() => setEditing(null)}
           onSave={async (data) => { await onUpdate(editing.id, data); setEditing(null); }}
         />
+      )}
+    </div>
+  );
+}
+
+function SellerOfferRow({ offer, buyer, onRespond }) {
+  const [countering, setCountering] = useState(false);
+  const [counterAmount, setCounterAmount] = useState(offer.amount);
+  const [counterMessage, setCounterMessage] = useState("");
+  return (
+    <div style={styles.offerRow}>
+      <div style={styles.rowInfo} className="app-row-info">
+        <div style={styles.rowTitle}>{buyer?.name || "Buyer"} offered {fmt(offer.amount)}</div>
+        {offer.message && <div style={{ fontSize: 13, color: "#374151", marginTop: 2 }}>"{offer.message}"</div>}
+        {offer.status === "countered" && <div style={{ fontSize: 13, color: "#1d4ed8", marginTop: 4 }}>You countered at {fmt(offer.counter_amount)} — waiting on buyer</div>}
+      </div>
+      {offer.status === "pending" && !countering && (
+        <>
+          <button style={styles.soldBtn} onClick={() => onRespond(offer.id, "accepted")}>Accept</button>
+          <button style={styles.pendingBtn} onClick={() => setCountering(true)}>Counter</button>
+          <button style={styles.removeBtn} onClick={() => onRespond(offer.id, "declined")}>Decline</button>
+        </>
+      )}
+      {countering && (
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+          <input style={{ ...styles.fieldInput, width: 110 }} type="number" value={counterAmount} onChange={e => setCounterAmount(e.target.value)} />
+          <input style={{ ...styles.fieldInput, width: 160 }} placeholder="Message (optional)" value={counterMessage} onChange={e => setCounterMessage(e.target.value)} />
+          <button style={styles.soldBtn} onClick={() => { onRespond(offer.id, "countered", +counterAmount, counterMessage); setCountering(false); }}>Send Counter</button>
+          <button style={styles.cancelBtn} onClick={() => setCountering(false)}>Cancel</button>
+        </div>
       )}
     </div>
   );
@@ -1192,6 +1290,41 @@ function MyPurchasesView({ listings, users, reviews, currentUser, onSubmitReview
   );
 }
 
+function MyOffersView({ offers, listings, onRespondToCounter, onBrowse }) {
+  return (
+    <div style={styles.pageWrap}>
+      <h2 style={styles.pageTitle}>💰 My Offers</h2>
+      {offers.length === 0 && <p style={{ color: "#6b7280" }}>No offers made yet. Use "Make an Offer" on any listing to negotiate a price.</p>}
+      <div style={styles.tableWrap}>
+        {offers.map(o => {
+          const listing = listings.find(l => l.id === o.listing_id);
+          return (
+            <div key={o.id} style={styles.listingRow} className="app-listing-row">
+              <div style={styles.rowInfo} className="app-row-info">
+                <div style={styles.rowTitle}>{listing ? `${listing.year} ${listing.make} ${listing.model}` : "Listing"} — offered {fmt(o.amount)}</div>
+                {o.status === "countered" && <div style={{ fontSize: 13, color: "#1d4ed8", marginTop: 2 }}>Seller countered at {fmt(o.counter_amount)} {o.counter_message ? `— "${o.counter_message}"` : ""}</div>}
+                {o.status === "accepted" && <div style={{ fontSize: 13, color: "#15803d", marginTop: 2 }}>✅ Accepted — the seller will follow up to close the sale</div>}
+                {o.status === "declined" && <div style={{ fontSize: 13, color: "#b91c1c", marginTop: 2 }}>Declined by seller</div>}
+              </div>
+              <span style={{ ...styles.statusPill, background: o.status === "accepted" ? "#dcfce7" : o.status === "countered" ? "#dbeafe" : o.status === "declined" || o.status === "withdrawn" ? "#f1f5f9" : "#fef9c3", color: o.status === "accepted" ? "#15803d" : o.status === "countered" ? "#1d4ed8" : o.status === "declined" || o.status === "withdrawn" ? "#6b7280" : "#854d0e" }}>{o.status}</span>
+              {o.status === "countered" && (
+                <>
+                  <button style={styles.soldBtn} onClick={() => onRespondToCounter(o.id, true)}>Accept {fmt(o.counter_amount)}</button>
+                  <button style={styles.removeBtn} onClick={() => onRespondToCounter(o.id, false)}>Decline</button>
+                </>
+              )}
+              {o.status === "pending" && (
+                <button style={styles.removeBtn} onClick={() => onRespondToCounter(o.id, false)}>Withdraw</button>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      <button style={{ ...styles.confirmBtn, marginTop: 16 }} onClick={onBrowse}>Back to Browse</button>
+    </div>
+  );
+}
+
 function ReviewModal({ listing, onCancel, onSubmit }) {
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState("");
@@ -1237,6 +1370,28 @@ function DisputeModal({ listing, onCancel, onSubmit }) {
         <div style={styles.modalActions}>
           <button style={styles.cancelBtn} onClick={onCancel}>Cancel</button>
           <button style={styles.confirmBtn} onClick={() => onSubmit(reason, details)} disabled={!details.trim()}>File Dispute</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function OfferModal({ listing, onCancel, onSubmit }) {
+  const [amount, setAmount] = useState(Math.round(listing.price * 0.95));
+  const [message, setMessage] = useState("");
+  return (
+    <div style={styles.overlay} onClick={onCancel}>
+      <div style={styles.modalBox} onClick={e => e.stopPropagation()}>
+        <h3 style={styles.modalTitle}>Make an offer on this {listing.year} {listing.make} {listing.model}</h3>
+        <div style={{ fontSize: 13, color: "#6b7280", marginBottom: 12 }}>Asking price: {fmt(listing.price)}</div>
+        <label style={styles.fieldLabel}>Your offer ($)</label>
+        <input style={{ ...styles.fieldInput, marginBottom: 12 }} type="number" value={amount} onChange={e => setAmount(e.target.value)} />
+        <label style={styles.fieldLabel}>Message (optional)</label>
+        <textarea style={styles.textarea} rows={3} value={message} onChange={e => setMessage(e.target.value)} placeholder="Anything you want the seller to know" />
+        <div style={{ fontSize: 12, color: "#6b7280", marginTop: 6 }}>If accepted, you and the seller coordinate the sale directly — checkout still runs at the listed price, so the seller records the agreed amount when they mark it sold.</div>
+        <div style={styles.modalActions}>
+          <button style={styles.cancelBtn} onClick={onCancel}>Cancel</button>
+          <button style={styles.confirmBtn} onClick={() => onSubmit(+amount, message)} disabled={!amount || +amount <= 0}>Send Offer</button>
         </div>
       </div>
     </div>
@@ -1897,6 +2052,8 @@ const styles = {
   reportLink: { background: "none", border: "none", color: "#9ca3af", fontSize: 12, fontWeight: 600, cursor: "pointer" },
   buyBtn: { flex: 1, background: "#0f172a", color: "#fff", border: "none", padding: "10px 0", borderRadius: 10, cursor: "pointer", fontSize: 14, fontWeight: 600 },
   shareBtn: { flex: 1, color: "#fff", border: "none", padding: "10px 0", borderRadius: 10, cursor: "pointer", fontSize: 14, fontWeight: 600, transition: "background .3s" },
+  offerBtn: { width: "100%", background: "#fff", color: "#0f172a", border: "1px solid #e5e7eb", padding: "9px 0", borderRadius: 10, cursor: "pointer", fontSize: 13, fontWeight: 600, marginTop: 8 },
+  offerStatusRow: { fontSize: 13, color: "#1d4ed8", fontWeight: 600, background: "#eff6ff", padding: "8px 12px", borderRadius: 8, marginTop: 8 },
   overlay: { position: "fixed", inset: 0, background: "rgba(0,0,0,.5)", zIndex: 999, display: "flex", alignItems: "center", justifyContent: "center", padding: 16, boxSizing: "border-box" },
   modalBox: { background: "#fff", borderRadius: 20, padding: 28, maxWidth: 440, width: "100%", boxShadow: "0 20px 60px rgba(0,0,0,.2)", boxSizing: "border-box" },
   modalTitle: { fontSize: 22, fontWeight: 800, color: "#0f172a", marginBottom: 12 },
@@ -1908,6 +2065,7 @@ const styles = {
   pageTitle: { fontSize: 28, fontWeight: 800, color: "#0f172a", marginBottom: 24, letterSpacing: "-0.02em" },
   tableWrap: { display: "flex", flexDirection: "column", gap: 12 },
   listingRow: { background: "#fff", borderRadius: 14, padding: "16px 20px", display: "flex", alignItems: "center", gap: 16, boxShadow: "0 1px 4px rgba(0,0,0,.06)" },
+  offerRow: { background: "#f8fafc", borderRadius: 12, padding: "12px 20px", display: "flex", alignItems: "center", gap: 10, marginTop: 6, marginLeft: 16, border: "1px dashed #e5e7eb" },
   rowImg: { width: 80, height: 60, borderRadius: 8, objectFit: "cover", flexShrink: 0 },
   rowInfo: { flex: 1, minWidth: 0 },
   rowTitle: { fontSize: 15, fontWeight: 700, color: "#0f172a" },
