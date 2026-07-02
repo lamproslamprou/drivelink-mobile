@@ -166,6 +166,8 @@ export default function Landing({ onSignIn, onBrowse, onNavigate }) {
           <p style={styles.footerText}>Peer-to-peer car marketplace. Buy, sell & earn.</p>
           <p style={styles.footerText}>© 2026 DriveLink. All rights reserved.</p>
           <div style={styles.footerLinks}>
+            <button style={styles.footerLinkBtn} onClick={() => onNavigate?.("safety")}>🛡️ Safety Tips</button>
+            <span style={{ color: "#d1d5db" }}>·</span>
             <button style={styles.footerLinkBtn} onClick={() => onNavigate?.("terms")}>Terms of Service</button>
             <span style={{ color: "#d1d5db" }}>·</span>
             <button style={styles.footerLinkBtn} onClick={() => onNavigate?.("privacy")}>Privacy Policy</button>

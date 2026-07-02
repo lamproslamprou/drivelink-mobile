@@ -492,6 +492,10 @@ export default function App() {
     <LegalPageView type={view} onBack={() => setView(currentUser ? "home" : "landing")} />
   );
 
+  if (view === "safety") return (
+    <SafetyTipsView onBack={() => setView(currentUser ? "home" : "landing")} />
+  );
+
   if (!currentUser && view === "landing") return (
     <Landing
       onSignIn={() => setView("auth")}
@@ -555,8 +559,8 @@ export default function App() {
 
       <main style={styles.main} className="app-main">
         {view === "home" && <HomeView key={homeResetKey} listings={activeListings} allListings={listings} currentUser={dbUser} users={users} onShare={generateShare} onBuy={handleBuyNow} referrals={referrals} onSignIn={() => setView("auth")} onMessageSeller={messageSeller} onReport={fileReport} onSaveSearch={saveSearch} favorites={favorites} onToggleFavorite={toggleFavorite} onToggleBlock={toggleBlock} onReportUser={reportUserAction} blocks={blocks} reviews={reviews} offers={offers} onMakeOffer={makeOffer} />}
-        {view === "myListings" && <MyListingsView listings={listings.filter(l => l.seller_id === currentUser?.id)} referrals={referrals} users={users} offers={offers} onMarkSold={markSold} onSetStatus={setListingStatus} onUpdate={updateListing} onRespondToOffer={respondToOffer} />}
-        {view === "myPurchases" && <MyPurchasesView listings={listings.filter(l => l.buyer_id === currentUser?.id)} users={users} reviews={reviews} currentUser={currentUser} onSubmitReview={submitReview} onConfirmReceipt={confirmReceipt} onFileDispute={fileDispute} onBrowse={() => setView("home")} />}
+        {view === "myListings" && <MyListingsView listings={listings.filter(l => l.seller_id === currentUser?.id)} referrals={referrals} users={users} offers={offers} onMarkSold={markSold} onSetStatus={setListingStatus} onUpdate={updateListing} onRespondToOffer={respondToOffer} onOpenSafety={() => setView("safety")} />}
+        {view === "myPurchases" && <MyPurchasesView listings={listings.filter(l => l.buyer_id === currentUser?.id)} users={users} reviews={reviews} currentUser={currentUser} onSubmitReview={submitReview} onConfirmReceipt={confirmReceipt} onFileDispute={fileDispute} onBrowse={() => setView("home")} onOpenSafety={() => setView("safety")} />}
         {view === "myOffers" && <MyOffersView offers={offers.filter(o => o.buyer_id === currentUser?.id)} listings={listings} onRespondToCounter={respondToCounter} onBrowse={() => setView("home")} />}
         {view === "postListing" && <PostListingView onPost={postListing} />}
         {view === "messages" && currentUser && <Messages currentUser={{ ...dbUser, id: currentUser.id }} listings={listings} users={users} openThread={openThread} onOpened={() => setOpenThread(null)} />}
@@ -568,6 +572,8 @@ export default function App() {
         {view === "success" && <SuccessView onHome={() => setView("home")} />}
       </main>
       <footer style={styles.appFooter}>
+        <button style={styles.appFooterLink} onClick={() => setView("safety")}>🛡️ Safety Tips</button>
+        <span style={{ color: "#d1d5db" }}>·</span>
         <button style={styles.appFooterLink} onClick={() => setView("terms")}>Terms of Service</button>
         <span style={{ color: "#d1d5db" }}>·</span>
         <button style={styles.appFooterLink} onClick={() => setView("privacy")}>Privacy Policy</button>
@@ -589,9 +595,6 @@ function LegalPageView({ type, onBack }) {
         <button style={styles.legalBackBtn} onClick={onBack}>← Back to DriveLink</button>
         <h1 style={styles.legalTitle}>{isTerms ? "Terms of Service" : "Privacy Policy"}</h1>
         <p style={styles.legalUpdated}>Last updated: July 2026</p>
-        <div style={styles.legalDisclaimer}>
-          ⚠️ <b>Draft template.</b> This is a starting point written to match how DriveLink actually works today, not a final legal document. Have an attorney review it before treating it as binding — especially the liability, dispute, and refund sections.
-        </div>
 
         {isTerms ? (
           <div style={styles.legalBody} className="legalBody">
@@ -667,6 +670,41 @@ function LegalPageView({ type, onBack }) {
             <p>Questions about this policy can be sent through the feedback form on our homepage.</p>
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+function SafetyTipsView({ onBack }) {
+  return (
+    <div style={styles.legalPage}>
+      <style>{css}</style>
+      <div style={styles.legalInner}>
+        <button style={styles.legalBackBtn} onClick={onBack}>← Back to DriveLink</button>
+        <h1 style={styles.legalTitle}>🛡️ Meetup Safety Tips</h1>
+        <p style={styles.legalUpdated}>DriveLink connects you directly with the other person — here's how to make the handoff safe.</p>
+        <div style={styles.legalBody} className="legalBody">
+          <h2>Before you meet</h2>
+          <p>Message a bit first through DriveLink's built-in chat before agreeing to meet — it's an easy way to confirm the other person seems legitimate and to keep a record of what was agreed.</p>
+          <p>Never send money — deposits included — outside of the platform's checkout to "hold" a car. That request alone is one of the most common scam patterns in car sales.</p>
+
+          <h2>Where to meet</h2>
+          <p>Meet in a public place during daylight hours whenever possible. Many local police departments offer a designated "safe exchange zone" in their parking lot, often covered by security cameras — search "[your city] police safe exchange zone" to find one nearby.</p>
+          <p>If a test drive is involved, meet at a public location first, then drive a route you're comfortable with — a busy public parking lot, not the seller's or buyer's home address, especially for a first meeting.</p>
+
+          <h2>Bring backup</h2>
+          <p>Bring a friend or family member if you can. If you're going alone, tell someone where you're headed, who you're meeting, and when you expect to be back.</p>
+
+          <h2>Before you hand over the car or the money</h2>
+          <p>Buyers: verify the VIN on the dashboard or door frame matches the listing, and confirm the seller's ID matches the name on the title. Sellers: confirm payment has actually cleared before handing over keys — don't rely on a screenshot of a payment as proof.</p>
+          <p>Only confirm receipt in DriveLink (which finalizes the sale and releases the promoter's commission) after you've actually inspected the car in person and are satisfied.</p>
+
+          <h2>Trust your instincts</h2>
+          <p>If something feels off — pressure to rush, reluctance to meet in public, requests for unusual payment methods — it's okay to walk away. You can always report a listing or a user directly from DriveLink if something seems wrong.</p>
+
+          <h2>After the sale</h2>
+          <p>Complete your state's title transfer promptly — requirements vary, so check your local DMV's website for the exact steps. Keep a copy of the signed bill of sale for your records.</p>
+        </div>
       </div>
     </div>
   );
@@ -1123,12 +1161,18 @@ function BlockedUsersView({ blocks, users, onToggleBlock, onBrowse }) {
   );
 }
 
-function MyListingsView({ listings, referrals, users, offers, onMarkSold, onSetStatus, onUpdate, onRespondToOffer }) {
+function MyListingsView({ listings, referrals, users, offers, onMarkSold, onSetStatus, onUpdate, onRespondToOffer, onOpenSafety }) {
   const [editing, setEditing] = useState(null);
   const [markingSold, setMarkingSold] = useState(null);
+  const hasHandoffPending = listings.some(l => l.status === "pending_confirmation");
   return (
     <div style={styles.pageWrap}>
       <h2 style={styles.pageTitle}>My Listings</h2>
+      {hasHandoffPending && (
+        <div style={styles.safetyBanner}>
+          🛡️ Meeting a buyer to hand off a car? <button style={styles.safetyBannerLink} onClick={onOpenSafety}>Review our safety tips</button> before you meet.
+        </div>
+      )}
       {listings.length === 0 && <p style={{ color: "#6b7280" }}>You haven't posted any listings yet.</p>}
       <div style={styles.tableWrap}>
         {listings.map(l => {
@@ -1226,12 +1270,18 @@ function SellerOfferRow({ offer, buyer, onRespond }) {
   );
 }
 
-function MyPurchasesView({ listings, users, reviews, currentUser, onSubmitReview, onConfirmReceipt, onFileDispute, onBrowse }) {
+function MyPurchasesView({ listings, users, reviews, currentUser, onSubmitReview, onConfirmReceipt, onFileDispute, onBrowse, onOpenSafety }) {
   const [reviewing, setReviewing] = useState(null);
   const [disputing, setDisputing] = useState(null);
+  const hasHandoffPending = listings.some(l => l.status === "pending_confirmation");
   return (
     <div style={styles.pageWrap}>
       <h2 style={styles.pageTitle}>My Purchases</h2>
+      {hasHandoffPending && (
+        <div style={styles.safetyBanner}>
+          🛡️ Picking up a car soon? <button style={styles.safetyBannerLink} onClick={onOpenSafety}>Review our safety tips</button> before you meet the seller.
+        </div>
+      )}
       {listings.length === 0 && <p style={{ color: "#6b7280" }}>No purchases linked to your account yet. When a seller marks a sale complete with your email, it'll show up here.</p>}
       <div style={styles.tableWrap}>
         {listings.map(l => {
@@ -2089,6 +2139,8 @@ const styles = {
   statLabel: { fontSize: 12, color: "#6b7280", fontWeight: 500, marginTop: 4 },
   sectionTitle: { fontSize: 18, fontWeight: 700, color: "#0f172a", marginBottom: 16 },
   infoBox: { background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: 12, padding: "16px 20px", fontSize: 13, color: "#1e40af", lineHeight: 1.6, marginTop: 24 },
+  safetyBanner: { background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 12, padding: "14px 20px", fontSize: 14, color: "#92400e", marginBottom: 20 },
+  safetyBannerLink: { background: "none", border: "none", cursor: "pointer", fontSize: 14, color: "#92400e", fontWeight: 700, textDecoration: "underline", padding: 0 },
   tabRow: { display: "flex", gap: 4, marginBottom: 20 },
   tab: { padding: "8px 18px", borderRadius: 8, border: "none", background: "none", fontSize: 14, fontWeight: 500, color: "#6b7280", cursor: "pointer" },
   tabActive: { background: "#f1f5f9", color: "#0f172a", fontWeight: 700 },
