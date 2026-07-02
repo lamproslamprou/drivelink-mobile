@@ -2,7 +2,7 @@ import { useState } from "react";
 import { supabase } from "./supabase.js";
 import logoIcon from "./assets/logo-icon.png";
 
-export default function Landing({ onSignIn, onBrowse }) {
+export default function Landing({ onSignIn, onBrowse, onNavigate }) {
   const [email, setEmail] = useState("");
 
   return (
@@ -165,6 +165,11 @@ export default function Landing({ onSignIn, onBrowse }) {
           </div>
           <p style={styles.footerText}>Peer-to-peer car marketplace. Buy, sell & earn.</p>
           <p style={styles.footerText}>© 2026 DriveLink. All rights reserved.</p>
+          <div style={styles.footerLinks}>
+            <button style={styles.footerLinkBtn} onClick={() => onNavigate?.("terms")}>Terms of Service</button>
+            <span style={{ color: "#d1d5db" }}>·</span>
+            <button style={styles.footerLinkBtn} onClick={() => onNavigate?.("privacy")}>Privacy Policy</button>
+          </div>
         </div>
       </footer>
     </div>
@@ -282,6 +287,8 @@ const styles = {
   footerInner: { maxWidth: 1200, margin: "0 auto", display: "flex", flexDirection: "column", alignItems: "center", gap: 8 },
   footerLogo: { display: "flex", alignItems: "center", gap: 8, fontSize: 18, marginBottom: 4 },
   footerText: { fontSize: 13, color: "#6b7280" },
+  footerLinks: { display: "flex", gap: 10, alignItems: "center", marginTop: 8 },
+  footerLinkBtn: { background: "none", border: "none", cursor: "pointer", fontSize: 13, color: "#6b7280", padding: 0 },
   feedbackSection: { padding: "56px 24px", background: "#fff" },
   feedbackBox: { maxWidth: 640, margin: "0 auto", background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: 20, padding: "36px 40px", textAlign: "center" },
   feedbackTitle: { fontSize: 24, fontWeight: 800, color: "#0f172a", marginBottom: 8, letterSpacing: "-0.02em" },

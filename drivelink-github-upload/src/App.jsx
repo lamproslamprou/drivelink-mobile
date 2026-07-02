@@ -362,10 +362,15 @@ export default function App() {
     />
   );
 
+  if (view === "terms" || view === "privacy") return (
+    <LegalPageView type={view} onBack={() => setView(currentUser ? "home" : "landing")} />
+  );
+
   if (!currentUser && view === "landing") return (
     <Landing
       onSignIn={() => setView("auth")}
       onBrowse={() => setView("home")}
+      onNavigate={setView}
     />
   );
 
@@ -434,12 +439,109 @@ export default function App() {
         {view === "admin" && <AdminView listings={listings} users={users} referrals={referrals} reports={reports} feedback={feedback} userReports={userReports} reviews={reviews} onArchive={archiveListing} onMarkSold={markSold} onResolveReport={resolveReport} onResolveUserReport={resolveUserReport} onToggleVerified={toggleVerified} onResetData={resetTestData} />}
         {view === "success" && <SuccessView onHome={() => setView("home")} />}
       </main>
+      <footer style={styles.appFooter}>
+        <button style={styles.appFooterLink} onClick={() => setView("terms")}>Terms of Service</button>
+        <span style={{ color: "#d1d5db" }}>·</span>
+        <button style={styles.appFooterLink} onClick={() => setView("privacy")}>Privacy Policy</button>
+      </footer>
     </div>
   );
 }
 
 function NavBtn({ children, active, onClick }) {
   return <button style={{ ...styles.navBtn, ...(active ? styles.navBtnActive : {}) }} onClick={onClick}>{children}</button>;
+}
+
+function LegalPageView({ type, onBack }) {
+  const isTerms = type === "terms";
+  return (
+    <div style={styles.legalPage}>
+      <style>{css}</style>
+      <div style={styles.legalInner}>
+        <button style={styles.legalBackBtn} onClick={onBack}>← Back to DriveLink</button>
+        <h1 style={styles.legalTitle}>{isTerms ? "Terms of Service" : "Privacy Policy"}</h1>
+        <p style={styles.legalUpdated}>Last updated: July 2026</p>
+        <div style={styles.legalDisclaimer}>
+          ⚠️ <b>Draft template.</b> This is a starting point written to match how DriveLink actually works today, not a final legal document. Have an attorney review it before treating it as binding — especially the liability, dispute, and refund sections.
+        </div>
+
+        {isTerms ? (
+          <div style={styles.legalBody} className="legalBody">
+            <h2>1. What DriveLink Is</h2>
+            <p>DriveLink is a peer-to-peer marketplace that connects car sellers directly with buyers. We are not a dealership, we do not own, inspect, or guarantee any vehicle listed on the platform, and we are not a party to the sale between a buyer and seller.</p>
+
+            <h2>2. Accounts</h2>
+            <p>You must create an account to list a car, message another user, or complete a purchase. You're responsible for the accuracy of the information you provide and for keeping your login credentials secure.</p>
+
+            <h2>3. Listings</h2>
+            <p>Sellers agree that listing information (price, mileage, condition, photos, VIN) is accurate to the best of their knowledge. DriveLink may remove any listing that is misleading, fraudulent, or violates these terms, at our discretion, with or without notice.</p>
+
+            <h2>4. Fees</h2>
+            <p>Listing a car is free. When a listing sells, DriveLink charges a 1% platform fee on the final sale price. If a buyer arrived through a promoter's shared link, an additional 1% commission is paid to that promoter. Both fees are deducted from the seller's proceeds.</p>
+
+            <h2>5. Payments</h2>
+            <p>Checkout is processed through Stripe. DriveLink does not store your payment card details. Once a buyer completes checkout, the transaction between buyer and seller — including vehicle handoff, title transfer, and any related paperwork — is the responsibility of the two parties.</p>
+
+            <h2>6. Buyer &amp; Seller Responsibilities</h2>
+            <p>Buyers are strongly encouraged to inspect a vehicle (and its VIN history) before completing a purchase. Sellers are responsible for complying with their state's title transfer and sales tax requirements. DriveLink is not responsible for verifying vehicle condition, ownership, or title status.</p>
+
+            <h2>7. Prohibited Conduct</h2>
+            <p>You may not use DriveLink to list a vehicle you don't have the legal right to sell, harass or defraud other users, circumvent platform fees by arranging an off-platform sale after connecting through DriveLink, or post false, misleading, or duplicate listings.</p>
+
+            <h2>8. Reviews, Blocking &amp; Reports</h2>
+            <p>Reviews must reflect genuine transactions. Fake or retaliatory reviews may be removed. You may block or report another user for abusive, fraudulent, or unsafe behavior; DriveLink may suspend accounts found to violate these terms.</p>
+
+            <h2>9. Referral Program</h2>
+            <p>Promoters earn a 1% commission when a buyer completes a purchase through their shared link. Commissions are credited to the promoter's account balance once a sale is confirmed and are subject to review for fraudulent referral activity.</p>
+
+            <h2>10. Disclaimers &amp; Limitation of Liability</h2>
+            <p>DriveLink is provided "as is." We do not guarantee the accuracy of any listing, the condition of any vehicle, or the conduct of any user. To the fullest extent permitted by law, DriveLink is not liable for damages arising from a transaction between a buyer and seller.</p>
+
+            <h2>11. Changes to These Terms</h2>
+            <p>We may update these terms from time to time. Continued use of DriveLink after a change means you accept the updated terms.</p>
+
+            <h2>12. Contact</h2>
+            <p>Questions about these terms can be sent through the feedback form on our homepage.</p>
+          </div>
+        ) : (
+          <div style={styles.legalBody} className="legalBody">
+            <h2>1. What We Collect</h2>
+            <p>When you create a DriveLink account, we collect your name, email address, and any information you add to listings (photos, vehicle details, price, location). When you message another user, we store that conversation so both parties can see message history.</p>
+
+            <h2>2. Payment Information</h2>
+            <p>Checkout is handled entirely by Stripe. DriveLink never sees or stores your card number, expiration date, or CVC — Stripe processes and secures that data directly.</p>
+
+            <h2>3. Location Data</h2>
+            <p>The city or ZIP code you enter on a listing is converted to approximate map coordinates (via OpenStreetMap's Nominatim service) so your car can appear on the listings map. We don't collect precise device location.</p>
+
+            <h2>4. How We Use Your Information</h2>
+            <p>We use your information to operate the marketplace: displaying listings, enabling buyer-seller messaging, calculating referral commissions, processing reviews, and sending you account-related notifications. We do not sell your personal information to third parties.</p>
+
+            <h2>5. What Other Users Can See</h2>
+            <p>Your name and verified-seller status are visible on your listings. Your email is only visible to DriveLink and is not shown to other users unless you choose to share it (for example, in a message).</p>
+
+            <h2>6. Blocking &amp; Reports</h2>
+            <p>If you block another user, we retain a record of that block to enforce it (hiding their listings from you and preventing new messages). Reports you file are visible to DriveLink's admin team for review.</p>
+
+            <h2>7. Data Retention</h2>
+            <p>We keep account and transaction data for as long as your account is active, and for a reasonable period after in case it's needed for dispute resolution, fraud prevention, or legal compliance.</p>
+
+            <h2>8. Your Choices</h2>
+            <p>You can edit or delete your listings at any time. To delete your account or request a copy of your data, contact us through the feedback form on our homepage.</p>
+
+            <h2>9. Cookies &amp; Analytics</h2>
+            <p>DriveLink uses standard session storage to keep you signed in. We don't currently use third-party advertising trackers.</p>
+
+            <h2>10. Changes to This Policy</h2>
+            <p>If we materially change how we handle your data, we'll update this page and adjust the "last updated" date above.</p>
+
+            <h2>11. Contact</h2>
+            <p>Questions about this policy can be sent through the feedback form on our homepage.</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
 
 function ConfirmedView({ result, onContinue }) {
@@ -1372,6 +1474,15 @@ function DangerZone({ onResetData }) {
 
 const styles = {
   app: { fontFamily: "'Inter', system-ui, sans-serif", background: "#f8fafc", minHeight: "100vh", color: "#111827" },
+  legalPage: { fontFamily: "'Inter', system-ui, sans-serif", background: "#fff", minHeight: "100vh", color: "#111827" },
+  legalInner: { maxWidth: 760, margin: "0 auto", padding: "48px 24px 96px" },
+  legalBackBtn: { background: "none", border: "1px solid #e5e7eb", padding: "8px 16px", borderRadius: 10, cursor: "pointer", fontSize: 14, fontWeight: 600, color: "#374151", marginBottom: 32 },
+  legalTitle: { fontSize: 36, fontWeight: 800, color: "#0f172a", letterSpacing: "-0.02em", marginBottom: 8 },
+  legalUpdated: { fontSize: 13, color: "#9ca3af", marginBottom: 24 },
+  legalDisclaimer: { background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 12, padding: "16px 20px", fontSize: 14, color: "#92400e", lineHeight: 1.6, marginBottom: 32 },
+  legalBody: { fontSize: 15, color: "#374151", lineHeight: 1.7 },
+  appFooter: { maxWidth: 1200, margin: "0 auto", padding: "24px 24px 40px", display: "flex", gap: 10, alignItems: "center", justifyContent: "center", fontSize: 13 },
+  appFooterLink: { background: "none", border: "none", cursor: "pointer", fontSize: 13, color: "#6b7280", padding: 0 },
   nav: { background: "#fff", borderBottom: "1px solid #e5e7eb", position: "sticky", top: 0, zIndex: 100 },
   navInner: { maxWidth: 1200, margin: "0 auto", padding: "0 24px", height: 64, display: "flex", alignItems: "center", gap: 24 },
   logo: { display: "flex", alignItems: "center", gap: 8, cursor: "pointer", flexShrink: 0 },
@@ -1487,6 +1598,10 @@ const css = `
   .car-card:hover { transform: translateY(-3px); box-shadow: 0 8px 24px rgba(0,0,0,.12) !important; }
   input:focus, select:focus, textarea:focus { border-color: #3b82f6 !important; box-shadow: 0 0 0 3px rgba(59,130,246,.15); }
   button:active { opacity: .85; }
+
+  .legalBody h2 { font-size: 18px; font-weight: 700; color: #0f172a; margin: 28px 0 8px; }
+  .legalBody h2:first-child { margin-top: 0; }
+  .legalBody p { margin-bottom: 4px; }
 
   /* Nav: let the middle links scroll horizontally instead of squeezing everything */
   .app-nav-inner { gap: 12px; }
