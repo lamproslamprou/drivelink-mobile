@@ -33,7 +33,6 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn }) {
           </div>
         </div>
         <div style={styles.heroInner}>
-          <div style={styles.heroTagline}>The link that drives you to cash. 💸</div>
           <h1 style={styles.heroTitle} className="dl-hero-title">
             Buy & sell cars directly.<br />
             <span style={styles.heroAccent}>Share listings. Earn cash.</span>
