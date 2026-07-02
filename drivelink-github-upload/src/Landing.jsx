@@ -26,8 +26,13 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn }) {
 
       {/* HERO */}
       <section style={styles.hero} className="dl-hero">
+        <div style={styles.heroBannerWrap} className="dl-hero-banner-wrap">
+          <div style={styles.heroBanner} className="dl-hero-banner">
+            <span style={styles.heroBannerDot} />
+            Nationwide&nbsp;&nbsp;•&nbsp;&nbsp;Peer-to-peer&nbsp;&nbsp;•&nbsp;&nbsp;Commission-backed
+          </div>
+        </div>
         <div style={styles.heroInner}>
-          <div style={styles.heroBadge}>Nationwide • Peer-to-peer • Commission-backed</div>
           <div style={styles.heroTagline}>The link that drives you to cash. 💸</div>
           <h1 style={styles.heroTitle} className="dl-hero-title">
             Buy & sell cars directly.<br />
@@ -250,7 +255,9 @@ const styles = {
   signInBtn: { background: "#0f172a", color: "#fff", border: "none", padding: "9px 20px", borderRadius: 10, cursor: "pointer", fontSize: 14, fontWeight: 600 },
   hero: { maxWidth: 1200, margin: "0 auto", padding: "80px 24px 60px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 48, alignItems: "center" },
   heroInner: {},
-  heroBadge: { display: "inline-block", background: "#eff6ff", color: "#1d4ed8", fontSize: 12, fontWeight: 600, padding: "5px 12px", borderRadius: 20, marginBottom: 20 },
+  heroBannerWrap: { gridColumn: "1 / -1", display: "flex", justifyContent: "center", marginBottom: 12 },
+  heroBanner: { position: "relative", overflow: "hidden", display: "inline-flex", alignItems: "center", gap: 10, background: "linear-gradient(90deg,#1d4ed8,#3b82f6,#1d4ed8)", backgroundSize: "200% 100%", color: "#fff", fontSize: 13, fontWeight: 700, letterSpacing: ".04em", padding: "10px 22px", borderRadius: 999, boxShadow: "0 8px 24px rgba(29,78,216,.35)" },
+  heroBannerDot: { width: 8, height: 8, borderRadius: "50%", background: "#4ade80", flexShrink: 0 },
   heroTagline: { fontSize: 15, fontWeight: 700, color: "#3b82f6", marginBottom: 14, letterSpacing: "-0.01em" },
   heroTitle: { fontSize: 52, fontWeight: 800, color: "#0f172a", lineHeight: 1.1, letterSpacing: "-0.03em", marginBottom: 20 },
   heroAccent: { color: "#3b82f6" },
@@ -312,6 +319,16 @@ const css = `
   img { max-width: 100%; }
   button:active { opacity: .85; }
 
+  @keyframes dl-banner-shine { 0% { background-position: 0% 0; } 100% { background-position: 200% 0; } }
+  @keyframes dl-banner-pulse { 0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(74,222,128,.6); } 50% { opacity: .6; box-shadow: 0 0 0 4px rgba(74,222,128,0); } }
+
+  .dl-hero-banner { animation: dl-banner-shine 6s linear infinite; }
+  .dl-hero-banner span { animation: dl-banner-pulse 2s ease-in-out infinite; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .dl-hero-banner, .dl-hero-banner span { animation: none; }
+  }
+
   @media (max-width: 900px) {
     .dl-hero { grid-template-columns: 1fr !important; padding: 40px 20px 32px !important; gap: 28px !important; text-align: center; }
     .dl-hero-image { order: -1; }
@@ -333,6 +350,7 @@ const css = `
     .dl-nav-inner { padding: 0 16px !important; }
     .dl-nav-right { gap: 8px !important; }
     .dl-nav-right button { padding: 8px 12px !important; font-size: 13px !important; }
+    .dl-hero-banner { font-size: 11px !important; padding: 8px 14px !important; text-align: center; white-space: normal !important; }
     .dl-hero-title { font-size: 30px !important; }
     .dl-hero-sub { font-size: 15px !important; }
     .dl-hero-actions { flex-direction: column !important; }
