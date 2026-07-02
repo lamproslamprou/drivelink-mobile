@@ -11,6 +11,8 @@ const fmt = (n) => new Intl.NumberFormat("en-US", { style: "currency", currency:
 const STRIPE_LINK = "https://buy.stripe.com/4gM4gz0z05sNaa9afu4Vy00";
 const PLATFORM_FEE = 0.01; // 1% platform fee
 const PROMOTER_FEE = 0.01; // 1% promoter commission
+const STALE_WARN_DAYS_MS = 30 * 24 * 60 * 60 * 1000; // show "seller inactive" badge after 30 days
+const STALE_ARCHIVE_DAYS_MS = 60 * 24 * 60 * 60 * 1000; // auto-archive after 60 days
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState(null);
@@ -46,7 +48,21 @@ export default function App() {
     const { data: feedbackData } = await supabase.from("feedback").select("*").order("created_at", { ascending: false });
     const { data: userReportsData } = await supabase.from("user_reports").select("*").order("created_at", { ascending: false });
     const { data: reviewsData } = await supabase.from("reviews").select("*").order("created_at", { ascending: false });
-    if (listingsData) setListings(listingsData);
+    let finalListings = listingsData || [];
+    // ── Auto-archive listings whose seller has gone quiet for 60+ days (best-effort,
+    // runs opportunistically whenever anyone loads the app — there's no cron here).
+    if (listingsData) {
+      const now = Date.now();
+      const staleIds = listingsData
+        .filter(l => l.status === "active" && l.last_active_at && (now - new Date(l.last_active_at).getTime()) > STALE_ARCHIVE_DAYS_MS)
+        .map(l => l.id);
+      if (staleIds.length) {
+        const archivedAt = new Date().toISOString();
+        await supabase.from("listings").update({ status: "archived", archived_at: archivedAt }).in("id", staleIds);
+        finalListings = finalListings.map(l => staleIds.includes(l.id) ? { ...l, status: "archived", archived_at: archivedAt } : l);
+      }
+    }
+    if (finalListings) setListings(finalListings);
     if (referralsData) setReferrals(referralsData);
     if (usersData) setUsers(usersData);
     if (reportsData) setReports(reportsData);
@@ -145,6 +161,7 @@ export default function App() {
       lng: coords?.lng ?? null,
       status: "active",
       created_at: new Date().toISOString(),
+      last_active_at: new Date().toISOString(),
     };
     const { error } = await supabase.from("listings").insert(newListing);
     if (error) { showToast("Error posting listing", "error"); return; }
@@ -197,7 +214,7 @@ export default function App() {
   // ── Seller edits their own listing's details
   const updateListing = async (listingId, data) => {
     const coords = data.location_text ? await geocode(data.location_text) : null;
-    const patch = { ...data };
+    const patch = { ...data, last_active_at: new Date().toISOString() };
     if (coords) { patch.lat = coords.lat; patch.lng = coords.lng; }
     const { error } = await supabase.from("listings").update(patch).eq("id", listingId);
     if (error) { showToast("Error updating listing", "error"); return; }
@@ -214,7 +231,7 @@ export default function App() {
 
   // ── Seller toggles their own listing between active/pending (e.g. "sale in progress")
   const setListingStatus = async (listingId, status) => {
-    await supabase.from("listings").update({ status }).eq("id", listingId);
+    await supabase.from("listings").update({ status, last_active_at: new Date().toISOString() }).eq("id", listingId);
     await loadData();
     showToast(status === "pending" ? "Listing marked as pending." : "Listing is active again.");
   };
@@ -606,12 +623,15 @@ function CarCard({ listing, seller, avgPrice, currentUser, onShare, onBuy, myRef
     }
   }
 
+  const isStale = listing.status === "active" && listing.last_active_at && (Date.now() - new Date(listing.last_active_at).getTime()) > STALE_WARN_DAYS_MS;
+
   return (
     <div style={styles.card} className="car-card">
       <div style={styles.cardImgWrap}>
         <img src={cover} alt={`${listing.make} ${listing.model}`} style={styles.cardImg} onError={e => { e.target.src = "https://images.unsplash.com/photo-1494976388531-d1058494cdd8?w=600&q=80"; }} />
         <div style={styles.cardPrice}>{fmt(listing.price)}</div>
         {listing.status === "pending" && <div style={styles.pendingRibbon}>Sale Pending</div>}
+        {isStale && <div style={{ ...styles.pendingRibbon, background: "#6b7280", top: listing.status === "pending" ? 40 : 12 }}>Seller Inactive</div>}
         {onToggleFavorite && (
           <button
             type="button"
@@ -854,6 +874,11 @@ function MyListingsView({ listings, referrals, users, onMarkSold, onSetStatus, o
                 <div style={styles.rowMeta}>{fmt(l.price)} • {l.mileage?.toLocaleString()} mi</div>
                 {l.status === "sold" && <div style={styles.soldBadge}>SOLD for {fmt(l.sale_price)} on {l.sold_at}</div>}
                 {promoter && <div style={styles.promoterTag}>Promoted by {promoter.name} {ref.status === "paid" ? `• Commission ${fmt(ref.commission_amount)} paid` : "• Pending"}</div>}
+                {l.status === "active" && l.last_active_at && (Date.now() - new Date(l.last_active_at).getTime()) > STALE_WARN_DAYS_MS && (
+                  <div style={{ fontSize: 12, color: "#b45309", fontWeight: 600, marginTop: 4 }}>
+                    ⏰ This listing looks inactive to buyers — edit and save it to refresh, or it'll auto-archive after 60 days.
+                  </div>
+                )}
               </div>
               <span style={{ ...styles.statusPill, background: l.status === "active" ? "#dcfce7" : l.status === "pending" ? "#fef9c3" : "#fee2e2", color: l.status === "active" ? "#15803d" : l.status === "pending" ? "#854d0e" : "#b91c1c" }}>{l.status}</span>
               {l.status !== "sold" && (
