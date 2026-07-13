@@ -901,7 +901,7 @@ function HomeView({ listings, allListings, currentUser, users, onShare, onBuy, r
                 sellerReviewCount={sellerReviews.length}
                 myOffer={myOffer}
                 onMakeOffer={onMakeOffer}
-                onOpenListing={() => onOpenListing({ listing: l, seller, myRef, sellerRating, sellerReviewCount, myOffer })}
+                onOpenListing={() => onOpenListing({ listing: l, seller, myRef, sellerRating, sellerReviewCount: sellerReviews.length, myOffer })}
               />
             );
           })}
