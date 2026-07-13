@@ -62,6 +62,7 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [authChecked, setAuthChecked] = useState(false);
   const [confirmResult, setConfirmResult] = useState(null); // { status: 'success' | 'error', message? }
+  const [viewingListing, setViewingListing] = useState(null); // { listing, seller, myRef, sellerRating, sellerReviewCount, myOffer }
 
   const showToast = (msg, type = "success") => {
     setToast({ msg, type });
@@ -559,14 +560,14 @@ export default function App() {
       {toast && <div style={{ ...styles.toast, background: toast.type === "info" ? "#1d4ed8" : toast.type === "error" ? "#dc2626" : "#16a34a" }} className="app-toast">{toast.msg}</div>}
 
       <main style={styles.main} className="app-main">
-        {view === "home" && <HomeView key={homeResetKey} listings={activeListings} allListings={listings} currentUser={dbUser} users={users} onShare={generateShare} onBuy={handleBuyNow} referrals={referrals} onSignIn={() => setView("auth")} onMessageSeller={messageSeller} onReport={fileReport} onSaveSearch={saveSearch} favorites={favorites} onToggleFavorite={toggleFavorite} onToggleBlock={toggleBlock} onReportUser={reportUserAction} blocks={blocks} reviews={reviews} offers={offers} onMakeOffer={makeOffer} />}
+        {view === "home" && <HomeView key={homeResetKey} listings={activeListings} allListings={listings} currentUser={dbUser} users={users} onShare={generateShare} onBuy={handleBuyNow} referrals={referrals} onSignIn={() => setView("auth")} onMessageSeller={messageSeller} onReport={fileReport} onSaveSearch={saveSearch} favorites={favorites} onToggleFavorite={toggleFavorite} onToggleBlock={toggleBlock} onReportUser={reportUserAction} blocks={blocks} reviews={reviews} offers={offers} onMakeOffer={makeOffer} onOpenListing={setViewingListing} />}
         {view === "myListings" && <MyListingsView listings={listings.filter(l => l.seller_id === currentUser?.id)} referrals={referrals} users={users} offers={offers} onMarkSold={markSold} onSetStatus={setListingStatus} onUpdate={updateListing} onRespondToOffer={respondToOffer} onOpenSafety={() => setView("safety")} />}
         {view === "myPurchases" && <MyPurchasesView listings={listings.filter(l => l.buyer_id === currentUser?.id)} users={users} reviews={reviews} currentUser={currentUser} onSubmitReview={submitReview} onConfirmReceipt={confirmReceipt} onFileDispute={fileDispute} onBrowse={() => setView("home")} onOpenSafety={() => setView("safety")} />}
         {view === "myOffers" && <MyOffersView offers={offers.filter(o => o.buyer_id === currentUser?.id)} listings={listings} onRespondToCounter={respondToCounter} onBrowse={() => setView("home")} />}
         {view === "postListing" && <PostListingView onPost={postListing} />}
         {view === "messages" && currentUser && <Messages currentUser={{ ...dbUser, id: currentUser.id }} listings={listings} users={users} openThread={openThread} onOpened={() => setOpenThread(null)} />}
         {view === "savedSearches" && <SavedSearchesView savedSearches={savedSearches} onDelete={deleteSavedSearch} onBrowse={() => setView("home")} />}
-        {view === "favorites" && <FavoritesView favorites={favorites} listings={listings} users={users} referrals={referrals} currentUser={dbUser} onShare={generateShare} onBuy={handleBuyNow} onMessageSeller={messageSeller} onReport={fileReport} onToggleFavorite={toggleFavorite} onBrowse={() => setView("home")} />}
+        {view === "favorites" && <FavoritesView favorites={favorites} listings={listings} users={users} referrals={referrals} currentUser={dbUser} onShare={generateShare} onBuy={handleBuyNow} onMessageSeller={messageSeller} onReport={fileReport} onToggleFavorite={toggleFavorite} onBrowse={() => setView("home")} onOpenListing={setViewingListing} />}
         {view === "blocked" && <BlockedUsersView blocks={blocks} users={users} onToggleBlock={toggleBlock} onBrowse={() => setView("home")} />}
         {view === "dashboard" && <PromoterDashboard currentUser={dbUser} referrals={referrals.filter(r => r.promoter_id === currentUser?.id)} listings={listings} payouts={payouts} />}
         {view === "admin" && <AdminView listings={listings} users={users} referrals={referrals} reports={reports} feedback={feedback} userReports={userReports} reviews={reviews} payouts={payouts} disputes={disputes} onArchive={archiveListing} onMarkSold={markSold} onConfirmReceipt={confirmReceipt} onResolveReport={resolveReport} onResolveUserReport={resolveUserReport} onToggleVerified={toggleVerified} onResetData={resetTestData} onRecordPayout={recordPayout} onResolveDispute={resolveDispute} />}
@@ -583,6 +584,24 @@ export default function App() {
         <span style={{ color: "#d1d5db" }}>·</span>
         <a href="mailto:support@drivelink.deals" style={styles.appFooterLink}>support@drivelink.deals</a>
       </footer>
+      {viewingListing && (
+        <ListingDetailModal
+          data={viewingListing}
+          currentUser={dbUser}
+          isFavorited={favorites?.some(f => f.listing_id === viewingListing.listing.id)}
+          isBlocked={blocks?.some(b => b.blocked_id === viewingListing.listing.seller_id)}
+          onClose={() => setViewingListing(null)}
+          onBuy={handleBuyNow}
+          onShare={generateShare}
+          onMessageSeller={messageSeller}
+          onReport={fileReport}
+          onReportUser={reportUserAction}
+          onToggleFavorite={toggleFavorite}
+          onToggleBlock={toggleBlock}
+          onMakeOffer={makeOffer}
+          onSignIn={() => setView("auth")}
+        />
+      )}
     </div>
   );
 }
@@ -752,7 +771,7 @@ function SuccessView({ onHome }) {
   );
 }
 
-function HomeView({ listings, allListings, currentUser, users, onShare, onBuy, referrals, onSignIn, onMessageSeller, onReport, onSaveSearch, favorites, onToggleFavorite, onToggleBlock, onReportUser, blocks, reviews, offers, onMakeOffer }) {
+function HomeView({ listings, allListings, currentUser, users, onShare, onBuy, referrals, onSignIn, onMessageSeller, onReport, onSaveSearch, favorites, onToggleFavorite, onToggleBlock, onReportUser, blocks, reviews, offers, onMakeOffer, onOpenListing }) {
   const [search, setSearch] = useState("");
   const [make, setMake] = useState("all");
   const [maxPrice, setMaxPrice] = useState(200000);
@@ -882,6 +901,7 @@ function HomeView({ listings, allListings, currentUser, users, onShare, onBuy, r
                 sellerReviewCount={sellerReviews.length}
                 myOffer={myOffer}
                 onMakeOffer={onMakeOffer}
+                onOpenListing={() => onOpenListing({ listing: l, seller, myRef, sellerRating, sellerReviewCount, myOffer })}
               />
             );
           })}
@@ -891,7 +911,7 @@ function HomeView({ listings, allListings, currentUser, users, onShare, onBuy, r
   );
 }
 
-function CarCard({ listing, seller, avgPrice, similarCount, onSeeSimilar, currentUser, onShare, onBuy, myRef, onSignIn, onMessageSeller, onReport, isFavorited, onToggleFavorite, isBlocked, onToggleBlock, onReportUser, sellerRating, sellerReviewCount, myOffer, onMakeOffer }) {
+function CarCard({ listing, seller, avgPrice, similarCount, onSeeSimilar, currentUser, onShare, onBuy, myRef, onSignIn, onMessageSeller, onReport, isFavorited, onToggleFavorite, isBlocked, onToggleBlock, onReportUser, sellerRating, sellerReviewCount, myOffer, onMakeOffer, onOpenListing }) {
   const [copied, setCopied] = useState(false);
   const [reporting, setReporting] = useState(false);
   const [reportingUser, setReportingUser] = useState(false);
@@ -914,7 +934,7 @@ function CarCard({ listing, seller, avgPrice, similarCount, onSeeSimilar, curren
 
   return (
     <div style={styles.card} className="car-card">
-      <div style={styles.cardImgWrap}>
+      <div style={{ ...styles.cardImgWrap, cursor: onOpenListing ? "pointer" : "default" }} onClick={() => onOpenListing?.()}>
         <img src={cover} alt={`${listing.make} ${listing.model}`} style={styles.cardImg} onError={e => { e.target.src = "https://images.unsplash.com/photo-1494976388531-d1058494cdd8?w=600&q=80"; }} />
         <div style={styles.cardPrice}>{fmt(listing.price)}</div>
         {listing.status === "pending" && <div style={styles.pendingRibbon}>Sale Pending</div>}
@@ -923,7 +943,7 @@ function CarCard({ listing, seller, avgPrice, similarCount, onSeeSimilar, curren
           <button
             type="button"
             style={styles.favoriteBtn}
-            onClick={() => onToggleFavorite(listing.id)}
+            onClick={(e) => { e.stopPropagation(); onToggleFavorite(listing.id); }}
             title={isFavorited ? "Remove from saved cars" : "Save this car"}
           >
             {isFavorited ? "❤️" : "🤍"}
@@ -932,7 +952,7 @@ function CarCard({ listing, seller, avgPrice, similarCount, onSeeSimilar, curren
       </div>
       <div style={styles.cardBody}>
         <div style={styles.cardTitleRow}>
-          <div style={styles.cardTitle}>{listing.year} {listing.make} {listing.model}</div>
+          <div style={{ ...styles.cardTitle, cursor: onOpenListing ? "pointer" : "default" }} onClick={() => onOpenListing?.()}>{listing.year} {listing.make} {listing.model}</div>
           {seller?.verified && <span style={styles.verifiedBadge} title="Verified seller">✓ Verified</span>}
           {sellerRating != null && <span style={styles.ratingBadge} title={`${sellerReviewCount} review${sellerReviewCount === 1 ? "" : "s"}`}>⭐ {sellerRating.toFixed(1)} ({sellerReviewCount})</span>}
         </div>
@@ -1022,6 +1042,128 @@ function CarCard({ listing, seller, avgPrice, similarCount, onSeeSimilar, curren
   );
 }
 
+function ListingDetailModal({ data, currentUser, isFavorited, isBlocked, onClose, onBuy, onShare, onMessageSeller, onReport, onReportUser, onToggleFavorite, onToggleBlock, onMakeOffer, onSignIn }) {
+  const { listing, seller, myRef, sellerRating, sellerReviewCount, myOffer } = data;
+  const [activeImg, setActiveImg] = useState(0);
+  const [copied, setCopied] = useState(false);
+  const [reporting, setReporting] = useState(false);
+  const [offering, setOffering] = useState(false);
+
+  const images = (listing.images && listing.images.length ? listing.images : [listing.image]).filter(Boolean);
+  const isOwnListing = currentUser && listing.seller_id === currentUser.id;
+
+  const handleShare = () => { onShare(listing.id); setCopied(true); setTimeout(() => setCopied(false), 2000); };
+
+  // Close on Escape
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  return (
+    <div style={styles.overlay} onClick={onClose}>
+      <div style={styles.detailBox} onClick={e => e.stopPropagation()}>
+        <button style={styles.detailCloseBtn} onClick={onClose} aria-label="Close">✕</button>
+
+        <div style={styles.detailGalleryWrap}>
+          <img src={images[activeImg]} alt={`${listing.make} ${listing.model}`} style={styles.detailMainImg}
+            onError={e => { e.target.src = "https://images.unsplash.com/photo-1494976388531-d1058494cdd8?w=900&q=80"; }} />
+          {images.length > 1 && (
+            <>
+              <button style={{ ...styles.detailGalleryNav, left: 12 }} onClick={() => setActiveImg(i => (i - 1 + images.length) % images.length)}>‹</button>
+              <button style={{ ...styles.detailGalleryNav, right: 12 }} onClick={() => setActiveImg(i => (i + 1) % images.length)}>›</button>
+              <div style={styles.detailGalleryCount}>{activeImg + 1} / {images.length}</div>
+            </>
+          )}
+        </div>
+
+        {images.length > 1 && (
+          <div style={styles.detailThumbRow}>
+            {images.map((url, i) => (
+              <img key={i} src={url} alt="" style={{ ...styles.detailThumb, outline: i === activeImg ? "2px solid #0f172a" : "2px solid transparent" }} onClick={() => setActiveImg(i)} />
+            ))}
+          </div>
+        )}
+
+        <div style={styles.detailBody}>
+          <div style={styles.cardTitleRow}>
+            <div style={{ fontSize: 24, fontWeight: 800, color: "#0f172a" }}>{listing.year} {listing.make} {listing.model}</div>
+            {seller?.verified && <span style={styles.verifiedBadge} title="Verified seller">✓ Verified</span>}
+            {sellerRating != null && <span style={styles.ratingBadge}>⭐ {sellerRating.toFixed(1)} ({sellerReviewCount})</span>}
+          </div>
+          <div style={{ fontSize: 26, fontWeight: 800, color: "#0f172a", margin: "6px 0 14px" }}>{fmt(listing.price)}</div>
+
+          <div style={styles.cardMeta}>
+            <span>🛣 {listing.mileage?.toLocaleString()} mi</span>
+            <span>🎨 {listing.color}</span>
+            {listing.location_text && <span>📍 {listing.location_text}</span>}
+            {seller?.name && <span>👤 Sold by {seller.name}</span>}
+          </div>
+
+          <p style={{ ...styles.cardDesc, marginTop: 12 }}>{listing.description}</p>
+
+          {listing.vin && (
+            <div style={styles.vinRow}>
+              VIN: {listing.vin} {listing.vin_verified && <span style={styles.verifiedBadge}>✓ VIN Verified</span>} · <a href={`https://www.carfax.com/vehicle/${listing.vin}`} target="_blank" rel="noreferrer" style={styles.vinLink}>Check Carfax history →</a>
+            </div>
+          )}
+
+          {myRef && <div style={styles.refTag}>{myRef.status === "paid" ? `✅ Commission paid: ${fmt(myRef.commission_amount)}` : `🔗 Tracking active • Code: ${myRef.share_code}`}</div>}
+
+          <div style={styles.cardActions}>
+            {currentUser && !isOwnListing && <button style={styles.buyBtn} onClick={() => onBuy(listing)}>💳 Buy Now</button>}
+            {currentUser && !isOwnListing && (
+              <button style={{ ...styles.shareBtn, background: copied ? "#16a34a" : "#1d4ed8" }} onClick={handleShare}>
+                {copied ? "✓ Copied!" : myRef ? "Share Again" : "Share & Earn 1%"}
+              </button>
+            )}
+            {!currentUser && <button style={styles.buyBtn} onClick={onSignIn}>Sign in to buy or share →</button>}
+          </div>
+
+          {currentUser && !isOwnListing && onMakeOffer && (
+            myOffer ? (
+              <div style={styles.offerStatusRow}>
+                {myOffer.status === "pending" && <span>💰 Your offer of {fmt(myOffer.amount)} is pending</span>}
+                {myOffer.status === "countered" && <span>💰 Seller countered at {fmt(myOffer.counter_amount)}</span>}
+                {myOffer.status === "accepted" && <span>✅ Offer accepted — the seller will follow up</span>}
+              </div>
+            ) : (
+              <button style={styles.offerBtn} onClick={() => setOffering(true)}>💰 Make an Offer</button>
+            )
+          )}
+
+          {currentUser && !isOwnListing && (
+            <div style={styles.cardSecondaryActions}>
+              <button style={styles.messageLink} onClick={() => onMessageSeller(listing)}>💬 Message seller</button>
+              <button style={styles.reportLink} onClick={() => setReporting(true)}>🚩 Report</button>
+              {onToggleBlock && (
+                <button style={styles.reportLink} onClick={() => onToggleBlock(listing.seller_id)}>
+                  {isBlocked ? "✅ Unblock seller" : "🚫 Block seller"}
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {offering && (
+        <OfferModal
+          listing={listing}
+          onCancel={() => setOffering(false)}
+          onSubmit={(amount, message) => { onMakeOffer(listing.id, listing.seller_id, amount, message); setOffering(false); }}
+        />
+      )}
+      {reporting && (
+        <ReportModal
+          onCancel={() => setReporting(false)}
+          onSubmit={(reason, details) => { onReport(listing.id, reason, details); setReporting(false); }}
+        />
+      )}
+    </div>
+  );
+}
+
 function ReportModal({ onCancel, onSubmit }) {
   const [reason, setReason] = useState("Misleading listing");
   const [details, setDetails] = useState("");
@@ -1099,7 +1241,7 @@ function SavedSearchesView({ savedSearches, onDelete, onBrowse }) {
   );
 }
 
-function FavoritesView({ favorites, listings, users, referrals, currentUser, onShare, onBuy, onMessageSeller, onReport, onToggleFavorite, onBrowse }) {
+function FavoritesView({ favorites, listings, users, referrals, currentUser, onShare, onBuy, onMessageSeller, onReport, onToggleFavorite, onBrowse, onOpenListing }) {
   const favoritedListings = favorites
     .map(f => listings.find(l => l.id === f.listing_id))
     .filter(Boolean);
@@ -1132,6 +1274,7 @@ function FavoritesView({ favorites, listings, users, referrals, currentUser, onS
                 onReport={onReport}
                 isFavorited={true}
                 onToggleFavorite={onToggleFavorite}
+                onOpenListing={() => onOpenListing({ listing: l, seller, myRef, sellerRating: null, sellerReviewCount: 0, myOffer: null })}
               />
             );
           })}
@@ -2111,6 +2254,15 @@ const styles = {
   offerStatusRow: { fontSize: 13, color: "#1d4ed8", fontWeight: 600, background: "#eff6ff", padding: "8px 12px", borderRadius: 8, marginTop: 8 },
   overlay: { position: "fixed", inset: 0, background: "rgba(0,0,0,.5)", zIndex: 999, display: "flex", alignItems: "center", justifyContent: "center", padding: 16, boxSizing: "border-box" },
   modalBox: { background: "#fff", borderRadius: 20, padding: 28, maxWidth: 440, width: "100%", boxShadow: "0 20px 60px rgba(0,0,0,.2)", boxSizing: "border-box" },
+  detailBox: { background: "#fff", borderRadius: 20, width: "100%", maxWidth: 760, maxHeight: "90vh", overflowY: "auto", boxShadow: "0 20px 60px rgba(0,0,0,.25)", boxSizing: "border-box", position: "relative" },
+  detailCloseBtn: { position: "absolute", top: 14, right: 14, zIndex: 2, background: "rgba(15,23,42,.7)", color: "#fff", border: "none", width: 32, height: 32, borderRadius: "50%", cursor: "pointer", fontSize: 14 },
+  detailGalleryWrap: { position: "relative", width: "100%", height: 380, background: "#0f172a" },
+  detailMainImg: { width: "100%", height: "100%", objectFit: "cover", display: "block" },
+  detailGalleryNav: { position: "absolute", top: "50%", transform: "translateY(-50%)", background: "rgba(0,0,0,.5)", color: "#fff", border: "none", width: 36, height: 36, borderRadius: "50%", cursor: "pointer", fontSize: 20 },
+  detailGalleryCount: { position: "absolute", bottom: 12, right: 12, background: "rgba(0,0,0,.6)", color: "#fff", fontSize: 12, fontWeight: 600, padding: "3px 10px", borderRadius: 20 },
+  detailThumbRow: { display: "flex", gap: 8, padding: "12px 20px 0", overflowX: "auto" },
+  detailThumb: { width: 64, height: 48, objectFit: "cover", borderRadius: 8, cursor: "pointer", flexShrink: 0 },
+  detailBody: { padding: 24 },
   modalTitle: { fontSize: 22, fontWeight: 800, color: "#0f172a", marginBottom: 12 },
   modalText: { fontSize: 14, color: "#374151", lineHeight: 1.6, marginBottom: 10 },
   modalActions: { display: "flex", gap: 12, marginTop: 24 },
