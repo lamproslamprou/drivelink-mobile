@@ -535,6 +535,22 @@ export default function App() {
     showToast("Thanks for the review!");
   };
 
+  // ── Admin removes a user's account entirely — deletes their Supabase Auth
+  // login (they can no longer sign in) and their users table row. Does NOT
+  // touch their historical listings/offers/messages/etc — see delete-user's
+  // own comments for why. Meant for cleaning up test accounts; for real
+  // accounts with transaction history, think twice before using this.
+  const deleteUser = async (userId, userName) => {
+    if (!window.confirm(`Delete ${userName}'s account? They will no longer be able to sign in. This can't be undone.`)) return;
+    const { data, error } = await supabase.functions.invoke("delete-user", { body: { user_id: userId } });
+    if (error || data?.error) {
+      showToast(data?.error || error?.message || "Couldn't delete user — try again.", "error");
+      return;
+    }
+    await loadData();
+    showToast(`${userName}'s account has been deleted.`);
+  };
+
   // ── Admin records that a promoter's balance was paid out via an external method
   // (bank transfer, PayPal, Venmo, etc). This app doesn't move real money — it just
   // tracks that the payout happened and zeroes out the tracked balance to match.
@@ -754,7 +770,7 @@ export default function App() {
         {view === "blocked" && <BlockedUsersView blocks={blocks} users={users} onToggleBlock={toggleBlock} onBrowse={() => setView("home")} />}
         {view === "dashboard" && <PromoterDashboard currentUser={dbUser} referrals={referrals.filter(r => r.promoter_id === currentUser?.id)} listings={listings} payouts={payouts} onSetupPayouts={setupPayouts} />}
         {view === "profile" && <ProfileView dbUser={dbUser} authEmail={currentUser?.email} onUpdateProfile={updateProfile} onChangeEmail={changeEmail} onChangePassword={changePassword} onSetupPayouts={setupPayouts} />}
-        {view === "admin" && <AdminView listings={listings} users={users} referrals={referrals} reports={reports} feedback={feedback} userReports={userReports} reviews={reviews} payouts={payouts} disputes={disputes} onArchive={archiveListing} onMarkSold={markSold} onConfirmReceipt={confirmReceipt} onResolveReport={resolveReport} onResolveUserReport={resolveUserReport} onToggleVerified={toggleVerified} onResetData={resetTestData} onRecordPayout={recordPayout} onPayoutViaStripe={payoutPromoterViaStripe} onResolveDispute={resolveDispute} />}
+        {view === "admin" && <AdminView listings={listings} users={users} referrals={referrals} reports={reports} feedback={feedback} userReports={userReports} reviews={reviews} payouts={payouts} disputes={disputes} onArchive={archiveListing} onMarkSold={markSold} onConfirmReceipt={confirmReceipt} onResolveReport={resolveReport} onResolveUserReport={resolveUserReport} onToggleVerified={toggleVerified} onResetData={resetTestData} onRecordPayout={recordPayout} onPayoutViaStripe={payoutPromoterViaStripe} onResolveDispute={resolveDispute} onDeleteUser={deleteUser} />}
         {view === "success" && <SuccessView onHome={() => setView("home")} />}
       </main>
 
@@ -2300,7 +2316,7 @@ function StatBox({ label, value, color }) {
   return <div style={styles.statBox}><div style={{ ...styles.statValue, color }}>{value}</div><div style={styles.statLabel}>{label}</div></div>;
 }
 
-function AdminView({ listings, users, referrals, reports, feedback, userReports, reviews, payouts, disputes, onArchive, onMarkSold, onConfirmReceipt, onResolveReport, onResolveUserReport, onToggleVerified, onResetData, onRecordPayout, onPayoutViaStripe, onResolveDispute }) {
+function AdminView({ listings, users, referrals, reports, feedback, userReports, reviews, payouts, disputes, onArchive, onMarkSold, onConfirmReceipt, onResolveReport, onResolveUserReport, onToggleVerified, onResetData, onRecordPayout, onPayoutViaStripe, onResolveDispute, onDeleteUser }) {
   const [tab, setTab] = useState("listings");
   const [markingSold, setMarkingSold] = useState(null);
   const [payingOut, setPayingOut] = useState(null);
@@ -2391,6 +2407,7 @@ function AdminView({ listings, users, referrals, reports, feedback, userReports,
               <button style={u.verified ? styles.removeBtn : styles.pendingBtn} onClick={() => onToggleVerified(u.id, !u.verified)}>
                 {u.verified ? "Unverify" : "Verify Seller"}
               </button>
+              <button style={styles.removeBtn} onClick={() => onDeleteUser(u.id, u.name)}>Delete Account</button>
             </div>
             );
           })}
