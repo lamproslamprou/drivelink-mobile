@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "./supabase.js";
 import Auth from "./Auth.jsx";
 import Landing from "./Landing.jsx";
@@ -63,6 +63,36 @@ export default function App() {
   const [authChecked, setAuthChecked] = useState(false);
   const [confirmResult, setConfirmResult] = useState(null); // { status: 'success' | 'error', message? }
   const [viewingListing, setViewingListing] = useState(null); // { listing, seller, myRef, sellerRating, sellerReviewCount, myOffer }
+
+  // ── Nav bar horizontal scrolling. It has overflow-x:auto for touch/trackpad,
+  // but a plain vertical mouse wheel and click-drag don't scroll horizontal
+  // content by default in most browsers — only arrow keys and a visible
+  // scrollbar (which we hide) worked before. These two handlers add both.
+  const navRef = useRef(null);
+  const navDrag = useRef({ active: false, startX: 0, startScrollLeft: 0 });
+
+  const handleNavWheel = (e) => {
+    const el = navRef.current;
+    if (!el || el.scrollWidth <= el.clientWidth) return; // nothing to scroll
+    el.scrollLeft += e.deltaY;
+    e.preventDefault();
+  };
+
+  const handleNavMouseDown = (e) => {
+    const el = navRef.current;
+    if (!el || el.scrollWidth <= el.clientWidth) return;
+    navDrag.current = { active: true, startX: e.pageX, startScrollLeft: el.scrollLeft };
+    el.style.cursor = "grabbing";
+  };
+  const handleNavMouseMove = (e) => {
+    if (!navDrag.current.active || !navRef.current) return;
+    e.preventDefault();
+    navRef.current.scrollLeft = navDrag.current.startScrollLeft - (e.pageX - navDrag.current.startX);
+  };
+  const endNavDrag = () => {
+    navDrag.current.active = false;
+    if (navRef.current) navRef.current.style.cursor = "";
+  };
 
   const showToast = (msg, type = "success") => {
     setToast({ msg, type });
@@ -581,7 +611,16 @@ export default function App() {
             <img src={logoIcon} alt="DriveLink" style={styles.logoImg} />
             <span style={styles.logoText}>DriveLink</span>
           </div>
-          <div style={styles.navLinks} className="app-nav-links">
+          <div
+            style={styles.navLinks}
+            className="app-nav-links"
+            ref={navRef}
+            onWheel={handleNavWheel}
+            onMouseDown={handleNavMouseDown}
+            onMouseMove={handleNavMouseMove}
+            onMouseUp={endNavDrag}
+            onMouseLeave={endNavDrag}
+          >
             <NavBtn active={view === "home"} onClick={() => { setView("home"); setHomeResetKey(k => k + 1); }}>Browse</NavBtn>
             {currentUser && <NavBtn active={view === "myListings"} onClick={() => setView("myListings")}>My Listings</NavBtn>}
             {currentUser && <NavBtn active={view === "myPurchases"} onClick={() => setView("myPurchases")}>My Purchases</NavBtn>}
@@ -2301,7 +2340,7 @@ const styles = {
   logoImg: { height: 30, width: "auto", display: "block" },
   logoIcon: { fontSize: 22 },
   logoText: { fontWeight: 800, fontSize: 20, color: "#0f172a", letterSpacing: "-0.03em" },
-  navLinks: { display: "flex", gap: 4, flex: 1 },
+  navLinks: { display: "flex", gap: 4, flex: 1, cursor: "grab", userSelect: "none" },
   navBtn: { background: "none", border: "none", padding: "6px 14px", borderRadius: 8, cursor: "pointer", fontSize: 14, fontWeight: 500, color: "#4b5563" },
   navBtnActive: { background: "#f1f5f9", color: "#0f172a" },
   navRight: { marginLeft: "auto" },
