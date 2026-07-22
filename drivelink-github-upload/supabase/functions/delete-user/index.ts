@@ -35,16 +35,21 @@ Deno.serve(async (req) => {
     const { data: target } = await supabase.from("users").select("id, name, email").eq("id", user_id).single();
     if (!target) throw new Error("User not found");
 
-    // Removes their login entirely — they can no longer sign in, even if
-    // they still have an email/password. This is the part that requires
-    // the service role and can't be done from the client.
-    const { error: authErr } = await supabase.auth.admin.deleteUser(user_id);
-    if (authErr) throw new Error(`Couldn't delete auth account: ${authErr.message}`);
+    // Some accounts — especially older test/seed data — exist only as a
+    // users table row with no matching Supabase Auth account (their id
+    // isn't a real auth UUID). Only attempt the auth deletion if the id is
+    // actually UUID-shaped; otherwise there's no login to remove anyway.
+    const isRealAuthId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(user_id);
+
+    if (isRealAuthId) {
+      const { error: authErr } = await supabase.auth.admin.deleteUser(user_id);
+      if (authErr) throw new Error(`Couldn't delete auth account: ${authErr.message}`);
+    }
 
     const { error: rowErr } = await supabase.from("users").delete().eq("id", user_id);
-    if (rowErr) throw new Error(`Auth account deleted, but couldn't remove users row: ${rowErr.message}`);
+    if (rowErr) throw new Error(`${isRealAuthId ? "Auth account deleted, but couldn't" : "Couldn't"} remove users row: ${rowErr.message}`);
 
-    return jsonResponse({ deleted: true, name: target.name, email: target.email });
+    return jsonResponse({ deleted: true, name: target.name, email: target.email, hadAuthAccount: isRealAuthId });
   } catch (err) {
     console.error("delete-user error:", err);
     return jsonResponse({ error: err instanceof Error ? err.message : "Unknown error" }, 500);

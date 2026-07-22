@@ -2392,11 +2392,13 @@ function AdminView({ listings, users, referrals, reports, feedback, userReports,
       )}
       {tab === "users" && (
         <div style={styles.tableWrap}>
-          {users.map(u => {
+          <div style={{ fontSize: 13, color: "#6b7280", marginBottom: 12, fontWeight: 600 }}>{users.length} total user{users.length === 1 ? "" : "s"}</div>
+          {users.map((u, i) => {
             const uReviews = (reviews || []).filter(r => r.seller_id === u.id);
             const uRating = uReviews.length ? uReviews.reduce((s, r) => s + r.rating, 0) / uReviews.length : null;
             return (
             <div key={u.id} style={styles.listingRow} className="app-listing-row">
+              <div style={{ fontSize: 13, color: "#94a3b8", fontWeight: 700, minWidth: 28, textAlign: "right" }}>{i + 1}</div>
               <div style={styles.avatar}>{u.name[0]}</div>
               <div style={styles.rowInfo} className="app-row-info">
                 <div style={styles.rowTitle}>{u.name} {u.verified && <span style={styles.verifiedBadge}>✓ Verified</span>} {uRating != null && <span style={styles.ratingBadge}>⭐ {uRating.toFixed(1)} ({uReviews.length})</span>}</div>
