@@ -561,7 +561,34 @@ export default function App() {
     showToast(`${fmt(amount)} sent via Stripe.`);
   };
 
-  // ── Jump into (or start) a message thread with a listing's seller
+  // ── Profile page handlers.
+  // Simple fields live on the users table row.
+  const updateProfile = async (patch) => {
+    const { error } = await supabase.from("users").update(patch).eq("id", currentUser.id);
+    if (error) { showToast("Couldn't save changes.", "error"); return; }
+    await loadDbUser(currentUser);
+    showToast("Profile updated.");
+  };
+
+  // Email changes go through Supabase Auth, not the users table — this
+  // triggers a confirmation email to the NEW address, and the change only
+  // takes effect once that link is clicked.
+  const changeEmail = async (newEmail) => {
+    const { error } = await supabase.auth.updateUser({ email: newEmail });
+    if (error) { showToast(error.message || "Couldn't update email.", "error"); return; }
+    showToast("Check your new email address for a confirmation link to finish the change.");
+  };
+
+  // Password changes also go through Supabase Auth — never stored on the
+  // users table.
+  const changePassword = async (newPassword) => {
+    if (!newPassword || newPassword.length < 8) { showToast("Password must be at least 8 characters.", "error"); return; }
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    if (error) { showToast(error.message || "Couldn't update password.", "error"); return; }
+    showToast("Password updated.");
+  };
+
+
   const messageSeller = (listing) => {
     if (listing.seller_id === currentUser.id) return;
     if (blocks.some(b => b.blocked_id === listing.seller_id)) { showToast("You've blocked this seller.", "error"); return; }
@@ -663,6 +690,7 @@ export default function App() {
             {currentUser && <NavBtn active={view === "favorites"} onClick={() => setView("favorites")}>❤️ Saved Cars</NavBtn>}
             {currentUser && <NavBtn active={view === "blocked"} onClick={() => setView("blocked")}>🚫 Blocked</NavBtn>}
             {currentUser && <NavBtn active={view === "dashboard"} onClick={() => setView("dashboard")}>Earnings</NavBtn>}
+            {currentUser && <NavBtn active={view === "profile"} onClick={() => setView("profile")}>⚙️ Profile</NavBtn>}
             {dbUser?.role === "admin" && <NavBtn active={view === "admin"} onClick={() => setView("admin")}>Admin</NavBtn>}
           </div>
           <div style={styles.navRight} className="app-nav-right">
@@ -696,6 +724,7 @@ export default function App() {
         {view === "favorites" && <FavoritesView favorites={favorites} listings={listings} users={users} referrals={referrals} currentUser={dbUser} onShare={generateShare} onBuy={handleBuyNow} onMessageSeller={messageSeller} onReport={fileReport} onToggleFavorite={toggleFavorite} onBrowse={() => setView("home")} onOpenListing={setViewingListing} />}
         {view === "blocked" && <BlockedUsersView blocks={blocks} users={users} onToggleBlock={toggleBlock} onBrowse={() => setView("home")} />}
         {view === "dashboard" && <PromoterDashboard currentUser={dbUser} referrals={referrals.filter(r => r.promoter_id === currentUser?.id)} listings={listings} payouts={payouts} onSetupPayouts={setupPayouts} />}
+        {view === "profile" && <ProfileView dbUser={dbUser} authEmail={currentUser?.email} onUpdateProfile={updateProfile} onChangeEmail={changeEmail} onChangePassword={changePassword} onSetupPayouts={setupPayouts} />}
         {view === "admin" && <AdminView listings={listings} users={users} referrals={referrals} reports={reports} feedback={feedback} userReports={userReports} reviews={reviews} payouts={payouts} disputes={disputes} onArchive={archiveListing} onMarkSold={markSold} onConfirmReceipt={confirmReceipt} onResolveReport={resolveReport} onResolveUserReport={resolveUserReport} onToggleVerified={toggleVerified} onResetData={resetTestData} onRecordPayout={recordPayout} onPayoutViaStripe={payoutPromoterViaStripe} onResolveDispute={resolveDispute} />}
         {view === "success" && <SuccessView onHome={() => setView("home")} />}
       </main>
@@ -1980,6 +2009,94 @@ function PostListingView({ onPost }) {
         </div>
         <button style={{ ...styles.confirmBtn, marginTop: 24, opacity: submitting ? 0.6 : 1 }} onClick={handleSubmit} disabled={submitting}>{submitting ? "Posting…" : "Post Listing"}</button>
       </div>
+    </div>
+  );
+}
+
+function ProfileView({ dbUser, authEmail, onUpdateProfile, onChangeEmail, onChangePassword, onSetupPayouts }) {
+  const [name, setName] = useState(dbUser?.name || "");
+  const [phone, setPhone] = useState(dbUser?.phone || "");
+  const [notifyOffers, setNotifyOffers] = useState(dbUser?.notify_offers ?? true);
+  const [notifyMessages, setNotifyMessages] = useState(dbUser?.notify_messages ?? true);
+  const [notifySales, setNotifySales] = useState(dbUser?.notify_sales ?? true);
+  const [newEmail, setNewEmail] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+
+  if (!dbUser) return <div style={styles.pageWrap}><p style={{ color: "#6b7280" }}>Loading your profile…</p></div>;
+
+  return (
+    <div style={styles.pageWrap}>
+      <h2 style={styles.pageTitle}>⚙️ Profile</h2>
+
+      <h3 style={styles.sectionTitle}>Your Details</h3>
+      <Field label="Name" value={name} onChange={setName} placeholder="Your name" />
+      <Field label="Phone (optional)" value={phone} onChange={setPhone} placeholder="e.g. (555) 123-4567" type="tel" />
+      <button
+        style={styles.confirmBtn}
+        onClick={() => onUpdateProfile({ name, phone })}
+        disabled={!name.trim()}
+      >
+        Save Details
+      </button>
+
+      <h3 style={{ ...styles.sectionTitle, marginTop: 32 }}>Payouts</h3>
+      {dbUser.stripe_payouts_enabled ? (
+        <div style={{ fontSize: 13, color: "#16a34a" }}>✅ Stripe payouts are set up.</div>
+      ) : (
+        <div>
+          <p style={{ fontSize: 13, color: "#6b7280", marginBottom: 8 }}>Set up payouts to get paid automatically for sales and commissions.</p>
+          <button style={styles.confirmBtn} onClick={onSetupPayouts}>Set up payouts</button>
+        </div>
+      )}
+
+      <h3 style={{ ...styles.sectionTitle, marginTop: 32 }}>Notifications</h3>
+      <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 16 }}>
+        <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14 }}>
+          <input type="checkbox" checked={notifyOffers} onChange={e => setNotifyOffers(e.target.checked)} />
+          Offers on my listings
+        </label>
+        <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14 }}>
+          <input type="checkbox" checked={notifyMessages} onChange={e => setNotifyMessages(e.target.checked)} />
+          New messages
+        </label>
+        <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14 }}>
+          <input type="checkbox" checked={notifySales} onChange={e => setNotifySales(e.target.checked)} />
+          Sales &amp; payout updates
+        </label>
+      </div>
+      <button
+        style={styles.confirmBtn}
+        onClick={() => onUpdateProfile({ notify_offers: notifyOffers, notify_messages: notifyMessages, notify_sales: notifySales })}
+      >
+        Save Notification Preferences
+      </button>
+
+      <h3 style={{ ...styles.sectionTitle, marginTop: 32 }}>Email Address</h3>
+      <p style={{ fontSize: 13, color: "#6b7280", marginBottom: 8 }}>Current: {authEmail}</p>
+      <Field label="New email" value={newEmail} onChange={setNewEmail} placeholder="new@example.com" type="email" />
+      <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 12 }}>We'll send a confirmation link to the new address — the change only takes effect once you click it.</div>
+      <button
+        style={styles.confirmBtn}
+        onClick={() => { onChangeEmail(newEmail); setNewEmail(""); }}
+        disabled={!newEmail.trim() || newEmail === authEmail}
+      >
+        Update Email
+      </button>
+
+      <h3 style={{ ...styles.sectionTitle, marginTop: 32 }}>Password</h3>
+      <Field label="New password" value={newPassword} onChange={setNewPassword} placeholder="At least 8 characters" type="password" />
+      <Field label="Confirm new password" value={confirmPassword} onChange={setConfirmPassword} placeholder="Re-enter password" type="password" />
+      {newPassword && confirmPassword && newPassword !== confirmPassword && (
+        <div style={{ fontSize: 12, color: "#b91c1c", marginBottom: 12 }}>Passwords don't match.</div>
+      )}
+      <button
+        style={styles.confirmBtn}
+        onClick={() => { onChangePassword(newPassword); setNewPassword(""); setConfirmPassword(""); }}
+        disabled={!newPassword || newPassword !== confirmPassword}
+      >
+        Update Password
+      </button>
     </div>
   );
 }

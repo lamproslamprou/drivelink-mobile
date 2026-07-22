@@ -22,14 +22,30 @@ Deno.serve(async (req) => {
   const stripe = stripeClient();
   const supabase = supabaseAdmin();
   const signature = req.headers.get("stripe-signature");
-  const webhookSecret = Deno.env.get("STRIPE_WEBHOOK_SECRET")!;
+
+  // Two Stripe webhook endpoints point at this same function: one for
+  // "your account" events (checkout.session.completed) and one for
+  // "connected accounts" events (account.updated) — Stripe requires these
+  // as separate endpoints, each with its own signing secret. Try both.
+  const body = await req.text();
+  const candidateSecrets = [
+    Deno.env.get("STRIPE_WEBHOOK_SECRET"),
+    Deno.env.get("STRIPE_WEBHOOK_SECRET_CONNECT"),
+  ].filter(Boolean) as string[];
 
   let event;
-  try {
-    const body = await req.text();
-    event = await stripe.webhooks.constructEventAsync(body, signature!, webhookSecret);
-  } catch (err) {
-    console.error("Webhook signature verification failed:", err);
+  let verified = false;
+  for (const secret of candidateSecrets) {
+    try {
+      event = await stripe.webhooks.constructEventAsync(body, signature!, secret);
+      verified = true;
+      break;
+    } catch {
+      // try the next secret
+    }
+  }
+  if (!verified || !event) {
+    console.error("Webhook signature verification failed against all known secrets");
     return jsonResponse({ error: "Invalid signature" }, 400);
   }
 
@@ -41,13 +57,13 @@ Deno.serve(async (req) => {
 
   try {
     if (event.type === "checkout.session.completed") {
-      const session = event.data.object as {
-        id: string;
-        payment_intent: string;
-        amount_total: number;
-        metadata: Record<string, string>;
-      };
-      const { listing_id, buyer_id } = session.metadata;
+      // Fetch the full session from Stripe's API rather than trusting the
+      // webhook body directly — works whether Stripe sends a full ("snapshot")
+      // or minimal ("thin") event payload, so we don't depend on which
+      // payload style a given endpoint happens to be configured for.
+      const sessionId = (event.data.object as { id: string }).id;
+      const session = await stripe.checkout.sessions.retrieve(sessionId);
+      const { listing_id, buyer_id } = session.metadata as Record<string, string>;
 
       const salePrice = Math.round((session.amount_total ?? 0) / 100);
       const platformFee = Math.round(salePrice * PLATFORM_FEE);
@@ -87,7 +103,10 @@ Deno.serve(async (req) => {
     }
 
     if (event.type === "account.updated") {
-      const account = event.data.object as { id: string; payouts_enabled: boolean };
+      // Same reasoning as above — fetch the full account object rather than
+      // trusting fields on the event body.
+      const accountId = (event.data.object as { id: string }).id;
+      const account = await stripe.accounts.retrieve(accountId);
       await supabase
         .from("users")
         .update({ stripe_payouts_enabled: account.payouts_enabled })

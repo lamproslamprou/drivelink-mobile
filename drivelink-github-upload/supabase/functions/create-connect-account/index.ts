@@ -44,8 +44,8 @@ Deno.serve(async (req) => {
 
     const accountLink = await stripe.accountLinks.create({
       account: accountId,
-      refresh_url: `${origin}/account/payouts?refresh=true`,
-      return_url: `${origin}/account/payouts?onboarded=true`,
+      refresh_url: `${origin}/?refresh=true`,
+      return_url: `${origin}/?onboarded=true`,
       type: "account_onboarding",
     });
 
