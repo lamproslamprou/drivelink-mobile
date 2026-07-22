@@ -2755,15 +2755,15 @@ const css = `
     display: none;
     position: fixed;
     top: 140px;
-    width: 160px;
+    width: 130px;
     z-index: 10;
     cursor: pointer;
     transition: transform 0.15s ease;
   }
   .app-ad-rail:hover { transform: translateY(-2px); }
-  .app-ad-rail-left { left: max(24px, calc(50% - 640px)); }
-  .app-ad-rail-right { right: max(24px, calc(50% - 640px)); }
-  @media (min-width: 1500px) {
+  .app-ad-rail-left { left: max(12px, calc(50% - 620px)); }
+  .app-ad-rail-right { right: max(12px, calc(50% - 620px)); }
+  @media (min-width: 1300px) {
     .app-ad-rail { display: block; }
   }
 
