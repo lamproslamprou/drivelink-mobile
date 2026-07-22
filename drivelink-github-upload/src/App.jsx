@@ -181,6 +181,38 @@ export default function App() {
     }
   }, []);
 
+  // ── Detect a return from Stripe Connect onboarding (?onboarded=true). The
+  // account.updated webhook that flips stripe_payouts_enabled to true can lag
+  // slightly behind Stripe's redirect back to the site, so a single page-load
+  // fetch of dbUser can occasionally still show the old "not set up" state.
+  // Poll for a few seconds instead of trusting a single fetch.
+  const onboardedCheckStarted = useRef(false);
+  useEffect(() => {
+    if (!currentUser || onboardedCheckStarted.current) return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("onboarded") !== "true") return;
+    onboardedCheckStarted.current = true;
+    window.history.replaceState(null, "", window.location.pathname);
+
+    let attempts = 0;
+    const maxAttempts = 6; // ~12 seconds total
+    const poll = async () => {
+      attempts++;
+      const { data } = await supabase.from("users").select("*").eq("id", currentUser.id).single();
+      if (data?.stripe_payouts_enabled) {
+        setDbUser(data);
+        showToast("Payouts are set up — you're all set to get paid automatically.");
+        return;
+      }
+      if (attempts < maxAttempts) {
+        setTimeout(poll, 2000);
+      } else {
+        showToast("Payout setup is still finalizing — refresh in a moment if the banner doesn't clear.", "info");
+      }
+    };
+    poll();
+  }, [currentUser]);
+
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setCurrentUser(session?.user ?? null);
