@@ -63,7 +63,31 @@ Deno.serve(async (req) => {
       // payload style a given endpoint happens to be configured for.
       const sessionId = (event.data.object as { id: string }).id;
       const session = await stripe.checkout.sessions.retrieve(sessionId);
-      const { listing_id, buyer_id } = session.metadata as Record<string, string>;
+      const meta = session.metadata as Record<string, string>;
+
+      // Ad placement purchases use this same event but a completely
+      // different downstream update — handle and exit early.
+      if (meta.type === "ad_placement") {
+        const plan = meta.plan;
+        const months = plan === "12mo" ? 12 : plan === "6mo" ? 6 : 3;
+        const startDate = new Date();
+        const endDate = new Date(startDate);
+        endDate.setMonth(endDate.getMonth() + months);
+
+        await supabase
+          .from("ad_placements")
+          .update({
+            status: "active",
+            stripe_payment_intent_id: session.payment_intent as string,
+            start_date: startDate.toISOString().slice(0, 10),
+            end_date: endDate.toISOString().slice(0, 10),
+          })
+          .eq("id", meta.ad_id);
+
+        return jsonResponse({ received: true });
+      }
+
+      const { listing_id, buyer_id } = meta;
 
       const salePrice = Math.round((session.amount_total ?? 0) / 100);
       const platformFee = Math.round(salePrice * PLATFORM_FEE);

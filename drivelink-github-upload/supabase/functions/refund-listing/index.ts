@@ -1,5 +1,6 @@
 // POST /refund-listing
-// Admin-only, gated by the ADMIN_EMAILS secret (see helpers.ts). Issues a
+// Admin-only, gated by the same users.role = 'admin' check the frontend
+// uses for the Admin tab — one source of truth for who's an admin. Issues a
 // real Stripe refund to the buyer and resolves the dispute — replacing the
 // "remember to actually issue the refund in Stripe" manual step that used to
 // sit inside resolveDispute() in App.jsx. Wired to your actual disputes
@@ -9,7 +10,7 @@
 // (funds_released=false) — once a transfer has gone out, recovering funds
 // from the seller isn't something Stripe refunds can do; that needs manual
 // seller-side recovery instead.
-import { corsHeaders, isAdminEmail, jsonResponse, requireUser, stripeClient, supabaseAdmin } from "../_shared/helpers.ts";
+import { corsHeaders, jsonResponse, requireUser, stripeClient, supabaseAdmin } from "../_shared/helpers.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -22,8 +23,8 @@ Deno.serve(async (req) => {
     const supabase = supabaseAdmin();
     const stripe = stripeClient();
 
-    const { data: caller } = await supabase.from("users").select("email").eq("id", callerId).single();
-    if (!isAdminEmail(caller?.email)) throw new Error("Not authorized to issue refunds");
+    const { data: caller } = await supabase.from("users").select("role").eq("id", callerId).single();
+    if (caller?.role !== "admin") throw new Error("Not authorized to issue refunds");
 
     const { data: dispute, error: disputeErr } = await supabase
       .from("disputes")

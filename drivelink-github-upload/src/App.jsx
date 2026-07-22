@@ -588,6 +588,19 @@ export default function App() {
     showToast("Password updated.");
   };
 
+  // ── Advertiser submits the "Advertise on DriveLink" form — creates a real
+  // Stripe Checkout session for the selected plan.
+  const createAdCheckout = async ({ plan, business_name, contact_email, image_url, link_url }) => {
+    const { data, error } = await supabase.functions.invoke("create-ad-checkout-session", {
+      body: { plan, business_name, contact_email, image_url, link_url },
+    });
+    if (error || !data?.url) {
+      showToast(data?.error || error?.message || "Couldn't start checkout — try again.", "error");
+      return;
+    }
+    window.location.href = data.url;
+  };
+
 
   const messageSeller = (listing) => {
     if (listing.seller_id === currentUser.id) return;
@@ -681,6 +694,7 @@ export default function App() {
             onMouseLeave={endNavDrag}
           >
             <NavBtn active={view === "home"} onClick={() => { setView("home"); setHomeResetKey(k => k + 1); }}>Browse</NavBtn>
+            <NavBtn active={view === "advertise"} onClick={() => setView("advertise")}>📢 Advertise</NavBtn>
             {currentUser && <NavBtn active={view === "myListings"} onClick={() => setView("myListings")}>My Listings</NavBtn>}
             {currentUser && <NavBtn active={view === "myPurchases"} onClick={() => setView("myPurchases")}>My Purchases</NavBtn>}
             {currentUser && <NavBtn active={view === "myOffers"} onClick={() => setView("myOffers")}>💰 My Offers</NavBtn>}
@@ -711,9 +725,26 @@ export default function App() {
         </div>
       </nav>
 
+      {/* Desktop-only ad rails — hidden on mobile/tablet via .app-ad-rail CSS below */}
+      <div className="app-ad-rail app-ad-rail-left" onClick={() => setView("advertise")}>
+        <div style={styles.adRailInner}>
+          <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 6 }}>📢 Advertise Here</div>
+          <div style={{ fontSize: 12, color: "#94a3b8" }}>Reach car buyers and sellers on DriveLink.</div>
+          <div style={{ fontSize: 12, color: "#FFB020", fontWeight: 600, marginTop: 10 }}>Click to learn more →</div>
+        </div>
+      </div>
+      <div className="app-ad-rail app-ad-rail-right" onClick={() => setView("advertise")}>
+        <div style={styles.adRailInner}>
+          <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 6 }}>📢 Advertise Here</div>
+          <div style={{ fontSize: 12, color: "#94a3b8" }}>Reach car buyers and sellers on DriveLink.</div>
+          <div style={{ fontSize: 12, color: "#FFB020", fontWeight: 600, marginTop: 10 }}>Click to learn more →</div>
+        </div>
+      </div>
+
       {toast && <div style={{ ...styles.toast, background: toast.type === "info" ? "#1d4ed8" : toast.type === "error" ? "#dc2626" : "#16a34a" }} className="app-toast">{toast.msg}</div>}
 
       <main style={styles.main} className="app-main">
+        {view === "advertise" && <AdvertiseView currentUser={dbUser} onSubmit={createAdCheckout} onSignIn={() => setView("auth")} />}
         {view === "home" && <HomeView key={homeResetKey} listings={activeListings} allListings={listings} currentUser={dbUser} users={users} onShare={generateShare} onBuy={handleBuyNow} referrals={referrals} onSignIn={() => setView("auth")} onMessageSeller={messageSeller} onReport={fileReport} onSaveSearch={saveSearch} favorites={favorites} onToggleFavorite={toggleFavorite} onToggleBlock={toggleBlock} onReportUser={reportUserAction} blocks={blocks} reviews={reviews} offers={offers} onMakeOffer={makeOffer} onOpenListing={setViewingListing} />}
         {view === "myListings" && <MyListingsView listings={listings.filter(l => l.seller_id === currentUser?.id)} referrals={referrals} users={users} offers={offers} onMarkSold={markSold} onSetStatus={setListingStatus} onUpdate={updateListing} onRespondToOffer={respondToOffer} onOpenSafety={() => setView("safety")} currentUser={dbUser} onSetupPayouts={setupPayouts} />}
         {view === "myPurchases" && <MyPurchasesView listings={listings.filter(l => l.buyer_id === currentUser?.id)} users={users} reviews={reviews} currentUser={currentUser} onSubmitReview={submitReview} onConfirmReceipt={confirmReceipt} onFileDispute={fileDispute} onBrowse={() => setView("home")} onOpenSafety={() => setView("safety")} />}
@@ -2013,6 +2044,95 @@ function PostListingView({ onPost }) {
   );
 }
 
+const AD_PLANS = [
+  { id: "3mo", label: "3 Months", monthly: 150, total: 450, blurb: "" },
+  { id: "6mo", label: "6 Months", monthly: 125, total: 750, blurb: "Save ~17%" },
+  { id: "12mo", label: "12 Months", monthly: 100, total: 1200, blurb: "Save ~33%" },
+];
+
+function AdvertiseView({ currentUser, onSubmit, onSignIn }) {
+  const [selectedPlan, setSelectedPlan] = useState("6mo");
+  const [businessName, setBusinessName] = useState("");
+  const [contactEmail, setContactEmail] = useState(currentUser?.email || "");
+  const [linkUrl, setLinkUrl] = useState("");
+  const [images, setImages] = useState([]);
+  const [submitting, setSubmitting] = useState(false);
+
+  if (!currentUser) {
+    return (
+      <div style={styles.pageWrap}>
+        <h2 style={styles.pageTitle}>📢 Advertise on DriveLink</h2>
+        <p style={{ color: "#6b7280", marginBottom: 16 }}>Sign in or create an account to set up your ad.</p>
+        <button style={styles.confirmBtn} onClick={onSignIn}>Sign In / Create Account</button>
+      </div>
+    );
+  }
+
+  const handleSubmit = async () => {
+    if (!businessName.trim() || !linkUrl.trim()) return;
+    setSubmitting(true);
+    await onSubmit({
+      plan: selectedPlan,
+      business_name: businessName,
+      contact_email: contactEmail,
+      image_url: images[0] || null,
+      link_url: linkUrl,
+    });
+    setSubmitting(false);
+  };
+
+  return (
+    <div style={styles.pageWrap}>
+      <h2 style={styles.pageTitle}>📢 Advertise on DriveLink</h2>
+      <p style={{ color: "#6b7280", marginBottom: 24 }}>Put your business in front of car buyers and sellers with a sidebar ad on drivelink.deals.</p>
+
+      <h3 style={styles.sectionTitle}>Choose a plan</h3>
+      <div style={{ display: "flex", gap: 12, marginBottom: 28, flexWrap: "wrap" }}>
+        {AD_PLANS.map(p => (
+          <div
+            key={p.id}
+            onClick={() => setSelectedPlan(p.id)}
+            style={{
+              flex: "1 1 160px",
+              border: selectedPlan === p.id ? "2px solid #FFB020" : "1px solid #e5e7eb",
+              background: selectedPlan === p.id ? "#fffbeb" : "#fff",
+              borderRadius: 12,
+              padding: 16,
+              cursor: "pointer",
+            }}
+          >
+            <div style={{ fontWeight: 700, fontSize: 15 }}>{p.label}</div>
+            <div style={{ fontSize: 22, fontWeight: 800, margin: "6px 0 2px" }}>{fmt(p.monthly)}<span style={{ fontSize: 13, fontWeight: 500, color: "#6b7280" }}>/mo</span></div>
+            <div style={{ fontSize: 12, color: "#6b7280" }}>{fmt(p.total)} total</div>
+            {p.blurb && <div style={{ fontSize: 12, color: "#16a34a", fontWeight: 600, marginTop: 4 }}>{p.blurb}</div>}
+          </div>
+        ))}
+      </div>
+
+      <h3 style={styles.sectionTitle}>Your ad details</h3>
+      <Field label="Business name" value={businessName} onChange={setBusinessName} placeholder="Your business name" />
+      <Field label="Contact email" value={contactEmail} onChange={setContactEmail} placeholder="you@business.com" type="email" />
+      <Field label="Link URL (where the ad sends people)" value={linkUrl} onChange={setLinkUrl} placeholder="https://yourbusiness.com" />
+      <div style={{ marginBottom: 16 }}>
+        <label style={styles.fieldLabel}>Ad image (optional — you can add this later)</label>
+        <ImageUpload images={images} onChange={setImages} />
+      </div>
+
+      <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 16 }}>
+        You'll be taken to secure Stripe checkout to complete payment. Your ad goes live once payment is confirmed.
+      </div>
+
+      <button
+        style={styles.confirmBtn}
+        onClick={handleSubmit}
+        disabled={submitting || !businessName.trim() || !linkUrl.trim()}
+      >
+        {submitting ? "Redirecting…" : `Continue to Payment — ${fmt(AD_PLANS.find(p => p.id === selectedPlan).total)}`}
+      </button>
+    </div>
+  );
+}
+
 function ProfileView({ dbUser, authEmail, onUpdateProfile, onChangeEmail, onChangePassword, onSetupPayouts }) {
   const [name, setName] = useState(dbUser?.name || "");
   const [phone, setPhone] = useState(dbUser?.phone || "");
@@ -2490,6 +2610,7 @@ const styles = {
   logoIcon: { fontSize: 22 },
   logoText: { fontWeight: 800, fontSize: 20, color: "#0f172a", letterSpacing: "-0.03em" },
   navLinks: { display: "flex", gap: 4, flex: 1, cursor: "grab", userSelect: "none" },
+  adRailInner: { background: "linear-gradient(160deg, #1a1a2e, #16213e)", border: "1px dashed #FFB020", borderRadius: 12, padding: "18px 14px", color: "#fff", textAlign: "center" },
   navBtn: { background: "none", border: "none", padding: "6px 14px", borderRadius: 8, cursor: "pointer", fontSize: 14, fontWeight: 500, color: "#4b5563" },
   navBtnActive: { background: "#f1f5f9", color: "#0f172a" },
   navRight: { marginLeft: "auto" },
@@ -2625,6 +2746,26 @@ const css = `
   .app-nav-links { overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
   .app-nav-links::-webkit-scrollbar { display: none; }
   .app-nav-links button { white-space: nowrap; flex-shrink: 0; }
+
+  /* Sidebar ad rails: only show in the blank margins on wide desktop
+     viewports (content is a centered 1200px column), and never on
+     mobile/tablet where there's no spare space and it would just clutter
+     a narrow layout. */
+  .app-ad-rail {
+    display: none;
+    position: fixed;
+    top: 140px;
+    width: 160px;
+    z-index: 10;
+    cursor: pointer;
+    transition: transform 0.15s ease;
+  }
+  .app-ad-rail:hover { transform: translateY(-2px); }
+  .app-ad-rail-left { left: max(24px, calc(50% - 640px)); }
+  .app-ad-rail-right { right: max(24px, calc(50% - 640px)); }
+  @media (min-width: 1500px) {
+    .app-ad-rail { display: block; }
+  }
 
   @media (max-width: 860px) {
     .app-nav-inner { padding: 0 16px !important; height: auto !important; flex-wrap: wrap; padding-top: 10px !important; padding-bottom: 10px !important; }

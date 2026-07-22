@@ -1,11 +1,12 @@
 // POST /payout-promoter
-// Admin-only, gated by the ADMIN_EMAILS secret (see helpers.ts). Replaces the
+// Admin-only, gated by the same users.role = 'admin' check the frontend uses
+// for the Admin tab — one source of truth for who's an admin. Replaces the
 // "record it happened externally" flow in recordPayout() with a real Stripe
 // transfer when the promoter has a connected account set up (same Connect
 // account type as sellers — a user can be both). Falls back gracefully: if
 // the promoter hasn't set up payouts yet, the frontend keeps using the old
 // manual/external recording path instead of calling this function.
-import { corsHeaders, isAdminEmail, jsonResponse, requireUser, stripeClient, supabaseAdmin } from "../_shared/helpers.ts";
+import { corsHeaders, jsonResponse, requireUser, stripeClient, supabaseAdmin } from "../_shared/helpers.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -18,8 +19,8 @@ Deno.serve(async (req) => {
     const supabase = supabaseAdmin();
     const stripe = stripeClient();
 
-    const { data: caller } = await supabase.from("users").select("email").eq("id", callerId).single();
-    if (!isAdminEmail(caller?.email)) throw new Error("Not authorized to issue payouts");
+    const { data: caller } = await supabase.from("users").select("role").eq("id", callerId).single();
+    if (caller?.role !== "admin") throw new Error("Not authorized to issue payouts");
 
     const { data: promoter, error: promoterErr } = await supabase
       .from("users")
