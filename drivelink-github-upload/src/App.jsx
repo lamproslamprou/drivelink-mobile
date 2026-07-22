@@ -176,13 +176,31 @@ export default function App() {
     setView("home");
   };
 
-  // ── Buy Now — redirect to Stripe
-  const handleBuyNow = (listing) => {
-    const ref = referrals.find(r => r.listing_id === listing.id && r.status === "pending");
-    const params = new URLSearchParams({ client_reference_id: listing.id });
-    if (ref) params.append("prefilled_promo_code", ref.share_code);
-    window.open(`${STRIPE_LINK}?${params.toString()}`, "_blank");
+  // ── Buy Now — creates a real Stripe Checkout session at the listing's price
+  // via the create-checkout-session Edge Function, instead of the old static
+  // payment link. Funds land on the platform's Stripe balance and are held
+  // until the buyer confirms receipt (or 7 days pass with no dispute).
+  const handleBuyNow = async (listing) => {
     showToast("Redirecting to secure checkout…", "info");
+    const { data, error } = await supabase.functions.invoke("create-checkout-session", {
+      body: { listing_id: listing.id },
+    });
+    if (error || !data?.url) {
+      showToast(data?.error || error?.message || "Couldn't start checkout — try again.", "error");
+      return;
+    }
+    window.location.href = data.url;
+  };
+
+  // ── Seller sets up (or resumes) Stripe Connect onboarding so they can
+  // receive automated payouts. Opens Stripe's hosted onboarding flow.
+  const setupPayouts = async () => {
+    const { data, error } = await supabase.functions.invoke("create-connect-account");
+    if (error || !data?.url) {
+      showToast(data?.error || error?.message || "Couldn't start payout setup — try again.", "error");
+      return;
+    }
+    window.location.href = data.url;
   };
 
   // ── Post listing
@@ -236,6 +254,21 @@ export default function App() {
   const confirmReceipt = async (listingId) => {
     const listing = listings.find(l => l.id === listingId);
     if (!listing) return;
+    // Sales that went through real Stripe Checkout (have a payment_intent)
+    // route through release-funds so the seller actually gets paid via
+    // Stripe transfer. Sales entered manually via markSold (off-platform/cash,
+    // no stripe_payment_intent_id) keep the old direct-update behavior since
+    // there's no real Stripe charge behind them to release.
+    if (listing.stripe_payment_intent_id) {
+      const { data, error } = await supabase.functions.invoke("release-funds", { body: { listing_id: listingId } });
+      if (error || data?.error) {
+        showToast(data?.error || error?.message || "Couldn't release funds — try again.", "error");
+        return;
+      }
+      await loadData();
+      showToast("Receipt confirmed — seller paid out and commission released.");
+      return;
+    }
     const promoterCommission = Math.round((listing.sale_price || 0) * PROMOTER_FEE);
     await supabase.from("listings").update({ status: "sold", confirmed_at: new Date().toISOString() }).eq("id", listingId);
     const ref = referrals.find(r => r.listing_id === listingId && r.status === "pending");
@@ -561,7 +594,7 @@ export default function App() {
 
       <main style={styles.main} className="app-main">
         {view === "home" && <HomeView key={homeResetKey} listings={activeListings} allListings={listings} currentUser={dbUser} users={users} onShare={generateShare} onBuy={handleBuyNow} referrals={referrals} onSignIn={() => setView("auth")} onMessageSeller={messageSeller} onReport={fileReport} onSaveSearch={saveSearch} favorites={favorites} onToggleFavorite={toggleFavorite} onToggleBlock={toggleBlock} onReportUser={reportUserAction} blocks={blocks} reviews={reviews} offers={offers} onMakeOffer={makeOffer} onOpenListing={setViewingListing} />}
-        {view === "myListings" && <MyListingsView listings={listings.filter(l => l.seller_id === currentUser?.id)} referrals={referrals} users={users} offers={offers} onMarkSold={markSold} onSetStatus={setListingStatus} onUpdate={updateListing} onRespondToOffer={respondToOffer} onOpenSafety={() => setView("safety")} />}
+        {view === "myListings" && <MyListingsView listings={listings.filter(l => l.seller_id === currentUser?.id)} referrals={referrals} users={users} offers={offers} onMarkSold={markSold} onSetStatus={setListingStatus} onUpdate={updateListing} onRespondToOffer={respondToOffer} onOpenSafety={() => setView("safety")} currentUser={dbUser} onSetupPayouts={setupPayouts} />}
         {view === "myPurchases" && <MyPurchasesView listings={listings.filter(l => l.buyer_id === currentUser?.id)} users={users} reviews={reviews} currentUser={currentUser} onSubmitReview={submitReview} onConfirmReceipt={confirmReceipt} onFileDispute={fileDispute} onBrowse={() => setView("home")} onOpenSafety={() => setView("safety")} />}
         {view === "myOffers" && <MyOffersView offers={offers.filter(o => o.buyer_id === currentUser?.id)} listings={listings} onRespondToCounter={respondToCounter} onBrowse={() => setView("home")} />}
         {view === "postListing" && <PostListingView onPost={postListing} />}
@@ -1309,13 +1342,22 @@ function BlockedUsersView({ blocks, users, onToggleBlock, onBrowse }) {
   );
 }
 
-function MyListingsView({ listings, referrals, users, offers, onMarkSold, onSetStatus, onUpdate, onRespondToOffer, onOpenSafety }) {
+function MyListingsView({ listings, referrals, users, offers, onMarkSold, onSetStatus, onUpdate, onRespondToOffer, onOpenSafety, currentUser, onSetupPayouts }) {
   const [editing, setEditing] = useState(null);
   const [markingSold, setMarkingSold] = useState(null);
   const hasHandoffPending = listings.some(l => l.status === "pending_confirmation");
   return (
     <div style={styles.pageWrap}>
       <h2 style={styles.pageTitle}>My Listings</h2>
+      {currentUser && !currentUser.stripe_payouts_enabled && (
+        <div style={styles.safetyBanner}>
+          💳 Set up payouts to get paid automatically when a listing sells.{" "}
+          <button style={styles.safetyBannerLink} onClick={onSetupPayouts}>Set up payouts</button>
+        </div>
+      )}
+      {currentUser && currentUser.stripe_payouts_enabled && (
+        <div style={{ fontSize: 13, color: "#16a34a", marginBottom: 12 }}>✅ Payouts are set up — you'll be paid automatically when a sale is confirmed.</div>
+      )}
       {hasHandoffPending && (
         <div style={styles.safetyBanner}>
           🛡️ Meeting a buyer to hand off a car? <button style={styles.safetyBannerLink} onClick={onOpenSafety}>Review our safety tips</button> before you meet.

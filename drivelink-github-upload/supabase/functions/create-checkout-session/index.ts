@@ -1,9 +1,9 @@
 // POST /create-checkout-session
-// Called when a buyer clicks "Buy" on a listing. Creates a Stripe Checkout
-// session. Funds land on the PLATFORM's Stripe balance first (this is a
-// separate-charges-and-transfers setup, not a destination charge) — that's
-// what makes the hold-then-release escrow flow possible. The seller is paid
-// out later by release-funds or auto-release-cron, not by Stripe directly.
+// Called when a buyer clicks "Buy Now" on a listing. Creates a real Stripe
+// Checkout session at the listing's asking price. Funds land on the
+// PLATFORM's Stripe balance first (separate-charges-and-transfers, not a
+// destination charge) — that's what makes the hold-then-release flow work.
+// The seller is paid out later by release-funds or auto-release-cron.
 import { corsHeaders, jsonResponse, requireUser, stripeClient, supabaseAdmin } from "../_shared/helpers.ts";
 
 Deno.serve(async (req) => {
@@ -19,7 +19,7 @@ Deno.serve(async (req) => {
 
     const { data: listing, error: listingErr } = await supabase
       .from("listings")
-      .select("id, title, price, seller_id, status, referred_by_scout_id")
+      .select("id, make, model, year, price, seller_id, status")
       .eq("id", listing_id)
       .single();
     if (listingErr || !listing) throw new Error("Listing not found");
@@ -38,6 +38,7 @@ Deno.serve(async (req) => {
 
     const priceCents = Math.round(Number(listing.price) * 100);
     const origin = req.headers.get("origin") ?? "https://drivelink.deals";
+    const label = [listing.year, listing.make, listing.model].filter(Boolean).join(" ") || "DriveLink vehicle purchase";
 
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
@@ -47,21 +48,20 @@ Deno.serve(async (req) => {
           price_data: {
             currency: "usd",
             unit_amount: priceCents,
-            product_data: { name: listing.title ?? "DriveLink vehicle purchase" },
+            product_data: { name: label },
           },
           quantity: 1,
         },
       ],
-      // No `transfer_data` / `on_behalf_of` here on purpose — funds stay on
-      // the platform balance until release-funds explicitly transfers them.
+      // No transfer_data/on_behalf_of on purpose — funds stay on the
+      // platform balance until release-funds explicitly transfers them.
       metadata: {
         listing_id: String(listing.id),
         buyer_id: buyerId,
         seller_id: String(listing.seller_id),
-        scout_id: listing.referred_by_scout_id ? String(listing.referred_by_scout_id) : "",
       },
-      success_url: `${origin}/listing/${listing.id}?purchase=success`,
-      cancel_url: `${origin}/listing/${listing.id}?purchase=cancelled`,
+      success_url: `${origin}/?purchase=success&listing=${listing.id}`,
+      cancel_url: `${origin}/?purchase=cancelled&listing=${listing.id}`,
     });
 
     await supabase

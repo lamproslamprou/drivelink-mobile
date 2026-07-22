@@ -1,6 +1,6 @@
 // Shared helpers used by every DriveLink Stripe edge function.
 import { createClient } from "npm:@supabase/supabase-js@2";
-import Stripe from "npm:stripe@16?target=deno";
+import Stripe from "npm:stripe@16";
 
 export const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -45,8 +45,8 @@ export async function requireUser(req: Request): Promise<string> {
   return data.user.id;
 }
 
-// Platform + Scout cut, mirrors the constants in App.jsx. Keep these two
-// files in sync if you ever change the fee percentages.
+// Platform + Promoter cut, mirrors the PLATFORM_FEE/PROMOTER_FEE constants
+// in App.jsx. Keep these two files in sync if you ever change the percentages.
 export const PLATFORM_FEE = 0.01;
-export const SCOUT_FEE = 0.01;
+export const PROMOTER_FEE = 0.01;
 export const AUTO_RELEASE_DAYS = 7;
