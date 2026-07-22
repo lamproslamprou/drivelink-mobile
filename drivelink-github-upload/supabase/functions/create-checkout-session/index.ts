@@ -39,7 +39,19 @@ Deno.serve(async (req) => {
       throw new Error("This seller hasn't finished setting up payouts yet");
     }
 
-    const priceCents = Math.round(Number(listing.price) * 100);
+    // If this buyer has an accepted offer on this listing, honor that price
+    // instead of the asking price — this is the fix for the bug where an
+    // accepted offer never actually changed what Checkout charged.
+    const { data: acceptedOffer } = await supabase
+      .from("offers")
+      .select("amount")
+      .eq("listing_id", listing_id)
+      .eq("buyer_id", buyerId)
+      .eq("status", "accepted")
+      .maybeSingle();
+
+    const finalPrice = acceptedOffer ? Number(acceptedOffer.amount) : Number(listing.price);
+    const priceCents = Math.round(finalPrice * 100);
     const origin = req.headers.get("origin") ?? "https://drivelink.deals";
     const label = [listing.year, listing.make, listing.model].filter(Boolean).join(" ") || "DriveLink vehicle purchase";
 

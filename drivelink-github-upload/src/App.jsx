@@ -618,7 +618,7 @@ export default function App() {
         {view === "home" && <HomeView key={homeResetKey} listings={activeListings} allListings={listings} currentUser={dbUser} users={users} onShare={generateShare} onBuy={handleBuyNow} referrals={referrals} onSignIn={() => setView("auth")} onMessageSeller={messageSeller} onReport={fileReport} onSaveSearch={saveSearch} favorites={favorites} onToggleFavorite={toggleFavorite} onToggleBlock={toggleBlock} onReportUser={reportUserAction} blocks={blocks} reviews={reviews} offers={offers} onMakeOffer={makeOffer} onOpenListing={setViewingListing} />}
         {view === "myListings" && <MyListingsView listings={listings.filter(l => l.seller_id === currentUser?.id)} referrals={referrals} users={users} offers={offers} onMarkSold={markSold} onSetStatus={setListingStatus} onUpdate={updateListing} onRespondToOffer={respondToOffer} onOpenSafety={() => setView("safety")} currentUser={dbUser} onSetupPayouts={setupPayouts} />}
         {view === "myPurchases" && <MyPurchasesView listings={listings.filter(l => l.buyer_id === currentUser?.id)} users={users} reviews={reviews} currentUser={currentUser} onSubmitReview={submitReview} onConfirmReceipt={confirmReceipt} onFileDispute={fileDispute} onBrowse={() => setView("home")} onOpenSafety={() => setView("safety")} />}
-        {view === "myOffers" && <MyOffersView offers={offers.filter(o => o.buyer_id === currentUser?.id)} listings={listings} onRespondToCounter={respondToCounter} onBrowse={() => setView("home")} />}
+        {view === "myOffers" && <MyOffersView offers={offers.filter(o => o.buyer_id === currentUser?.id)} listings={listings} onRespondToCounter={respondToCounter} onBuy={handleBuyNow} onBrowse={() => setView("home")} />}
         {view === "postListing" && <PostListingView onPost={postListing} />}
         {view === "messages" && currentUser && <Messages currentUser={{ ...dbUser, id: currentUser.id }} listings={listings} users={users} openThread={openThread} onOpened={() => setOpenThread(null)} />}
         {view === "savedSearches" && <SavedSearchesView savedSearches={savedSearches} onDelete={deleteSavedSearch} onBrowse={() => setView("home")} />}
@@ -1051,7 +1051,12 @@ function CarCard({ listing, seller, avgPrice, similarCount, onSeeSimilar, curren
             <div style={styles.offerStatusRow}>
               {myOffer.status === "pending" && <span>💰 Your offer of {fmt(myOffer.amount)} is pending</span>}
               {myOffer.status === "countered" && <span>💰 Seller countered at {fmt(myOffer.counter_amount)}</span>}
-              {myOffer.status === "accepted" && <span>✅ Offer of {fmt(myOffer.amount)} accepted — the seller will follow up</span>}
+              {myOffer.status === "accepted" && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  <span>✅ Offer of {fmt(myOffer.amount)} accepted!</span>
+                  <button style={styles.buyBtn} onClick={() => onBuy(listing)}>Complete Purchase — {fmt(myOffer.amount)}</button>
+                </div>
+              )}
               {myOffer.status === "declined" && <span>Offer declined</span>}
               {myOffer.status === "withdrawn" && <span>Offer withdrawn</span>}
             </div>
@@ -1181,7 +1186,12 @@ function ListingDetailModal({ data, currentUser, isFavorited, isBlocked, onClose
               <div style={styles.offerStatusRow}>
                 {myOffer.status === "pending" && <span>💰 Your offer of {fmt(myOffer.amount)} is pending</span>}
                 {myOffer.status === "countered" && <span>💰 Seller countered at {fmt(myOffer.counter_amount)}</span>}
-                {myOffer.status === "accepted" && <span>✅ Offer accepted — the seller will follow up</span>}
+                {myOffer.status === "accepted" && (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    <span>✅ Offer accepted!</span>
+                    <button style={styles.buyBtn} onClick={() => onBuy(listing)}>Complete Purchase — {fmt(myOffer.amount)}</button>
+                  </div>
+                )}
               </div>
             ) : (
               <button style={styles.offerBtn} onClick={() => setOffering(true)}>💰 Make an Offer</button>
@@ -1392,6 +1402,8 @@ function MyListingsView({ listings, referrals, users, offers, onMarkSold, onSetS
           const promoter = ref ? users.find(u => u.id === ref.promoter_id) : null;
           const cover = (l.images && l.images[0]) || l.image;
           const listingOffers = (offers || []).filter(o => o.listing_id === l.id && (o.status === "pending" || o.status === "countered"));
+          const acceptedOffer = (offers || []).find(o => o.listing_id === l.id && o.status === "accepted");
+          const acceptedOfferBuyer = acceptedOffer ? users.find(u => u.id === acceptedOffer.buyer_id) : null;
           return (
             <div key={l.id}>
               <div style={styles.listingRow} className="app-listing-row">
@@ -1403,6 +1415,11 @@ function MyListingsView({ listings, referrals, users, offers, onMarkSold, onSetS
                   {l.status === "pending_confirmation" && <div style={styles.awaitingBadge}>💳 Payment received for {fmt(l.sale_price)} — awaiting buyer confirmation before payout</div>}
                   {l.status === "disputed" && <div style={{ ...styles.awaitingBadge, background: "#fee2e2", color: "#b91c1c" }}>⚠️ Buyer disputed this sale — our team is reviewing it</div>}
                   {listingOffers.length > 0 && <div style={styles.awaitingBadge}>💰 {listingOffers.length} offer{listingOffers.length === 1 ? "" : "s"} waiting on your response</div>}
+                  {acceptedOffer && l.status === "active" && (
+                    <div style={{ ...styles.awaitingBadge, background: "#dcfce7", color: "#15803d" }}>
+                      ✅ Accepted {fmt(acceptedOffer.amount)} from {acceptedOfferBuyer?.name || "buyer"} — waiting for them to complete purchase
+                    </div>
+                  )}
                   {promoter && <div style={styles.promoterTag}>Promoted by {promoter.name} {ref.status === "paid" ? `• Commission ${fmt(ref.commission_amount)} paid` : "• Pending"}</div>}
                   {l.status === "active" && l.last_active_at && (Date.now() - new Date(l.last_active_at).getTime()) > STALE_WARN_DAYS_MS && (
                     <div style={{ fontSize: 12, color: "#b45309", fontWeight: 600, marginTop: 4 }}>
@@ -1552,7 +1569,7 @@ function MyPurchasesView({ listings, users, reviews, currentUser, onSubmitReview
   );
 }
 
-function MyOffersView({ offers, listings, onRespondToCounter, onBrowse }) {
+function MyOffersView({ offers, listings, onRespondToCounter, onBuy, onBrowse }) {
   return (
     <div style={styles.pageWrap}>
       <h2 style={styles.pageTitle}>💰 My Offers</h2>
@@ -1565,7 +1582,9 @@ function MyOffersView({ offers, listings, onRespondToCounter, onBrowse }) {
               <div style={styles.rowInfo} className="app-row-info">
                 <div style={styles.rowTitle}>{listing ? `${listing.year} ${listing.make} ${listing.model}` : "Listing"} — offered {fmt(o.amount)}</div>
                 {o.status === "countered" && <div style={{ fontSize: 13, color: "#1d4ed8", marginTop: 2 }}>Seller countered at {fmt(o.counter_amount)} {o.counter_message ? `— "${o.counter_message}"` : ""}</div>}
-                {o.status === "accepted" && <div style={{ fontSize: 13, color: "#15803d", marginTop: 2 }}>✅ Accepted — the seller will follow up to close the sale</div>}
+                {o.status === "accepted" && listing?.status === "active" && <div style={{ fontSize: 13, color: "#15803d", marginTop: 2 }}>✅ Accepted — complete your purchase to lock it in</div>}
+                {o.status === "accepted" && listing?.status === "pending_confirmation" && <div style={{ fontSize: 13, color: "#1d4ed8", marginTop: 2 }}>💳 Payment received — awaiting confirmation</div>}
+                {o.status === "accepted" && listing?.status === "sold" && <div style={{ fontSize: 13, color: "#15803d", marginTop: 2 }}>✅ Sale complete</div>}
                 {o.status === "declined" && <div style={{ fontSize: 13, color: "#b91c1c", marginTop: 2 }}>Declined by seller</div>}
               </div>
               <span style={{ ...styles.statusPill, background: o.status === "accepted" ? "#dcfce7" : o.status === "countered" ? "#dbeafe" : o.status === "declined" || o.status === "withdrawn" ? "#f1f5f9" : "#fef9c3", color: o.status === "accepted" ? "#15803d" : o.status === "countered" ? "#1d4ed8" : o.status === "declined" || o.status === "withdrawn" ? "#6b7280" : "#854d0e" }}>{o.status}</span>
@@ -1577,6 +1596,9 @@ function MyOffersView({ offers, listings, onRespondToCounter, onBrowse }) {
               )}
               {o.status === "pending" && (
                 <button style={styles.removeBtn} onClick={() => onRespondToCounter(o.id, false)}>Withdraw</button>
+              )}
+              {o.status === "accepted" && listing?.status === "active" && (
+                <button style={styles.soldBtn} onClick={() => onBuy(listing)}>Complete Purchase</button>
               )}
             </div>
           );
