@@ -667,7 +667,7 @@ export default function App() {
     <Auth onAuth={(user) => { setCurrentUser(user); loadDbUser(user); loadData(); setView("home"); }} />
   );
 
-  if (!currentUser && view !== "home") return (
+  if (!currentUser && view !== "home" && view !== "advertise") return (
     <Landing
       onSignIn={() => setView("auth")}
       onBrowse={() => setView("home")}
@@ -732,7 +732,7 @@ export default function App() {
             Sits as a real layout column beside main content (position: sticky), not floating
             on top of it — avoids overlapping the hero banner and any click-through issues that
             came with the old fixed-position version. */}
-        <div className="app-ad-rail" onClick={() => setView("advertise")}>
+        <div className="app-ad-rail" onClick={(e) => { e.stopPropagation(); setView("advertise"); }}>
           <div style={styles.adRailInner}>
             <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 8 }}>📢 Advertise Here</div>
             <div style={{ fontSize: 13, color: "#94a3b8" }}>Reach car buyers and sellers on DriveLink.</div>
@@ -757,7 +757,7 @@ export default function App() {
         {view === "success" && <SuccessView onHome={() => setView("home")} />}
       </main>
 
-      <div className="app-ad-rail" onClick={() => setView("advertise")}>
+      <div className="app-ad-rail" onClick={(e) => { e.stopPropagation(); setView("advertise"); }}>
         <div style={styles.adRailInner}>
           <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 8 }}>📢 Advertise Here</div>
           <div style={{ fontSize: 13, color: "#94a3b8" }}>Reach car buyers and sellers on DriveLink.</div>
@@ -2616,7 +2616,7 @@ const styles = {
   logoIcon: { fontSize: 22 },
   logoText: { fontWeight: 800, fontSize: 20, color: "#0f172a", letterSpacing: "-0.03em" },
   navLinks: { display: "flex", gap: 4, flex: 1, cursor: "grab", userSelect: "none" },
-  adRailInner: { background: "linear-gradient(160deg, #1a1a2e, #16213e)", border: "1px dashed #FFB020", borderRadius: 12, padding: "22px 16px", color: "#fff", textAlign: "center", minHeight: 160 },
+  adRailInner: { background: "linear-gradient(160deg, #1a1a2e, #16213e)", border: "1px dashed #FFB020", borderRadius: 12, padding: "22px 16px", color: "#fff", textAlign: "center", height: "100%", display: "flex", flexDirection: "column", justifyContent: "center", boxSizing: "border-box" },
   navBtn: { background: "none", border: "none", padding: "6px 14px", borderRadius: 8, cursor: "pointer", fontSize: 14, fontWeight: 500, color: "#4b5563" },
   navBtnActive: { background: "#f1f5f9", color: "#0f172a" },
   navRight: { marginLeft: "auto" },
@@ -2754,20 +2754,24 @@ const css = `
   .app-nav-links button { white-space: nowrap; flex-shrink: 0; }
 
   /* Sidebar ad: a real layout column beside main content (not floating on
-     top of it), only shown on wide desktop viewports where there's actual
-     spare space — hidden entirely below 1300px, including mobile/tablet. */
+     top of it), filling the full empty space to each side and running the
+     full height of the page. Only shown on wide desktop viewports where
+     there's actual spare space — hidden entirely below 1300px. */
   .app-content-row {
     display: flex;
     justify-content: center;
-    align-items: flex-start;
+    align-items: stretch;
     gap: 20px;
   }
   .app-ad-rail {
     display: none;
-    width: 160px;
-    flex-shrink: 0;
+    flex: 1 1 0;
+    min-width: 160px;
+    max-width: 340px;
     position: sticky;
     top: 90px;
+    align-self: flex-start;
+    height: calc(100vh - 110px);
     cursor: pointer;
     transition: transform 0.15s ease;
   }
