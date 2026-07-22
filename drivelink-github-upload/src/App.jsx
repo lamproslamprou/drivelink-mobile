@@ -725,23 +725,20 @@ export default function App() {
         </div>
       </nav>
 
-      {/* Desktop-only ad rails — hidden on mobile/tablet via .app-ad-rail CSS below */}
-      <div className="app-ad-rail app-ad-rail-left" onClick={() => setView("advertise")}>
-        <div style={styles.adRailInner}>
-          <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 6 }}>📢 Advertise Here</div>
-          <div style={{ fontSize: 12, color: "#94a3b8" }}>Reach car buyers and sellers on DriveLink.</div>
-          <div style={{ fontSize: 12, color: "#FFB020", fontWeight: 600, marginTop: 10 }}>Click to learn more →</div>
-        </div>
-      </div>
-      <div className="app-ad-rail app-ad-rail-right" onClick={() => setView("advertise")}>
-        <div style={styles.adRailInner}>
-          <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 6 }}>📢 Advertise Here</div>
-          <div style={{ fontSize: 12, color: "#94a3b8" }}>Reach car buyers and sellers on DriveLink.</div>
-          <div style={{ fontSize: 12, color: "#FFB020", fontWeight: 600, marginTop: 10 }}>Click to learn more →</div>
-        </div>
-      </div>
-
       {toast && <div style={{ ...styles.toast, background: toast.type === "info" ? "#1d4ed8" : toast.type === "error" ? "#dc2626" : "#16a34a" }} className="app-toast">{toast.msg}</div>}
+
+      <div className="app-content-row">
+        {/* Desktop-only ad rail — hidden on mobile/tablet/narrow desktop via .app-ad-rail CSS below.
+            Sits as a real layout column beside main content (position: sticky), not floating
+            on top of it — avoids overlapping the hero banner and any click-through issues that
+            came with the old fixed-position version. */}
+        <div className="app-ad-rail" onClick={() => setView("advertise")}>
+          <div style={styles.adRailInner}>
+            <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 8 }}>📢 Advertise Here</div>
+            <div style={{ fontSize: 13, color: "#94a3b8" }}>Reach car buyers and sellers on DriveLink.</div>
+            <div style={{ fontSize: 13, color: "#FFB020", fontWeight: 600, marginTop: 12 }}>Click to learn more →</div>
+          </div>
+        </div>
 
       <main style={styles.main} className="app-main">
         {view === "advertise" && <AdvertiseView currentUser={dbUser} onSubmit={createAdCheckout} onSignIn={() => setView("auth")} />}
@@ -759,6 +756,15 @@ export default function App() {
         {view === "admin" && <AdminView listings={listings} users={users} referrals={referrals} reports={reports} feedback={feedback} userReports={userReports} reviews={reviews} payouts={payouts} disputes={disputes} onArchive={archiveListing} onMarkSold={markSold} onConfirmReceipt={confirmReceipt} onResolveReport={resolveReport} onResolveUserReport={resolveUserReport} onToggleVerified={toggleVerified} onResetData={resetTestData} onRecordPayout={recordPayout} onPayoutViaStripe={payoutPromoterViaStripe} onResolveDispute={resolveDispute} />}
         {view === "success" && <SuccessView onHome={() => setView("home")} />}
       </main>
+
+      <div className="app-ad-rail" onClick={() => setView("advertise")}>
+        <div style={styles.adRailInner}>
+          <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 8 }}>📢 Advertise Here</div>
+          <div style={{ fontSize: 13, color: "#94a3b8" }}>Reach car buyers and sellers on DriveLink.</div>
+          <div style={{ fontSize: 13, color: "#FFB020", fontWeight: 600, marginTop: 12 }}>Click to learn more →</div>
+        </div>
+      </div>
+      </div>
       <footer style={styles.appFooter}>
         <button style={styles.appFooterLink} onClick={() => setView("landing")}>About DriveLink</button>
         <span style={{ color: "#d1d5db" }}>·</span>
@@ -2610,7 +2616,7 @@ const styles = {
   logoIcon: { fontSize: 22 },
   logoText: { fontWeight: 800, fontSize: 20, color: "#0f172a", letterSpacing: "-0.03em" },
   navLinks: { display: "flex", gap: 4, flex: 1, cursor: "grab", userSelect: "none" },
-  adRailInner: { background: "linear-gradient(160deg, #1a1a2e, #16213e)", border: "1px dashed #FFB020", borderRadius: 12, padding: "18px 14px", color: "#fff", textAlign: "center" },
+  adRailInner: { background: "linear-gradient(160deg, #1a1a2e, #16213e)", border: "1px dashed #FFB020", borderRadius: 12, padding: "22px 16px", color: "#fff", textAlign: "center", minHeight: 160 },
   navBtn: { background: "none", border: "none", padding: "6px 14px", borderRadius: 8, cursor: "pointer", fontSize: 14, fontWeight: 500, color: "#4b5563" },
   navBtnActive: { background: "#f1f5f9", color: "#0f172a" },
   navRight: { marginLeft: "auto" },
@@ -2747,22 +2753,25 @@ const css = `
   .app-nav-links::-webkit-scrollbar { display: none; }
   .app-nav-links button { white-space: nowrap; flex-shrink: 0; }
 
-  /* Sidebar ad rails: only show in the blank margins on wide desktop
-     viewports (content is a centered 1200px column), and never on
-     mobile/tablet where there's no spare space and it would just clutter
-     a narrow layout. */
+  /* Sidebar ad: a real layout column beside main content (not floating on
+     top of it), only shown on wide desktop viewports where there's actual
+     spare space — hidden entirely below 1300px, including mobile/tablet. */
+  .app-content-row {
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    gap: 20px;
+  }
   .app-ad-rail {
     display: none;
-    position: fixed;
-    top: 140px;
-    width: 130px;
-    z-index: 10;
+    width: 160px;
+    flex-shrink: 0;
+    position: sticky;
+    top: 90px;
     cursor: pointer;
     transition: transform 0.15s ease;
   }
   .app-ad-rail:hover { transform: translateY(-2px); }
-  .app-ad-rail-left { left: max(12px, calc(50% - 620px)); }
-  .app-ad-rail-right { right: max(12px, calc(50% - 620px)); }
   @media (min-width: 1300px) {
     .app-ad-rail { display: block; }
   }
