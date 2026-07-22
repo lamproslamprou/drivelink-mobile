@@ -45,6 +45,19 @@ export async function requireUser(req: Request): Promise<string> {
   return data.user.id;
 }
 
+// Checks whether a given email is in the ADMIN_EMAILS secret — a comma-
+// separated list, e.g. "you@drivelink.deals,partner@drivelink.deals". Set it
+// with: supabase secrets set ADMIN_EMAILS=you@drivelink.deals,other@x.com
+// Update it any time you add/remove an admin — no code change needed.
+export function isAdminEmail(email: string | null | undefined): boolean {
+  if (!email) return false;
+  const allowed = (Deno.env.get("ADMIN_EMAILS") ?? "")
+    .split(",")
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean);
+  return allowed.includes(email.trim().toLowerCase());
+}
+
 // Platform + Promoter cut, mirrors the PLATFORM_FEE/PROMOTER_FEE constants
 // in App.jsx. Keep these two files in sync if you ever change the percentages.
 export const PLATFORM_FEE = 0.01;

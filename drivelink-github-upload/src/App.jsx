@@ -295,21 +295,30 @@ export default function App() {
     showToast("Dispute filed. Our team will review it — the sale is on hold until then.");
   };
 
-  // ── Admin resolves a dispute. "refunded" means you've manually refunded the
-  // buyer via Stripe's dashion outside this app — DriveLink can't issue real refunds
-  // itself. Refunding puts the listing back up for sale; dismissing sends it back
-  // to the normal awaiting-confirmation flow.
+  // ── Admin resolves a dispute. "refunded" now issues a REAL Stripe refund via
+  // the refund-listing Edge Function (for sales that went through real Checkout)
+  // and puts the listing back up for sale. Dismissing sends it back to the
+  // normal awaiting-confirmation flow, same as before.
   const resolveDispute = async (disputeId, resolution, resolutionNote) => {
     const dispute = disputes.find(d => d.id === disputeId);
     if (!dispute) return;
-    await supabase.from("disputes").update({ status: resolution, resolution_note: resolutionNote, resolved_at: new Date().toISOString() }).eq("id", disputeId);
+
     if (resolution === "refunded") {
-      await supabase.from("listings").update({ status: "active", sale_price: null, buyer_id: null, sold_at: null }).eq("id", dispute.listing_id);
-      showToast("Dispute marked refunded — remember to actually issue the refund in Stripe. Listing relisted.");
-    } else {
-      await supabase.from("listings").update({ status: "pending_confirmation" }).eq("id", dispute.listing_id);
-      showToast("Dispute dismissed — sale returned to awaiting confirmation.");
+      const { data, error } = await supabase.functions.invoke("refund-listing", {
+        body: { dispute_id: disputeId, resolution_note: resolutionNote },
+      });
+      if (error || data?.error) {
+        showToast(data?.error || error?.message || "Couldn't issue refund — try again.", "error");
+        return;
+      }
+      await loadData();
+      showToast("Refund issued and listing relisted.");
+      return;
     }
+
+    await supabase.from("disputes").update({ status: resolution, resolution_note: resolutionNote, resolved_at: new Date().toISOString() }).eq("id", disputeId);
+    await supabase.from("listings").update({ status: "pending_confirmation" }).eq("id", dispute.listing_id);
+    showToast("Dispute dismissed — sale returned to awaiting confirmation.");
     await loadData();
   };
 
@@ -477,6 +486,19 @@ export default function App() {
     showToast(`Payout of ${fmt(amount)} recorded for ${user.name}.`);
   };
 
+  // ── Admin pays a promoter for real via Stripe transfer, instead of just
+  // recording that it happened elsewhere. Only works once the promoter has
+  // completed Stripe Connect onboarding (stripe_payouts_enabled).
+  const payoutPromoterViaStripe = async (userId, amount, note) => {
+    const { data, error } = await supabase.functions.invoke("payout-promoter", { body: { user_id: userId, amount, note } });
+    if (error || data?.error) {
+      showToast(data?.error || error?.message || "Couldn't send payout — try again.", "error");
+      return;
+    }
+    await loadData();
+    showToast(`${fmt(amount)} sent via Stripe.`);
+  };
+
   // ── Jump into (or start) a message thread with a listing's seller
   const messageSeller = (listing) => {
     if (listing.seller_id === currentUser.id) return;
@@ -602,8 +624,8 @@ export default function App() {
         {view === "savedSearches" && <SavedSearchesView savedSearches={savedSearches} onDelete={deleteSavedSearch} onBrowse={() => setView("home")} />}
         {view === "favorites" && <FavoritesView favorites={favorites} listings={listings} users={users} referrals={referrals} currentUser={dbUser} onShare={generateShare} onBuy={handleBuyNow} onMessageSeller={messageSeller} onReport={fileReport} onToggleFavorite={toggleFavorite} onBrowse={() => setView("home")} onOpenListing={setViewingListing} />}
         {view === "blocked" && <BlockedUsersView blocks={blocks} users={users} onToggleBlock={toggleBlock} onBrowse={() => setView("home")} />}
-        {view === "dashboard" && <PromoterDashboard currentUser={dbUser} referrals={referrals.filter(r => r.promoter_id === currentUser?.id)} listings={listings} payouts={payouts} />}
-        {view === "admin" && <AdminView listings={listings} users={users} referrals={referrals} reports={reports} feedback={feedback} userReports={userReports} reviews={reviews} payouts={payouts} disputes={disputes} onArchive={archiveListing} onMarkSold={markSold} onConfirmReceipt={confirmReceipt} onResolveReport={resolveReport} onResolveUserReport={resolveUserReport} onToggleVerified={toggleVerified} onResetData={resetTestData} onRecordPayout={recordPayout} onResolveDispute={resolveDispute} />}
+        {view === "dashboard" && <PromoterDashboard currentUser={dbUser} referrals={referrals.filter(r => r.promoter_id === currentUser?.id)} listings={listings} payouts={payouts} onSetupPayouts={setupPayouts} />}
+        {view === "admin" && <AdminView listings={listings} users={users} referrals={referrals} reports={reports} feedback={feedback} userReports={userReports} reviews={reviews} payouts={payouts} disputes={disputes} onArchive={archiveListing} onMarkSold={markSold} onConfirmReceipt={confirmReceipt} onResolveReport={resolveReport} onResolveUserReport={resolveUserReport} onToggleVerified={toggleVerified} onResetData={resetTestData} onRecordPayout={recordPayout} onPayoutViaStripe={payoutPromoterViaStripe} onResolveDispute={resolveDispute} />}
         {view === "success" && <SuccessView onHome={() => setView("home")} />}
       </main>
       <footer style={styles.appFooter}>
@@ -1659,7 +1681,7 @@ function MarkSoldModal({ listing, onCancel, onConfirm }) {
   );
 }
 
-function PayoutModal({ user, onCancel, onConfirm }) {
+function PayoutModal({ user, onCancel, onConfirm, onPayViaStripe }) {
   const [amount, setAmount] = useState(user.balance || 0);
   const [method, setMethod] = useState("Bank transfer");
   const [note, setNote] = useState("");
@@ -1668,23 +1690,35 @@ function PayoutModal({ user, onCancel, onConfirm }) {
       <div style={styles.modalBox} onClick={e => e.stopPropagation()}>
         <h3 style={styles.modalTitle}>Pay Out {user.name}</h3>
         <div style={{ fontSize: 13, color: "#6b7280", marginBottom: 12 }}>Current tracked balance: {fmt(user.balance || 0)}</div>
+        {user.stripe_payouts_enabled ? (
+          <div style={{ fontSize: 13, color: "#16a34a", marginBottom: 12 }}>✅ This promoter has Stripe payouts set up — you can send this amount directly.</div>
+        ) : (
+          <div style={{ fontSize: 13, color: "#6b7280", marginBottom: 12 }}>This promoter hasn't set up Stripe payouts yet — record an external payout below instead.</div>
+        )}
         <label style={styles.fieldLabel}>Amount ($)</label>
         <input style={{ ...styles.fieldInput, marginBottom: 12 }} type="number" value={amount} onChange={e => setAmount(e.target.value)} />
-        <label style={styles.fieldLabel}>Paid via</label>
-        <select style={{ ...styles.selectInput, width: "100%", marginBottom: 12 }} value={method} onChange={e => setMethod(e.target.value)}>
-          <option>Bank transfer</option>
-          <option>PayPal</option>
-          <option>Venmo</option>
-          <option>Zelle</option>
-          <option>Check</option>
-          <option>Other</option>
-        </select>
         <label style={styles.fieldLabel}>Note (optional)</label>
-        <input style={styles.fieldInput} value={note} onChange={e => setNote(e.target.value)} placeholder="Reference number, etc." />
-        <div style={{ fontSize: 12, color: "#6b7280", marginTop: 6 }}>This records that you paid {user.name} outside of DriveLink and reduces their tracked balance to match — it doesn't move any real money.</div>
-        <div style={styles.modalActions}>
-          <button style={styles.cancelBtn} onClick={onCancel}>Cancel</button>
-          <button style={styles.confirmBtn} onClick={() => onConfirm(+amount, method, note)}>Record Payout</button>
+        <input style={{ ...styles.fieldInput, marginBottom: 12 }} value={note} onChange={e => setNote(e.target.value)} placeholder="Reference number, etc." />
+        {user.stripe_payouts_enabled && (
+          <button style={{ ...styles.confirmBtn, width: "100%", marginBottom: 12 }} onClick={() => onPayViaStripe(+amount, note)}>
+            💳 Send {fmt(+amount || 0)} via Stripe
+          </button>
+        )}
+        <div style={{ borderTop: "1px solid #e5e7eb", paddingTop: 12 }}>
+          <label style={styles.fieldLabel}>Or record an external payout</label>
+          <select style={{ ...styles.selectInput, width: "100%", marginBottom: 12 }} value={method} onChange={e => setMethod(e.target.value)}>
+            <option>Bank transfer</option>
+            <option>PayPal</option>
+            <option>Venmo</option>
+            <option>Zelle</option>
+            <option>Check</option>
+            <option>Other</option>
+          </select>
+          <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 12 }}>This records that you paid {user.name} outside of DriveLink and reduces their tracked balance to match — it doesn't move any real money.</div>
+          <div style={styles.modalActions}>
+            <button style={styles.cancelBtn} onClick={onCancel}>Cancel</button>
+            <button style={styles.confirmBtn} onClick={() => onConfirm(+amount, method, note)}>Record Payout</button>
+          </div>
         </div>
       </div>
     </div>
@@ -1866,13 +1900,22 @@ function Field({ label, value, onChange, placeholder, type = "text" }) {
   );
 }
 
-function PromoterDashboard({ currentUser, referrals, listings, payouts }) {
+function PromoterDashboard({ currentUser, referrals, listings, payouts, onSetupPayouts }) {
   const pending = referrals.filter(r => r.status === "pending");
   const lifetimeEarned = referrals.filter(r => r.status === "paid").reduce((s, r) => s + (r.commission_amount || 0), 0);
   const myPayouts = (payouts || []).filter(p => p.user_id === currentUser?.id);
   return (
     <div style={styles.pageWrap}>
       <h2 style={styles.pageTitle}>Earnings Dashboard</h2>
+      {currentUser && !currentUser.stripe_payouts_enabled && (
+        <div style={styles.safetyBanner}>
+          💳 Set up Stripe payouts to get your commission sent directly instead of waiting on a manual payout.{" "}
+          <button style={styles.safetyBannerLink} onClick={onSetupPayouts}>Set up payouts</button>
+        </div>
+      )}
+      {currentUser && currentUser.stripe_payouts_enabled && (
+        <div style={{ fontSize: 13, color: "#16a34a", marginBottom: 12 }}>✅ Stripe payouts are set up — commissions can be sent to you directly.</div>
+      )}
       <div style={styles.statsRow}>
         <StatBox label="Available Balance" value={fmt(currentUser?.balance || 0)} color="#16a34a" />
         <StatBox label="Lifetime Earned" value={fmt(lifetimeEarned)} color="#1d4ed8" />
@@ -1921,7 +1964,7 @@ function StatBox({ label, value, color }) {
   return <div style={styles.statBox}><div style={{ ...styles.statValue, color }}>{value}</div><div style={styles.statLabel}>{label}</div></div>;
 }
 
-function AdminView({ listings, users, referrals, reports, feedback, userReports, reviews, payouts, disputes, onArchive, onMarkSold, onConfirmReceipt, onResolveReport, onResolveUserReport, onToggleVerified, onResetData, onRecordPayout, onResolveDispute }) {
+function AdminView({ listings, users, referrals, reports, feedback, userReports, reviews, payouts, disputes, onArchive, onMarkSold, onConfirmReceipt, onResolveReport, onResolveUserReport, onToggleVerified, onResetData, onRecordPayout, onPayoutViaStripe, onResolveDispute }) {
   const [tab, setTab] = useState("listings");
   const [markingSold, setMarkingSold] = useState(null);
   const [payingOut, setPayingOut] = useState(null);
@@ -2020,6 +2063,7 @@ function AdminView({ listings, users, referrals, reports, feedback, userReports,
               user={payingOut}
               onCancel={() => setPayingOut(null)}
               onConfirm={(amount, method, note) => { onRecordPayout(payingOut.id, amount, method, note); setPayingOut(null); }}
+              onPayViaStripe={(amount, note) => { onPayoutViaStripe(payingOut.id, amount, note); setPayingOut(null); }}
             />
           )}
         </div>

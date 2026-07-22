@@ -22,7 +22,10 @@ Deno.serve(async (req) => {
       .select("id, make, model, year, price, seller_id, status")
       .eq("id", listing_id)
       .single();
-    if (listingErr || !listing) throw new Error("Listing not found");
+    if (listingErr || !listing) {
+      console.error("listing lookup failed:", listing_id, listingErr);
+      throw new Error(listingErr ? `Listing lookup failed: ${listingErr.message}` : "Listing not found");
+    }
     if (listing.status !== "active") throw new Error("This listing is no longer available");
     if (listing.seller_id === buyerId) throw new Error("You can't buy your own listing");
 
