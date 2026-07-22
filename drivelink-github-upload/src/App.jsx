@@ -62,6 +62,7 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [authChecked, setAuthChecked] = useState(false);
   const [confirmResult, setConfirmResult] = useState(null); // { status: 'success' | 'error', message? }
+  const [returnToAdvertise, setReturnToAdvertise] = useState(false);
   const [viewingListing, setViewingListing] = useState(null); // { listing, seller, myRef, sellerRating, sellerReviewCount, myOffer }
 
   // ── Nav bar horizontal scrolling. It has overflow-x:auto for touch/trackpad,
@@ -664,7 +665,7 @@ export default function App() {
   );
 
   if (!currentUser && view === "auth") return (
-    <Auth onAuth={(user) => { setCurrentUser(user); loadDbUser(user); loadData(); setView("home"); }} />
+    <Auth onAuth={(user) => { setCurrentUser(user); loadDbUser(user); loadData(); setView(returnToAdvertise ? "advertise" : "home"); setReturnToAdvertise(false); }} />
   );
 
   if (!currentUser && view !== "home" && view !== "advertise") return (
@@ -741,7 +742,7 @@ export default function App() {
         </div>
 
       <main style={styles.main} className="app-main">
-        {view === "advertise" && <AdvertiseView currentUser={dbUser} onSubmit={createAdCheckout} onSignIn={() => setView("auth")} />}
+        {view === "advertise" && <AdvertiseView currentUser={dbUser} onSubmit={createAdCheckout} onSignIn={() => { setReturnToAdvertise(true); setView("auth"); }} />}
         {view === "home" && <HomeView key={homeResetKey} listings={activeListings} allListings={listings} currentUser={dbUser} users={users} onShare={generateShare} onBuy={handleBuyNow} referrals={referrals} onSignIn={() => setView("auth")} onMessageSeller={messageSeller} onReport={fileReport} onSaveSearch={saveSearch} favorites={favorites} onToggleFavorite={toggleFavorite} onToggleBlock={toggleBlock} onReportUser={reportUserAction} blocks={blocks} reviews={reviews} offers={offers} onMakeOffer={makeOffer} onOpenListing={setViewingListing} />}
         {view === "myListings" && <MyListingsView listings={listings.filter(l => l.seller_id === currentUser?.id)} referrals={referrals} users={users} offers={offers} onMarkSold={markSold} onSetStatus={setListingStatus} onUpdate={updateListing} onRespondToOffer={respondToOffer} onOpenSafety={() => setView("safety")} currentUser={dbUser} onSetupPayouts={setupPayouts} />}
         {view === "myPurchases" && <MyPurchasesView listings={listings.filter(l => l.buyer_id === currentUser?.id)} users={users} reviews={reviews} currentUser={currentUser} onSubmitReview={submitReview} onConfirmReceipt={confirmReceipt} onFileDispute={fileDispute} onBrowse={() => setView("home")} onOpenSafety={() => setView("safety")} />}
@@ -2064,16 +2065,6 @@ function AdvertiseView({ currentUser, onSubmit, onSignIn }) {
   const [images, setImages] = useState([]);
   const [submitting, setSubmitting] = useState(false);
 
-  if (!currentUser) {
-    return (
-      <div style={styles.pageWrap}>
-        <h2 style={styles.pageTitle}>📢 Advertise on DriveLink</h2>
-        <p style={{ color: "#6b7280", marginBottom: 16 }}>Sign in or create an account to set up your ad.</p>
-        <button style={styles.confirmBtn} onClick={onSignIn}>Sign In / Create Account</button>
-      </div>
-    );
-  }
-
   const handleSubmit = async () => {
     if (!businessName.trim() || !linkUrl.trim()) return;
     setSubmitting(true);
@@ -2115,26 +2106,35 @@ function AdvertiseView({ currentUser, onSubmit, onSignIn }) {
         ))}
       </div>
 
-      <h3 style={styles.sectionTitle}>Your ad details</h3>
-      <Field label="Business name" value={businessName} onChange={setBusinessName} placeholder="Your business name" />
-      <Field label="Contact email" value={contactEmail} onChange={setContactEmail} placeholder="you@business.com" type="email" />
-      <Field label="Link URL (where the ad sends people)" value={linkUrl} onChange={setLinkUrl} placeholder="https://yourbusiness.com" />
-      <div style={{ marginBottom: 16 }}>
-        <label style={styles.fieldLabel}>Ad image (optional — you can add this later)</label>
-        <ImageUpload images={images} onChange={setImages} />
-      </div>
+      {!currentUser ? (
+        <div style={{ marginTop: 8 }}>
+          <p style={{ color: "#6b7280", marginBottom: 16 }}>Sign in or create an account to set up your ad and continue to payment.</p>
+          <button style={styles.confirmBtn} onClick={onSignIn}>Sign In / Create Account</button>
+        </div>
+      ) : (
+        <>
+          <h3 style={styles.sectionTitle}>Your ad details</h3>
+          <Field label="Business name" value={businessName} onChange={setBusinessName} placeholder="Your business name" />
+          <Field label="Contact email" value={contactEmail} onChange={setContactEmail} placeholder="you@business.com" type="email" />
+          <Field label="Link URL (where the ad sends people)" value={linkUrl} onChange={setLinkUrl} placeholder="https://yourbusiness.com" />
+          <div style={{ marginBottom: 16 }}>
+            <label style={styles.fieldLabel}>Ad image (optional — you can add this later)</label>
+            <ImageUpload images={images} onChange={setImages} />
+          </div>
 
-      <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 16 }}>
-        You'll be taken to secure Stripe checkout to complete payment. Your ad goes live once payment is confirmed.
-      </div>
+          <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 16 }}>
+            You'll be taken to secure Stripe checkout to complete payment. Your ad goes live once payment is confirmed.
+          </div>
 
-      <button
-        style={styles.confirmBtn}
-        onClick={handleSubmit}
-        disabled={submitting || !businessName.trim() || !linkUrl.trim()}
-      >
-        {submitting ? "Redirecting…" : `Continue to Payment — ${fmt(AD_PLANS.find(p => p.id === selectedPlan).total)}`}
-      </button>
+          <button
+            style={styles.confirmBtn}
+            onClick={handleSubmit}
+            disabled={submitting || !businessName.trim() || !linkUrl.trim()}
+          >
+            {submitting ? "Redirecting…" : `Continue to Payment — ${fmt(AD_PLANS.find(p => p.id === selectedPlan).total)}`}
+          </button>
+        </>
+      )}
     </div>
   );
 }
