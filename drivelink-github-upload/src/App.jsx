@@ -6,7 +6,7 @@ import ImageUpload from "./ImageUpload.jsx";
 import Messages from "./Messages.jsx";
 import ListingsMap, { geocode } from "./ListingsMap.jsx";
 import logoIcon from "./assets/logo-icon.png";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 
 const fmt = (n) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n);
 const STRIPE_LINK = "https://buy.stripe.com/4gM4gz0z05sNaa9afu4Vy00";
@@ -2750,6 +2750,33 @@ function AnalyticsView({ listings, referrals, users }) {
   const totalPaid = referrals.filter(r => r.status === "paid").length;
   const overallConversion = totalShares > 0 ? Math.round((totalPaid / totalShares) * 100) : 0;
 
+  // Time-series trends: last 12 weeks, bucketed Sunday-to-Saturday. Weekly
+  // rather than daily to smooth out noise at current volume; still recent
+  // enough to show real momentum (vs. monthly, which would hide it).
+  const WEEKS = 12;
+  const startOfWeek = (d) => { const x = new Date(d); x.setHours(0, 0, 0, 0); x.setDate(x.getDate() - x.getDay()); return x; };
+  const thisWeekStart = startOfWeek(new Date());
+  const weekBuckets = [];
+  for (let i = WEEKS - 1; i >= 0; i--) {
+    const weekStart = new Date(thisWeekStart);
+    weekStart.setDate(weekStart.getDate() - i * 7);
+    weekBuckets.push({ weekStart, label: weekStart.toLocaleDateString("en-US", { month: "short", day: "numeric" }), newListings: 0, sold: 0, gmv: 0 });
+  }
+  const bucketFor = (dateStr) => {
+    if (!dateStr) return null;
+    const ws = startOfWeek(new Date(dateStr)).getTime();
+    return weekBuckets.find(b => b.weekStart.getTime() === ws) || null;
+  };
+  for (const l of listings) {
+    const createdBucket = bucketFor(l.created_at);
+    if (createdBucket) createdBucket.newListings++;
+    if (l.status === "sold" || l.status === "pending_confirmation") {
+      const soldBucket = bucketFor(l.sold_at);
+      if (soldBucket) { soldBucket.sold++; soldBucket.gmv += l.sale_price || 0; }
+    }
+  }
+  const trendData = weekBuckets.map(b => ({ label: b.label, newListings: b.newListings, sold: b.sold, gmv: b.gmv }));
+
   return (
     <div>
       <h3 style={styles.sectionTitle}>Demand by Make &amp; Model</h3>
@@ -2809,6 +2836,23 @@ function AnalyticsView({ listings, referrals, users }) {
           </div>
         </>
       )}
+
+      <h3 style={{ ...styles.sectionTitle, marginTop: 40 }}>Trends (Last 12 Weeks)</h3>
+      <div style={{ background: "#fff", borderRadius: 14, padding: "20px 20px 8px", boxShadow: "0 1px 4px rgba(0,0,0,.06)" }}>
+        <ResponsiveContainer width="100%" height={320}>
+          <LineChart data={trendData} margin={{ top: 8, right: 24, left: 0, bottom: 8 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+            <XAxis dataKey="label" tick={{ fontSize: 11 }} />
+            <YAxis yAxisId="count" allowDecimals={false} tick={{ fontSize: 12 }} />
+            <YAxis yAxisId="gmv" orientation="right" tick={{ fontSize: 12 }} tickFormatter={(v) => `$${Math.round(v / 1000)}k`} />
+            <Tooltip formatter={(value, name) => name === "GMV" ? fmt(value) : value} />
+            <Legend wrapperStyle={{ fontSize: 12 }} />
+            <Line yAxisId="count" type="monotone" dataKey="newListings" name="New listings" stroke="#93c5fd" strokeWidth={2} dot={false} />
+            <Line yAxisId="count" type="monotone" dataKey="sold" name="Sold" stroke="#1d4ed8" strokeWidth={2} dot={false} />
+            <Line yAxisId="gmv" type="monotone" dataKey="gmv" name="GMV" stroke="#16a34a" strokeWidth={2} dot={false} />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
     </div>
   );
 }
