@@ -41,10 +41,10 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn }) {
             DriveLink connects car buyers and sellers directly — no dealerships, no middlemen.
             Share any listing with your network and earn <b style={{ color: "#60a5fa" }}>1% of the sale price</b> when it sells.
           </p>
-          <div style={styles.heroActions} className="dl-hero-actions">
-            <button style={styles.ctaPrimary} onClick={onBrowse}>Browse Cars →</button>
-            <button style={styles.ctaSecondary} onClick={handleCta}>List My Car</button>
-          </div>
+         <div style={{ ...styles.heroActions, justifyContent: "center" }} className="dl-hero-actions">
+  <button style={styles.ctaPrimary} onClick={onBrowse}>Browse Cars →</button>
+  <button style={{ ...styles.ctaSecondary, borderColor: "rgba(255,255,255,.3)", color: "#fff" }} onClick={handleCta}>Create Account</button>
+</div>
           <div style={styles.heroStats} className="dl-hero-stats">
             <div style={styles.heroStat}>
               <span style={styles.heroStatNum}>1%</span>
