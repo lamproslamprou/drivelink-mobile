@@ -48,7 +48,7 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn }) {
           <div style={styles.heroStats} className="dl-hero-stats">
             <div style={styles.heroStat}>
               <span style={styles.heroStatNum}>1%</span>
-              <span style={styles.heroStatLabel}>Earned per referral</span>
+              <span style={styles.heroStatLabel}>Platform fee</span>
             </div>
             <div style={styles.heroStatDiv} />
             <div style={styles.heroStat}>
@@ -57,8 +57,8 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn }) {
             </div>
             <div style={styles.heroStatDiv} />
             <div style={styles.heroStat}>
-              <span style={styles.heroStatNum}>2%</span>
-              <span style={styles.heroStatLabel}>Total platform fee</span>
+              <span style={styles.heroStatNum}>2% max</span>
+              <span style={styles.heroStatLabel}>If sold via promoter referral</span>
             </div>
           </div>
         </div>
@@ -77,11 +77,11 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn }) {
             <div style={styles.roleCard}>
               <div style={styles.roleEmoji}>🚗</div>
               <h3 style={styles.roleTitle}>Sellers</h3>
-              <p style={styles.roleDesc}>List your car for free in minutes. Upload photos, set your price, and let our network of promoters share it for you. Pay only a small 1% fee when it sells.</p>
+              <p style={styles.roleDesc}>List your car for free in minutes. Upload photos, set your price, and let our network of promoters share it for you. Pay a 1% platform fee when it sells — plus 1% more if the buyer came through a promoter's shared link.</p>
               <ul style={styles.roleList}>
                 <li>✅ Free to list</li>
                 <li>✅ Real buyers, no tire kickers</li>
-                <li>✅ Only 1% fee on sale</li>
+                <li>✅ 1% fee, 2% max if referred</li>
               </ul>
               <button style={styles.roleBtn} onClick={handleCta}>List My Car →</button>
             </div>
