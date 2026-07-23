@@ -6,11 +6,13 @@ import ImageUpload from "./ImageUpload.jsx";
 import Messages from "./Messages.jsx";
 import ListingsMap, { geocode } from "./ListingsMap.jsx";
 import logoIcon from "./assets/logo-icon.png";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 
 const fmt = (n) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n);
 const STRIPE_LINK = "https://buy.stripe.com/4gM4gz0z05sNaa9afu4Vy00";
 const PLATFORM_FEE = 0.01; // 1% platform fee
 const PROMOTER_FEE = 0.01; // 1% promoter commission
+const HIGH_VALUE_LISTING_THRESHOLD = 20000; // above this price, nudge buyers if the seller isn't ID-verified
 const STALE_WARN_DAYS_MS = 30 * 24 * 60 * 60 * 1000; // show "seller inactive" badge after 30 days
 const STALE_ARCHIVE_DAYS_MS = 60 * 24 * 60 * 60 * 1000; // auto-archive after 60 days
 
@@ -626,6 +628,20 @@ const denyFlaggedReferral = async (refId) => {
     return data.assessment;
   };
 
+  // ── Seller starts (or resumes) real Stripe Identity verification. Opens
+  // Stripe's hosted document + selfie capture flow. The actual users.verified
+  // flip happens server-side via the stripe-webhook function once Stripe
+  // confirms the verification — this just kicks off the session.
+  const startIdentityVerification = async () => {
+    const { data, error } = await supabase.functions.invoke("create-identity-verification");
+    if (error || !data?.url) {
+      if (data?.alreadyVerified) { showToast("You're already verified.", "info"); return; }
+      showToast(data?.error || error?.message || "Couldn't start verification — try again.", "error");
+      return;
+    }
+    window.location.href = data.url;
+  };
+
   // ── Profile page handlers.
   // Simple fields live on the users table row.
   const updateProfile = async (patch) => {
@@ -817,7 +833,7 @@ const denyFlaggedReferral = async (refId) => {
         {view === "favorites" && <FavoritesView favorites={favorites} listings={listings} users={users} referrals={referrals} currentUser={dbUser} onShare={generateShare} onBuy={handleBuyNow} onMessageSeller={messageSeller} onReport={fileReport} onToggleFavorite={toggleFavorite} onBrowse={() => setView("home")} onOpenListing={setViewingListing} />}
         {view === "blocked" && <BlockedUsersView blocks={blocks} users={users} onToggleBlock={toggleBlock} onBrowse={() => setView("home")} />}
         {view === "dashboard" && <PromoterDashboard currentUser={dbUser} referrals={referrals.filter(r => r.promoter_id === currentUser?.id)} listings={listings} payouts={payouts} onSetupPayouts={setupPayouts} />}
-        {view === "profile" && <ProfileView dbUser={dbUser} authEmail={currentUser?.email} onUpdateProfile={updateProfile} onChangeEmail={changeEmail} onChangePassword={changePassword} onSetupPayouts={setupPayouts} />}
+        {view === "profile" && <ProfileView dbUser={dbUser} authEmail={currentUser?.email} onUpdateProfile={updateProfile} onChangeEmail={changeEmail} onChangePassword={changePassword} onSetupPayouts={setupPayouts} onStartIdentityVerification={startIdentityVerification} />}
        {view === "admin" && <AdminView listings={listings} users={users} referrals={referrals} reports={reports} feedback={feedback} userReports={userReports} reviews={reviews} payouts={payouts} disputes={disputes} onArchive={archiveListing} onMarkSold={markSold} onConfirmReceipt={confirmReceipt} onResolveReport={resolveReport} onResolveUserReport={resolveUserReport} onToggleVerified={toggleVerified} onResetData={resetTestData} onRecordPayout={recordPayout} onPayoutViaStripe={payoutPromoterViaStripe} onResolveDispute={resolveDispute} onDeleteUser={deleteUser} onApproveFlaggedReferral={approveFlaggedReferral} onDenyFlaggedReferral={denyFlaggedReferral} />}
         {view === "success" && <SuccessView onHome={() => setView("home")} />}
       </main>
@@ -1212,6 +1228,7 @@ function CarCard({ listing, seller, avgPrice, similarCount, onSeeSimilar, curren
         <div style={styles.cardTitleRow}>
           <div style={{ ...styles.cardTitle, cursor: onOpenListing ? "pointer" : "default" }} onClick={() => onOpenListing?.()}>{listing.year} {listing.make} {listing.model}</div>
           {seller?.verified && <span style={styles.verifiedBadge} title="Verified seller">✓ Verified</span>}
+          {!seller?.verified && listing.price >= HIGH_VALUE_LISTING_THRESHOLD && <span style={styles.unverifiedBadge} title="This seller hasn't completed identity verification">🔒 Unverified Seller</span>}
           {sellerRating != null && <span style={styles.ratingBadge} title={`${sellerReviewCount} review${sellerReviewCount === 1 ? "" : "s"}`}>⭐ {sellerRating.toFixed(1)} ({sellerReviewCount})</span>}
         </div>
         <div style={styles.cardMeta}>
@@ -1353,6 +1370,7 @@ function ListingDetailModal({ data, currentUser, isFavorited, isBlocked, onClose
           <div style={styles.cardTitleRow}>
             <div style={{ fontSize: 24, fontWeight: 800, color: "#0f172a" }}>{listing.year} {listing.make} {listing.model}</div>
             {seller?.verified && <span style={styles.verifiedBadge} title="Verified seller">✓ Verified</span>}
+            {!seller?.verified && listing.price >= HIGH_VALUE_LISTING_THRESHOLD && <span style={styles.unverifiedBadge} title="This seller hasn't completed identity verification">🔒 Unverified Seller</span>}
             {sellerRating != null && <span style={styles.ratingBadge}>⭐ {sellerRating.toFixed(1)} ({sellerReviewCount})</span>}
           </div>
           <div style={{ fontSize: 26, fontWeight: 800, color: "#0f172a", margin: "6px 0 14px" }}>{fmt(listing.price)}</div>
@@ -2264,7 +2282,7 @@ function AdvertiseView({ currentUser, onSubmit, onSignIn }) {
   );
 }
 
-function ProfileView({ dbUser, authEmail, onUpdateProfile, onChangeEmail, onChangePassword, onSetupPayouts }) {
+function ProfileView({ dbUser, authEmail, onUpdateProfile, onChangeEmail, onChangePassword, onSetupPayouts, onStartIdentityVerification }) {
   const [name, setName] = useState(dbUser?.name || "");
   const [phone, setPhone] = useState(dbUser?.phone || "");
   const [notifyOffers, setNotifyOffers] = useState(dbUser?.notify_offers ?? true);
@@ -2298,6 +2316,21 @@ function ProfileView({ dbUser, authEmail, onUpdateProfile, onChangeEmail, onChan
         <div>
           <p style={{ fontSize: 13, color: "#6b7280", marginBottom: 8 }}>Set up payouts to get paid automatically for sales and commissions.</p>
           <button style={styles.confirmBtn} onClick={onSetupPayouts}>Set up payouts</button>
+        </div>
+      )}
+
+      <h3 style={{ ...styles.sectionTitle, marginTop: 32 }}>Identity Verification</h3>
+      {dbUser.identity_verification_status === "verified" ? (
+        <div style={{ fontSize: 13, color: "#16a34a" }}>✅ Your identity is verified — buyers see a Verified badge on your listings.</div>
+      ) : dbUser.identity_verification_status === "pending" ? (
+        <div>
+          <p style={{ fontSize: 13, color: "#854d0e", marginBottom: 8 }}>⏳ Verification submitted — this usually finishes in a few minutes.</p>
+          <button style={styles.confirmBtn} onClick={onStartIdentityVerification}>Check status / resume</button>
+        </div>
+      ) : (
+        <div>
+          <p style={{ fontSize: 13, color: "#6b7280", marginBottom: 8 }}>Verify your identity to earn a Verified badge on your listings — buyers trust verified sellers more, which means faster sales.</p>
+          <button style={styles.confirmBtn} onClick={onStartIdentityVerification}>Verify Your Identity</button>
         </div>
       )}
 
@@ -2453,7 +2486,7 @@ function AdminView({ listings, users, referrals, reports, feedback, userReports,
         <StatBox label="Open User Reports" value={openUserReports.length} color="#dc2626" />
       </div>
       <div style={styles.tabRow}>
-        {["listings", "archived", "users", "referrals", "payouts", "disputes", "reports", "userReports", "feedback", "danger"].map(t => <button key={t} style={{ ...styles.tab, ...(tab === t ? styles.tabActive : {}), ...(t === "danger" ? { color: tab === "danger" ? "#dc2626" : "#dc2626" } : {}) }} onClick={() => setTab(t)}>{t === "danger" ? "⚠️ Danger Zone" : t === "userReports" ? "User Reports" : t.charAt(0).toUpperCase() + t.slice(1)}{t === "reports" && openReports.length > 0 ? ` (${openReports.length})` : ""}{t === "userReports" && openUserReports.length > 0 ? ` (${openUserReports.length})` : ""}{t === "disputes" && openDisputes.length > 0 ? ` (${openDisputes.length})` : ""}{t === "feedback" && feedback.length > 0 ? ` (${feedback.length})` : ""}</button>)}
+        {["listings", "archived", "users", "referrals", "payouts", "disputes", "reports", "userReports", "feedback", "analytics", "danger"].map(t => <button key={t} style={{ ...styles.tab, ...(tab === t ? styles.tabActive : {}), ...(t === "danger" ? { color: tab === "danger" ? "#dc2626" : "#dc2626" } : {}) }} onClick={() => setTab(t)}>{t === "danger" ? "⚠️ Danger Zone" : t === "userReports" ? "User Reports" : t === "analytics" ? "📊 Analytics" : t.charAt(0).toUpperCase() + t.slice(1)}{t === "reports" && openReports.length > 0 ? ` (${openReports.length})` : ""}{t === "userReports" && openUserReports.length > 0 ? ` (${openUserReports.length})` : ""}{t === "disputes" && openDisputes.length > 0 ? ` (${openDisputes.length})` : ""}{t === "feedback" && feedback.length > 0 ? ` (${feedback.length})` : ""}</button>)}
       </div>
       {tab === "listings" && (
         <div style={styles.tableWrap}>
@@ -2651,7 +2684,82 @@ function AdminView({ listings, users, referrals, reports, feedback, userReports,
           ))}
         </div>
       )}
+      {tab === "analytics" && <AnalyticsView listings={listings} referrals={referrals} users={users} />}
       {tab === "danger" && <DangerZone onResetData={onResetData} />}
+    </div>
+  );
+}
+
+// ── Analytics tab (Admin). Starts with make/model demand — which cars get
+// listed most, sell most, and how fast they move — since this is computable
+// entirely from data we already have (no new tracking needed). Scout
+// leaderboard and time-series trend sections get added here next.
+function AnalyticsView({ listings, referrals, users }) {
+  const nonArchived = listings.filter(l => l.status !== "archived");
+
+  // Group by make+model: total listed, sold count, avg price, avg days-to-sell
+  // (only computed across listings that actually have both created_at and
+  // sold_at — active/unsold listings don't have a days-to-sell yet).
+  const byModel = {};
+  for (const l of nonArchived) {
+    const key = `${l.make} ${l.model}`;
+    if (!byModel[key]) byModel[key] = { make: l.make, model: l.model, count: 0, soldCount: 0, totalPrice: 0, totalDaysToSell: 0, soldWithDates: 0 };
+    const row = byModel[key];
+    row.count++;
+    row.totalPrice += l.price || 0;
+    if (l.status === "sold") {
+      row.soldCount++;
+      if (l.created_at && l.sold_at) {
+        const days = Math.round((new Date(l.sold_at) - new Date(l.created_at)) / (1000 * 60 * 60 * 24));
+        if (days >= 0) { row.totalDaysToSell += days; row.soldWithDates++; }
+      }
+    }
+  }
+
+  const modelRows = Object.values(byModel)
+    .map(r => ({
+      ...r,
+      avgPrice: Math.round(r.totalPrice / r.count),
+      avgDaysToSell: r.soldWithDates > 0 ? Math.round(r.totalDaysToSell / r.soldWithDates) : null,
+    }))
+    .sort((a, b) => b.count - a.count);
+
+  const chartData = modelRows.slice(0, 10).map(r => ({ name: `${r.make} ${r.model}`, listings: r.count, sold: r.soldCount }));
+
+  return (
+    <div>
+      <h3 style={styles.sectionTitle}>Demand by Make &amp; Model</h3>
+      {modelRows.length === 0 ? (
+        <p style={{ color: "#6b7280" }}>Not enough listing data yet.</p>
+      ) : (
+        <>
+          <div style={{ background: "#fff", borderRadius: 14, padding: "20px 20px 8px", marginBottom: 20, boxShadow: "0 1px 4px rgba(0,0,0,.06)" }}>
+            <ResponsiveContainer width="100%" height={320}>
+              <BarChart data={chartData} margin={{ top: 8, right: 16, left: 0, bottom: 60 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                <XAxis dataKey="name" angle={-35} textAnchor="end" interval={0} tick={{ fontSize: 11 }} height={70} />
+                <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
+                <Tooltip />
+                <Bar dataKey="listings" fill="#93c5fd" name="Total listed" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="sold" fill="#1d4ed8" name="Sold" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+          <div style={styles.tableWrap}>
+            {modelRows.map(r => (
+              <div key={`${r.make}-${r.model}`} style={styles.listingRow} className="app-listing-row">
+                <div style={styles.rowInfo} className="app-row-info">
+                  <div style={styles.rowTitle}>{r.make} {r.model}</div>
+                  <div style={styles.rowMeta}>
+                    {r.count} listed • {r.soldCount} sold • avg {fmt(r.avgPrice)}
+                    {r.avgDaysToSell != null && ` • avg ${r.avgDaysToSell} day${r.avgDaysToSell === 1 ? "" : "s"} to sell`}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -2807,6 +2915,7 @@ const styles = {
   cardTitleRow: { display: "flex", alignItems: "center", gap: 8, marginBottom: 8 },
   cardTitle: { fontSize: 18, fontWeight: 700, color: "#0f172a" },
   verifiedBadge: { fontSize: 11, fontWeight: 700, color: "#1d4ed8", background: "#eff6ff", padding: "2px 8px", borderRadius: 20 },
+  unverifiedBadge: { fontSize: 11, fontWeight: 700, color: "#b45309", background: "#fffbeb", padding: "2px 8px", borderRadius: 20 },
   ratingBadge: { fontSize: 11, fontWeight: 700, color: "#92400e", background: "#fef3c7", padding: "2px 8px", borderRadius: 20 },
   cardMeta: { display: "flex", gap: 16, fontSize: 13, color: "#6b7280", marginBottom: 10, flexWrap: "wrap" },
   priceCompare: { fontSize: 12, fontWeight: 700, padding: "5px 10px", borderRadius: 8, display: "inline-block", marginBottom: 10 },

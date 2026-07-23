@@ -8,6 +8,13 @@
 //    "pending_confirmation", mirrors the fields the old markSold() set
 //    (sale_price, sold_at, platform_fee, seller_net), plus auto_release_at.
 //  - account.updated: a seller's Connect onboarding status changed.
+//  - identity.verification_session.verified: a seller's Stripe Identity
+//    check succeeded → flips users.verified to true and marks their
+//    identity_verification_status "verified".
+//  - identity.verification_session.requires_input: a seller's Stripe
+//    Identity check failed (bad document, mismatch, etc) → marks
+//    identity_verification_status "failed" so the Profile page can prompt
+//    them to retry.
 //
 // IMPORTANT FIX vs the old markSold() logic: that function always subtracted
 // the 1% promoter fee from the seller's net, even when no referral existed —
@@ -24,9 +31,9 @@ Deno.serve(async (req) => {
   const signature = req.headers.get("stripe-signature");
 
   // Two Stripe webhook endpoints point at this same function: one for
-  // "your account" events (checkout.session.completed) and one for
-  // "connected accounts" events (account.updated) — Stripe requires these
-  // as separate endpoints, each with its own signing secret. Try both.
+  // "your account" events (checkout.session.completed, identity.*) and one
+  // for "connected accounts" events (account.updated) — Stripe requires
+  // these as separate endpoints, each with its own signing secret. Try both.
   const body = await req.text();
   const candidateSecrets = [
     Deno.env.get("STRIPE_WEBHOOK_SECRET"),
@@ -174,6 +181,39 @@ Deno.serve(async (req) => {
         .from("users")
         .update({ stripe_payouts_enabled: account.payouts_enabled })
         .eq("stripe_account_id", account.id);
+    }
+
+    if (event.type === "identity.verification_session.verified") {
+      // Fetch the full session so we get metadata reliably regardless of
+      // thin/snapshot payload style, same pattern as checkout sessions above.
+      const sessionId = (event.data.object as { id: string }).id;
+      const session = await stripe.identity.verificationSessions.retrieve(sessionId);
+      const userId = (session.metadata as Record<string, string> | null)?.drivelink_user_id;
+      if (userId) {
+        await supabase
+          .from("users")
+          .update({ identity_verification_status: "verified", verified: true })
+          .eq("id", userId);
+      } else {
+        console.error("identity.verification_session.verified event had no drivelink_user_id in metadata", sessionId);
+      }
+    }
+
+    if (event.type === "identity.verification_session.requires_input") {
+      // The session needs the user to retry (bad photo, mismatch, expired
+      // document, etc). Mark as "failed" so the Profile page shows a retry
+      // prompt instead of leaving them stuck on "pending" forever.
+      const sessionId = (event.data.object as { id: string }).id;
+      const session = await stripe.identity.verificationSessions.retrieve(sessionId);
+      const userId = (session.metadata as Record<string, string> | null)?.drivelink_user_id;
+      if (userId) {
+        await supabase
+          .from("users")
+          .update({ identity_verification_status: "failed" })
+          .eq("id", userId);
+      } else {
+        console.error("identity.verification_session.requires_input event had no drivelink_user_id in metadata", sessionId);
+      }
     }
 
     return jsonResponse({ received: true });
