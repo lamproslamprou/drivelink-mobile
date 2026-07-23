@@ -1724,6 +1724,18 @@ function FavoritesView({ favorites, listings, users, referrals, currentUser, onS
     .map(f => listings.find(l => l.id === f.listing_id))
     .filter(Boolean);
 
+  const [compareIds, setCompareIds] = useState([]);
+  const [showCompare, setShowCompare] = useState(false);
+  const MAX_COMPARE = 3;
+
+  const toggleCompare = (listingId) => {
+    setCompareIds(prev => {
+      if (prev.includes(listingId)) return prev.filter(id => id !== listingId);
+      if (prev.length >= MAX_COMPARE) return prev;
+      return [...prev, listingId];
+    });
+  };
+
   return (
     <div style={styles.pageWrap}>
       <h2 style={styles.pageTitle}>❤️ Saved Cars</h2>
@@ -1753,10 +1765,52 @@ function FavoritesView({ favorites, listings, users, referrals, currentUser, onS
                 isFavorited={true}
                 onToggleFavorite={onToggleFavorite}
                 onOpenListing={() => onOpenListing({ listing: l, seller, myRef, sellerRating: null, sellerReviewCount: 0, myOffer: null })}
+                isComparing={compareIds.includes(l.id)}
+                onToggleCompare={toggleCompare}
+                compareDisabled={compareIds.length >= MAX_COMPARE}
               />
             );
           })}
         </div>
+      )}
+
+      {compareIds.length > 0 && (
+        <div style={styles.compareBar} className="app-compare-bar">
+          <div style={styles.compareBarInner}>
+            <div style={{ display: "flex", gap: 10, alignItems: "center", flex: 1, overflowX: "auto" }}>
+              {compareIds.map(id => {
+                const l = favoritedListings.find(x => x.id === id);
+                if (!l) return null;
+                const cover = (l.images && l.images[0]) || l.image;
+                return (
+                  <div key={id} style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+                    <img src={cover} alt="" style={{ width: 40, height: 30, objectFit: "cover", borderRadius: 6 }} onError={e => { e.target.src = "https://images.unsplash.com/photo-1494976388531-d1058494cdd8?w=100&q=60"; }} />
+                    <span style={{ fontSize: 12, fontWeight: 600, whiteSpace: "nowrap", color: "#0f172a" }}>{l.year} {l.make} {l.model}</span>
+                    <button type="button" style={styles.compareBarRemove} onClick={() => toggleCompare(id)}>✕</button>
+                  </div>
+                );
+              })}
+            </div>
+            <button
+              type="button"
+              style={{ ...styles.confirmBtn, opacity: compareIds.length >= 2 ? 1 : 0.5, whiteSpace: "nowrap" }}
+              onClick={() => setShowCompare(true)}
+              disabled={compareIds.length < 2}
+            >
+              ⚖️ Compare ({compareIds.length})
+            </button>
+            <button type="button" style={styles.compareBarClear} onClick={() => setCompareIds([])}>Clear</button>
+          </div>
+        </div>
+      )}
+
+      {showCompare && (
+        <CompareModal
+          listings={compareIds.map(id => favoritedListings.find(x => x.id === id)).filter(Boolean)}
+          users={users}
+          onRemove={(id) => { toggleCompare(id); if (compareIds.length <= 2) setShowCompare(false); }}
+          onClose={() => setShowCompare(false)}
+        />
       )}
     </div>
   );
