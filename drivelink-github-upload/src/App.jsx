@@ -1091,8 +1091,12 @@ for (const l of allListings.filter(l => l.status === "active")) {
           <div style={styles.heroStats} className="app-hero-stats">
             <div style={styles.heroStat}><span style={styles.heroStatNum}>{listings.length}</span><span style={styles.heroStatLabel}>Active listings</span></div>
             <div style={styles.heroStatDiv} />
-            <div style={styles.heroStat}><span style={styles.heroStatNum}>{soldCount}</span><span style={styles.heroStatLabel}>Cars sold</span></div>
-            <div style={styles.heroStatDiv} />
+            {soldCount > 0 && (
+              <>
+                <div style={styles.heroStat}><span style={styles.heroStatNum}>{soldCount}</span><span style={styles.heroStatLabel}>Cars sold</span></div>
+                <div style={styles.heroStatDiv} />
+              </>
+            )}
             <div style={styles.heroStat}><span style={styles.heroStatNum}>1%</span><span style={styles.heroStatLabel}>Promoter cut</span></div>
           </div>
         </div>
