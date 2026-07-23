@@ -2726,6 +2726,30 @@ function AnalyticsView({ listings, referrals, users }) {
 
   const chartData = modelRows.slice(0, 10).map(r => ({ name: `${r.make} ${r.model}`, listings: r.count, sold: r.soldCount }));
 
+  // Scout leaderboard: group referrals by promoter, rank by commission earned
+  // (the number that actually reflects revenue-driving impact, not just
+  // activity). Conversion rate = paid ÷ total shares generated.
+  const byPromoter = {};
+  for (const r of referrals) {
+    if (!byPromoter[r.promoter_id]) byPromoter[r.promoter_id] = { promoter_id: r.promoter_id, totalShares: 0, paidCount: 0, flaggedCount: 0, totalCommission: 0 };
+    const row = byPromoter[r.promoter_id];
+    row.totalShares++;
+    if (r.status === "paid") { row.paidCount++; row.totalCommission += r.commission_amount || 0; }
+    if (r.status === "flagged") row.flaggedCount++;
+  }
+  const scoutRows = Object.values(byPromoter)
+    .map(r => ({
+      ...r,
+      name: users.find(u => u.id === r.promoter_id)?.name || "Unknown",
+      conversionRate: r.totalShares > 0 ? Math.round((r.paidCount / r.totalShares) * 100) : 0,
+    }))
+    .sort((a, b) => b.totalCommission - a.totalCommission)
+    .slice(0, 10);
+
+  const totalShares = referrals.length;
+  const totalPaid = referrals.filter(r => r.status === "paid").length;
+  const overallConversion = totalShares > 0 ? Math.round((totalPaid / totalShares) * 100) : 0;
+
   return (
     <div>
       <h3 style={styles.sectionTitle}>Demand by Make &amp; Model</h3>
@@ -2753,6 +2777,31 @@ function AnalyticsView({ listings, referrals, users }) {
                   <div style={styles.rowMeta}>
                     {r.count} listed • {r.soldCount} sold • avg {fmt(r.avgPrice)}
                     {r.avgDaysToSell != null && ` • avg ${r.avgDaysToSell} day${r.avgDaysToSell === 1 ? "" : "s"} to sell`}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
+      <h3 style={{ ...styles.sectionTitle, marginTop: 40 }}>Scout Leaderboard</h3>
+      {referrals.length === 0 ? (
+        <p style={{ color: "#6b7280" }}>No referral activity yet.</p>
+      ) : (
+        <>
+          <div style={styles.infoBox}>
+            <b>{totalShares}</b> total shares generated → <b>{totalPaid}</b> resulted in a paid sale ({overallConversion}% overall conversion rate)
+          </div>
+          <div style={{ ...styles.tableWrap, marginTop: 16 }}>
+            {scoutRows.map((s, i) => (
+              <div key={s.promoter_id} style={styles.listingRow} className="app-listing-row">
+                <div style={{ fontSize: 13, color: "#94a3b8", fontWeight: 700, minWidth: 24, textAlign: "right" }}>{i + 1}</div>
+                <div style={styles.rowInfo} className="app-row-info">
+                  <div style={styles.rowTitle}>{s.name}</div>
+                  <div style={styles.rowMeta}>
+                    {s.totalShares} share{s.totalShares === 1 ? "" : "s"} • {s.paidCount} converted ({s.conversionRate}%) • {fmt(s.totalCommission)} earned
+                    {s.flaggedCount > 0 && ` • ⚠️ ${s.flaggedCount} flagged`}
                   </div>
                 </div>
               </div>
