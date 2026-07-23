@@ -234,6 +234,14 @@ export default function App() {
     if (currentUser) loadDbUser(currentUser);
   }, [users]);
 
+  // ── Scroll to top on every view change. Without this, navigating between
+  // views (e.g. clicking "Browse Cars" from partway down the Landing page)
+  // preserves whatever scroll position you were at, so you land in the
+  // middle of the new view instead of at the top.
+  useEffect(() => {
+    window.scrollTo({ top: 0 });
+  }, [view]);
+
   const logout = async () => {
     await supabase.auth.signOut();
     setCurrentUser(null);
