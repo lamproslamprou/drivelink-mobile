@@ -333,13 +333,22 @@ export default function App() {
       return;
     }
     const promoterCommission = Math.round((listing.sale_price || 0) * PROMOTER_FEE);
-    await supabase.from("listings").update({ status: "sold", confirmed_at: new Date().toISOString() }).eq("id", listingId);
-    const ref = referrals.find(r => r.listing_id === listingId && r.status === "pending");
-    if (ref) {
-      await supabase.from("referrals").update({ status: "paid", commission_amount: promoterCommission, paid_at: new Date().toISOString().slice(0, 10) }).eq("id", ref.id);
-      const promoter = users.find(u => u.id === ref.promoter_id);
-      await supabase.from("users").update({ balance: (promoter?.balance || 0) + promoterCommission }).eq("id", ref.promoter_id);
-    }
+await supabase.from("listings").update({ status: "sold", confirmed_at: new Date().toISOString() }).eq("id", listingId);
+const ref = referrals.find(r => r.listing_id === listingId && r.status === "pending");
+if (ref) {
+  // Self-dealing check: a promoter buying through their own referral link
+  // should never earn a commission on it. Flag for admin review instead of
+  // paying automatically or silently dropping it.
+  const isSelfReferral = listing.buyer_id && ref.promoter_id === listing.buyer_id;
+  if (isSelfReferral) {
+    await supabase.from("referrals").update({ status: "flagged", commission_amount: promoterCommission }).eq("id", ref.id);
+    showToast("Sale confirmed. Note: this referral looks like a self-purchase and has been flagged for admin review before any commission is paid.", "info");
+  } else {
+    await supabase.from("referrals").update({ status: "paid", commission_amount: promoterCommission, paid_at: new Date().toISOString().slice(0, 10) }).eq("id", ref.id);
+    const promoter = users.find(u => u.id === ref.promoter_id);
+    await supabase.from("users").update({ balance: (promoter?.balance || 0) + promoterCommission }).eq("id", ref.promoter_id);
+  }
+}
     await loadData();
     showToast("Receipt confirmed — sale finalized and commission released.");
   };
@@ -385,6 +394,26 @@ export default function App() {
     await loadData();
   };
 
+// ── Admin approves a flagged referral (pays the commission normally) or
+// denies it (zeroes it out, no payout) after reviewing a suspected
+// self-referral or other suspicious pattern.
+const approveFlaggedReferral = async (refId) => {
+  const ref = referrals.find(r => r.id === refId);
+  if (!ref) return;
+  const commission = ref.commission_amount || 0;
+  await supabase.from("referrals").update({ status: "paid", paid_at: new Date().toISOString().slice(0, 10) }).eq("id", refId);
+  const promoter = users.find(u => u.id === ref.promoter_id);
+  await supabase.from("users").update({ balance: (promoter?.balance || 0) + commission }).eq("id", ref.promoter_id);
+  await loadData();
+  showToast("Referral approved — commission released.");
+};
+
+const denyFlaggedReferral = async (refId) => {
+  await supabase.from("referrals").update({ status: "denied", commission_amount: 0 }).eq("id", refId);
+  await loadData();
+  showToast("Referral denied — no commission paid.");
+};
+
   // ── Buyer makes an offer on a listing. Note: this doesn't change what Stripe
   // charges at checkout (that's a fixed payment link) — if a seller accepts an
   // offer, the two of you close the deal the same way any negotiated in-person
@@ -419,8 +448,13 @@ export default function App() {
 
   // ── Generate share link
   const generateShare = async (listingId) => {
-    const existing = referrals.find(r => r.listing_id === listingId && r.promoter_id === currentUser.id);
-    if (existing) { showToast("Share code: " + existing.share_code, "info"); return existing.share_code; }
+  const listing = listings.find(l => l.id === listingId);
+  if (listing?.seller_id === currentUser.id) {
+    showToast("You can't generate a Scout link for your own listing.", "error");
+    return null;
+  }
+  const existing = referrals.find(r => r.listing_id === listingId && r.promoter_id === currentUser.id);
+  if (existing) { showToast("Share code: " + existing.share_code, "info"); return existing.share_code; }
     const code = (dbUser?.name || "USER").split(" ")[0].toUpperCase() + "-" + listingId.toUpperCase();
     const newRef = { id: "r" + Date.now(), promoter_id: currentUser.id, listing_id: listingId, share_code: code, status: "pending", commission_amount: 0 };
     await supabase.from("referrals").insert(newRef);
@@ -784,7 +818,7 @@ export default function App() {
         {view === "blocked" && <BlockedUsersView blocks={blocks} users={users} onToggleBlock={toggleBlock} onBrowse={() => setView("home")} />}
         {view === "dashboard" && <PromoterDashboard currentUser={dbUser} referrals={referrals.filter(r => r.promoter_id === currentUser?.id)} listings={listings} payouts={payouts} onSetupPayouts={setupPayouts} />}
         {view === "profile" && <ProfileView dbUser={dbUser} authEmail={currentUser?.email} onUpdateProfile={updateProfile} onChangeEmail={changeEmail} onChangePassword={changePassword} onSetupPayouts={setupPayouts} />}
-        {view === "admin" && <AdminView listings={listings} users={users} referrals={referrals} reports={reports} feedback={feedback} userReports={userReports} reviews={reviews} payouts={payouts} disputes={disputes} onArchive={archiveListing} onMarkSold={markSold} onConfirmReceipt={confirmReceipt} onResolveReport={resolveReport} onResolveUserReport={resolveUserReport} onToggleVerified={toggleVerified} onResetData={resetTestData} onRecordPayout={recordPayout} onPayoutViaStripe={payoutPromoterViaStripe} onResolveDispute={resolveDispute} onDeleteUser={deleteUser} />}
+       {view === "admin" && <AdminView listings={listings} users={users} referrals={referrals} reports={reports} feedback={feedback} userReports={userReports} reviews={reviews} payouts={payouts} disputes={disputes} onArchive={archiveListing} onMarkSold={markSold} onConfirmReceipt={confirmReceipt} onResolveReport={resolveReport} onResolveUserReport={resolveUserReport} onToggleVerified={toggleVerified} onResetData={resetTestData} onRecordPayout={recordPayout} onPayoutViaStripe={payoutPromoterViaStripe} onResolveDispute={resolveDispute} onDeleteUser={deleteUser} onApproveFlaggedReferral={approveFlaggedReferral} onDenyFlaggedReferral={denyFlaggedReferral} />}
         {view === "success" && <SuccessView onHome={() => setView("home")} />}
       </main>
 
@@ -2386,7 +2420,7 @@ function StatBox({ label, value, color }) {
   return <div style={styles.statBox}><div style={{ ...styles.statValue, color }}>{value}</div><div style={styles.statLabel}>{label}</div></div>;
 }
 
-function AdminView({ listings, users, referrals, reports, feedback, userReports, reviews, payouts, disputes, onArchive, onMarkSold, onConfirmReceipt, onResolveReport, onResolveUserReport, onToggleVerified, onResetData, onRecordPayout, onPayoutViaStripe, onResolveDispute, onDeleteUser }) {
+function AdminView({ listings, users, referrals, reports, feedback, userReports, reviews, payouts, disputes, onArchive, onMarkSold, onConfirmReceipt, onResolveReport, onResolveUserReport, onToggleVerified, onResetData, onRecordPayout, onPayoutViaStripe, onResolveDispute, onDeleteUser, onApproveFlaggedReferral, onDenyFlaggedReferral }) {
   const [tab, setTab] = useState("listings");
   const [markingSold, setMarkingSold] = useState(null);
   const [payingOut, setPayingOut] = useState(null);
@@ -2493,24 +2527,35 @@ function AdminView({ listings, users, referrals, reports, feedback, userReports,
           )}
         </div>
       )}
-      {tab === "referrals" && (
-        <div style={styles.tableWrap}>
-          {referrals.length === 0 && <p style={{ color: "#6b7280" }}>No referrals yet.</p>}
-          {referrals.map(r => {
-            const promoter = users.find(u => u.id === r.promoter_id);
-            const listing = listings.find(l => l.id === r.listing_id);
-            return (
-              <div key={r.id} style={styles.listingRow} className="app-listing-row">
-                <div style={styles.rowInfo} className="app-row-info">
-                  <div style={styles.rowTitle}>{promoter?.name} → {listing ? `${listing.make} ${listing.model}` : r.listing_id}</div>
-                  <div style={styles.rowMeta}>Code: {r.share_code} • Commission: {fmt(r.commission_amount || 0)}</div>
-                </div>
-                <span style={{ ...styles.statusPill, background: r.status === "paid" ? "#dcfce7" : "#fef9c3", color: r.status === "paid" ? "#15803d" : "#854d0e" }}>{r.status}</span>
-              </div>
-            );
-          })}
+     {tab === "referrals" && (
+  <div style={styles.tableWrap}>
+    {referrals.length === 0 && <p style={{ color: "#6b7280" }}>No referrals yet.</p>}
+    {referrals.map(r => {
+      const promoter = users.find(u => u.id === r.promoter_id);
+      const listing = listings.find(l => l.id === r.listing_id);
+      const badgeStyle = r.status === "paid" ? { background: "#dcfce7", color: "#15803d" }
+        : r.status === "flagged" ? { background: "#fee2e2", color: "#b91c1c" }
+        : r.status === "denied" ? { background: "#f1f5f9", color: "#6b7280" }
+        : { background: "#fef9c3", color: "#854d0e" };
+      return (
+        <div key={r.id} style={styles.listingRow} className="app-listing-row">
+          <div style={styles.rowInfo} className="app-row-info">
+            <div style={styles.rowTitle}>{promoter?.name} → {listing ? `${listing.make} ${listing.model}` : r.listing_id}</div>
+            <div style={styles.rowMeta}>Code: {r.share_code} • Commission: {fmt(r.commission_amount || 0)}</div>
+            {r.status === "flagged" && <div style={{ fontSize: 12, color: "#b91c1c", marginTop: 4 }}>⚠️ Promoter and buyer appear to be the same account — likely self-referral</div>}
+          </div>
+          <span style={{ ...styles.statusPill, ...badgeStyle }}>{r.status}</span>
+          {r.status === "flagged" && (
+            <>
+              <button style={styles.soldBtn} onClick={() => onApproveFlaggedReferral(r.id)}>Approve & Pay</button>
+              <button style={styles.removeBtn} onClick={() => onDenyFlaggedReferral(r.id)}>Deny</button>
+            </>
+          )}
         </div>
-      )}
+      );
+    })}
+  </div>
+)}
       {tab === "payouts" && (
         <div style={styles.tableWrap}>
           {(payouts || []).length === 0 && <p style={{ color: "#6b7280" }}>No payouts recorded yet.</p>}
