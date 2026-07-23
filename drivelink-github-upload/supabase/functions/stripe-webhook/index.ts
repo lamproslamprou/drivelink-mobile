@@ -14,7 +14,7 @@
 // meaning sellers were shorted 1% with nobody receiving it. This version only
 // deducts the promoter fee when a pending referral actually exists for the
 // listing, computed once here and honored downstream by release-funds.
-import { corsHeaders, jsonResponse, stripeClient, supabaseAdmin, PLATFORM_FEE, PROMOTER_FEE, AUTO_RELEASE_DAYS } from "../_shared/helpers.ts";
+import { corsHeaders, jsonResponse, sendEmail, stripeClient, supabaseAdmin, PLATFORM_FEE, PROMOTER_FEE, AUTO_RELEASE_DAYS } from "../_shared/helpers.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -74,7 +74,7 @@ Deno.serve(async (req) => {
         const endDate = new Date(startDate);
         endDate.setMonth(endDate.getMonth() + months);
 
-        await supabase
+        const { data: adRow } = await supabase
           .from("ad_placements")
           .update({
             status: "active",
@@ -82,7 +82,23 @@ Deno.serve(async (req) => {
             start_date: startDate.toISOString().slice(0, 10),
             end_date: endDate.toISOString().slice(0, 10),
           })
-          .eq("id", meta.ad_id);
+          .eq("id", meta.ad_id)
+          .select("business_name, contact_email, link_url, plan, amount_cents")
+          .single();
+
+        // Fire-and-forget — don't let a slow/failed email hold up the webhook.
+        sendEmail({
+          to: "support@drivelink.deals",
+          subject: `New ad placement purchased — ${adRow?.business_name ?? "Unknown business"}`,
+          html: `
+            <h2>New ad placement</h2>
+            <p><b>Business:</b> ${adRow?.business_name ?? "—"}</p>
+            <p><b>Contact:</b> ${adRow?.contact_email ?? "—"}</p>
+            <p><b>Link:</b> ${adRow?.link_url ?? "—"}</p>
+            <p><b>Plan:</b> ${adRow?.plan ?? plan} (${((adRow?.amount_cents ?? 0) / 100).toLocaleString("en-US", { style: "currency", currency: "USD" })})</p>
+            <p><b>Runs:</b> ${startDate.toISOString().slice(0, 10)} to ${endDate.toISOString().slice(0, 10)}</p>
+          `,
+        });
 
         return jsonResponse({ received: true });
       }
@@ -107,7 +123,7 @@ Deno.serve(async (req) => {
       const releaseAt = new Date();
       releaseAt.setDate(releaseAt.getDate() + AUTO_RELEASE_DAYS);
 
-      await supabase
+      const { data: soldListing } = await supabase
         .from("listings")
         .update({
           status: "pending_confirmation",
@@ -119,11 +135,34 @@ Deno.serve(async (req) => {
           sold_at: new Date().toISOString().slice(0, 10),
           auto_release_at: releaseAt.toISOString(),
         })
-        .eq("id", listing_id);
+        .eq("id", listing_id)
+        .select("make, model, year, seller_id")
+        .single();
 
       // Referral stays "pending" — it's marked "paid" and credited to the
       // promoter's balance in release-funds, same moment the seller is paid,
       // same as the existing confirmReceipt() behavior.
+
+      const [{ data: buyerRow }, { data: sellerRow }] = await Promise.all([
+        supabase.from("users").select("name, email").eq("id", buyer_id).single(),
+        soldListing?.seller_id
+          ? supabase.from("users").select("name, email").eq("id", soldListing.seller_id).single()
+          : Promise.resolve({ data: null }),
+      ]);
+
+      // Fire-and-forget — don't let a slow/failed email hold up the webhook.
+      sendEmail({
+        to: "support@drivelink.deals",
+        subject: `New car sale — ${soldListing ? `${soldListing.year} ${soldListing.make} ${soldListing.model}` : listing_id} (${salePrice.toLocaleString("en-US", { style: "currency", currency: "USD" })})`,
+        html: `
+          <h2>New sale — payment received, awaiting buyer confirmation</h2>
+          <p><b>Vehicle:</b> ${soldListing ? `${soldListing.year} ${soldListing.make} ${soldListing.model}` : listing_id}</p>
+          <p><b>Sale price:</b> ${salePrice.toLocaleString("en-US", { style: "currency", currency: "USD" })}</p>
+          <p><b>Platform fee:</b> ${platformFee.toLocaleString("en-US", { style: "currency", currency: "USD" })}${promoterFeeReserved ? ` (plus ${promoterFeeReserved.toLocaleString("en-US", { style: "currency", currency: "USD" })} reserved for a promoter)` : ""}</p>
+          <p><b>Buyer:</b> ${buyerRow?.name ?? "—"} (${buyerRow?.email ?? "—"})</p>
+          <p><b>Seller:</b> ${sellerRow?.name ?? "—"} (${sellerRow?.email ?? "—"})</p>
+        `,
+      });
     }
 
     if (event.type === "account.updated") {

@@ -45,6 +45,39 @@ export async function requireUser(req: Request): Promise<string> {
   return data.user.id;
 }
 
+// Sends a plain notification email via Resend. Requires RESEND_API_KEY to
+// be set (supabase secrets set RESEND_API_KEY=re_...). Never throws — a
+// failed notification email shouldn't break the actual business logic
+// (a sale/ad purchase still succeeded even if this fails), so callers
+// should call this without awaiting-and-failing-hard on it.
+export async function sendEmail({ to, subject, html }: { to: string; subject: string; html: string }) {
+  const apiKey = Deno.env.get("RESEND_API_KEY");
+  if (!apiKey) {
+    console.error("sendEmail skipped — RESEND_API_KEY not set");
+    return;
+  }
+  try {
+    const res = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from: "DriveLink Notifications <notifications@drivelink.deals>",
+        to: [to],
+        subject,
+        html,
+      }),
+    });
+    if (!res.ok) {
+      console.error("sendEmail failed:", res.status, await res.text());
+    }
+  } catch (err) {
+    console.error("sendEmail error:", err);
+  }
+}
+
 // Platform + Promoter cut, mirrors the PLATFORM_FEE/PROMOTER_FEE constants
 // in App.jsx. Keep these two files in sync if you ever change the percentages.
 export const PLATFORM_FEE = 0.01;
