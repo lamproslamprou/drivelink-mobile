@@ -1007,12 +1007,12 @@ function HomeView({ listings, allListings, currentUser, users, onShare, onBuy, r
     .sort((a, b) => sort === "newest" ? new Date(b.created_at) - new Date(a.created_at) : sort === "priceLow" ? a.price - b.price : b.price - a.price);
 
   // Average price per make+model, for the "priced below/above similar listings" comparison
-  const avgByModel = {};
-  for (const l of allListings) {
-    const key = `${l.make}|${l.model}`;
-    if (!avgByModel[key]) avgByModel[key] = [];
-    avgByModel[key].push(l.price);
-  }
+ const avgByModel = {};
+for (const l of allListings.filter(l => l.status === "active")) {
+  const key = `${l.make}|${l.model}`;
+  if (!avgByModel[key]) avgByModel[key] = [];
+  avgByModel[key].push(l.price);
+}
 
   const soldCount = allListings.filter(l => l.status === "sold").length;
 
