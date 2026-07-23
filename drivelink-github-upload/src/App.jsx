@@ -1053,6 +1053,17 @@ function HomeView({ listings, allListings, currentUser, users, onShare, onBuy, r
   const [location, setLocation] = useState("");
   const [sort, setSort] = useState("newest");
   const [mode, setMode] = useState("grid"); // grid | map
+  const [compareIds, setCompareIds] = useState([]);
+  const [showCompare, setShowCompare] = useState(false);
+  const MAX_COMPARE = 3;
+
+  const toggleCompare = (listingId) => {
+    setCompareIds(prev => {
+      if (prev.includes(listingId)) return prev.filter(id => id !== listingId);
+      if (prev.length >= MAX_COMPARE) return prev; // capped — button disables itself below
+      return [...prev, listingId];
+    });
+  };
 
   const makes = [...new Set(listings.map(l => l.make).filter(Boolean))].sort();
 
@@ -1180,16 +1191,58 @@ for (const l of allListings.filter(l => l.status === "active")) {
                 myOffer={myOffer}
                 onMakeOffer={onMakeOffer}
                 onOpenListing={() => onOpenListing({ listing: l, seller, myRef, sellerRating, sellerReviewCount: sellerReviews.length, myOffer })}
+                isComparing={compareIds.includes(l.id)}
+                onToggleCompare={toggleCompare}
+                compareDisabled={compareIds.length >= MAX_COMPARE}
               />
             );
           })}
         </div>
       )}
+
+      {compareIds.length > 0 && (
+        <div style={styles.compareBar} className="app-compare-bar">
+          <div style={styles.compareBarInner}>
+            <div style={{ display: "flex", gap: 10, alignItems: "center", flex: 1, overflowX: "auto" }}>
+              {compareIds.map(id => {
+                const l = listings.find(x => x.id === id) || allListings.find(x => x.id === id);
+                if (!l) return null;
+                const cover = (l.images && l.images[0]) || l.image;
+                return (
+                  <div key={id} style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+                    <img src={cover} alt="" style={{ width: 40, height: 30, objectFit: "cover", borderRadius: 6 }} onError={e => { e.target.src = "https://images.unsplash.com/photo-1494976388531-d1058494cdd8?w=100&q=60"; }} />
+                    <span style={{ fontSize: 12, fontWeight: 600, whiteSpace: "nowrap", color: "#0f172a" }}>{l.year} {l.make} {l.model}</span>
+                    <button type="button" style={styles.compareBarRemove} onClick={() => toggleCompare(id)}>✕</button>
+                  </div>
+                );
+              })}
+            </div>
+            <button
+              type="button"
+              style={{ ...styles.confirmBtn, opacity: compareIds.length >= 2 ? 1 : 0.5, whiteSpace: "nowrap" }}
+              onClick={() => setShowCompare(true)}
+              disabled={compareIds.length < 2}
+            >
+              ⚖️ Compare ({compareIds.length})
+            </button>
+            <button type="button" style={styles.compareBarClear} onClick={() => setCompareIds([])}>Clear</button>
+          </div>
+        </div>
+      )}
+
+      {showCompare && (
+        <CompareModal
+          listings={compareIds.map(id => listings.find(x => x.id === id) || allListings.find(x => x.id === id)).filter(Boolean)}
+          users={users}
+          onRemove={(id) => { toggleCompare(id); if (compareIds.length <= 2) setShowCompare(false); }}
+          onClose={() => setShowCompare(false)}
+        />
+      )}
     </div>
   );
 }
 
-function CarCard({ listing, seller, avgPrice, similarCount, onSeeSimilar, currentUser, onShare, onBuy, myRef, onSignIn, onMessageSeller, onReport, isFavorited, onToggleFavorite, isBlocked, onToggleBlock, onReportUser, sellerRating, sellerReviewCount, myOffer, onMakeOffer, onOpenListing }) {
+function CarCard({ listing, seller, avgPrice, similarCount, onSeeSimilar, currentUser, onShare, onBuy, myRef, onSignIn, onMessageSeller, onReport, isFavorited, onToggleFavorite, isBlocked, onToggleBlock, onReportUser, sellerRating, sellerReviewCount, myOffer, onMakeOffer, onOpenListing, isComparing, onToggleCompare, compareDisabled }) {
   const [copied, setCopied] = useState(false);
   const [reporting, setReporting] = useState(false);
   const [reportingUser, setReportingUser] = useState(false);
@@ -1248,6 +1301,17 @@ function CarCard({ listing, seller, avgPrice, similarCount, onSeeSimilar, curren
         {similarCount > 0 && onSeeSimilar && (
           <button type="button" style={styles.similarLink} onClick={onSeeSimilar}>
             🔍 See {similarCount} similar {listing.make} {listing.model} listing{similarCount === 1 ? "" : "s"} →
+          </button>
+        )}
+        {onToggleCompare && (
+          <button
+            type="button"
+            style={{ ...styles.compareToggleBtn, ...(isComparing ? styles.compareToggleBtnActive : {}) }}
+            onClick={(e) => { e.stopPropagation(); onToggleCompare(listing.id); }}
+            disabled={!isComparing && compareDisabled}
+            title={!isComparing && compareDisabled ? "Remove a car to compare a different one (max 3)" : undefined}
+          >
+            {isComparing ? "✓ Comparing" : "⚖️ Add to Compare"}
           </button>
         )}
         <p style={styles.cardDesc}>{listing.description}</p>
@@ -1323,6 +1387,75 @@ function CarCard({ listing, seller, avgPrice, similarCount, onSeeSimilar, curren
         />
       )}
     </div>
+  );
+}
+
+// ── Side-by-side comparison table for up to 3 listings a user has flagged
+// with "Add to Compare" on the Browse grid. Highlights the better value in
+// green for purely numeric fields (lowest price, lowest mileage) — doesn't
+// try to score subjective fields like color or description.
+function CompareModal({ listings, users, onRemove, onClose }) {
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  return (
+    <div style={styles.overlay} onClick={onClose}>
+      <div style={{ ...styles.modalBox, maxWidth: 900, width: "95%", maxHeight: "88vh", overflowY: "auto" }} onClick={e => e.stopPropagation()}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+          <h3 style={styles.modalTitle}>Compare Cars</h3>
+          <button type="button" onClick={onClose} style={styles.compareCloseBtn} aria-label="Close">✕</button>
+        </div>
+        <div style={{ overflowX: "auto" }}>
+          <table style={styles.compareTable}>
+            <thead>
+              <tr>
+                <th style={styles.compareTableHeaderCell}></th>
+                {listings.map(l => {
+                  const cover = (l.images && l.images[0]) || l.image;
+                  return (
+                    <th key={l.id} style={styles.compareTableHeaderCell}>
+                      <img src={cover} alt={`${l.make} ${l.model}`} style={{ width: "100%", height: 100, objectFit: "cover", borderRadius: 10, marginBottom: 8 }} onError={e => { e.target.src = "https://images.unsplash.com/photo-1494976388531-d1058494cdd8?w=300&q=60"; }} />
+                      <div style={{ fontWeight: 700, fontSize: 14, color: "#0f172a" }}>{l.year} {l.make} {l.model}</div>
+                      <button type="button" style={{ ...styles.compareBarRemove, marginTop: 6 }} onClick={() => onRemove(l.id)}>Remove</button>
+                    </th>
+                  );
+                })}
+              </tr>
+            </thead>
+            <tbody>
+              <CompareRow label="Price" values={listings.map(l => fmt(l.price))} rankBy={listings.map(l => l.price)} lowerIsBetter />
+              <CompareRow label="Mileage" values={listings.map(l => `${l.mileage?.toLocaleString() || "—"} mi`)} rankBy={listings.map(l => l.mileage || 0)} lowerIsBetter />
+              <CompareRow label="Year" values={listings.map(l => l.year || "—")} />
+              <CompareRow label="Color" values={listings.map(l => l.color || "—")} />
+              <CompareRow label="Location" values={listings.map(l => l.location_text || "—")} />
+              <CompareRow label="Seller" values={listings.map(l => users.find(u => u.id === l.seller_id)?.name || "—")} />
+              <CompareRow label="VIN Verified" values={listings.map(l => l.vin_verified ? "✓ Yes" : "—")} />
+              <CompareRow label="Description" values={listings.map(l => l.description || "—")} wrap />
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CompareRow({ label, values, rankBy, lowerIsBetter, wrap }) {
+  let bestIdx = -1;
+  if (rankBy && rankBy.length > 1 && rankBy.every(v => typeof v === "number" && !isNaN(v))) {
+    const target = lowerIsBetter ? Math.min(...rankBy) : Math.max(...rankBy);
+    // Only highlight if values actually differ — no point marking a "winner" in a tie.
+    if (new Set(rankBy).size > 1) bestIdx = rankBy.indexOf(target);
+  }
+  return (
+    <tr>
+      <td style={styles.compareTableLabelCell}>{label}</td>
+      {values.map((v, i) => (
+        <td key={i} style={{ ...styles.compareTableCell, ...(i === bestIdx ? styles.compareTableCellBest : {}), ...(wrap ? { whiteSpace: "normal", maxWidth: 220 } : {}) }}>{v}</td>
+      ))}
+    </tr>
   );
 }
 
@@ -3017,6 +3150,18 @@ const styles = {
   cardMeta: { display: "flex", gap: 16, fontSize: 13, color: "#6b7280", marginBottom: 10, flexWrap: "wrap" },
   priceCompare: { fontSize: 12, fontWeight: 700, padding: "5px 10px", borderRadius: 8, display: "inline-block", marginBottom: 10 },
   similarLink: { display: "block", background: "none", border: "none", cursor: "pointer", fontSize: 12, color: "#1d4ed8", fontWeight: 600, padding: 0, marginBottom: 10, textAlign: "left" },
+  compareToggleBtn: { display: "inline-block", background: "#fff", border: "1px solid #e5e7eb", color: "#374151", fontSize: 12, fontWeight: 600, padding: "5px 10px", borderRadius: 8, cursor: "pointer", marginBottom: 10 },
+  compareToggleBtnActive: { background: "#eff6ff", borderColor: "#93c5fd", color: "#1d4ed8" },
+  compareBar: { position: "fixed", bottom: 0, left: 0, right: 0, background: "#fff", borderTop: "1px solid #e5e7eb", boxShadow: "0 -4px 16px rgba(0,0,0,.08)", zIndex: 200, padding: "12px 24px" },
+  compareBarInner: { maxWidth: 1200, margin: "0 auto", display: "flex", alignItems: "center", gap: 16 },
+  compareBarRemove: { background: "#f1f5f9", border: "none", borderRadius: 6, width: 20, height: 20, fontSize: 11, color: "#6b7280", cursor: "pointer", flexShrink: 0 },
+  compareBarClear: { background: "none", border: "none", fontSize: 12, color: "#9ca3af", fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" },
+  compareCloseBtn: { background: "#f1f5f9", border: "none", width: 32, height: 32, borderRadius: "50%", cursor: "pointer", fontSize: 14, color: "#374151" },
+  compareTable: { width: "100%", borderCollapse: "collapse", minWidth: 560 },
+  compareTableHeaderCell: { padding: "8px 16px", textAlign: "center", verticalAlign: "top", borderBottom: "2px solid #e5e7eb", minWidth: 180 },
+  compareTableLabelCell: { padding: "10px 16px", fontSize: 12, fontWeight: 700, color: "#6b7280", textTransform: "uppercase", letterSpacing: ".03em", borderBottom: "1px solid #f1f5f9", whiteSpace: "nowrap" },
+  compareTableCell: { padding: "10px 16px", fontSize: 14, color: "#374151", textAlign: "center", borderBottom: "1px solid #f1f5f9", whiteSpace: "nowrap" },
+  compareTableCellBest: { background: "#f0fdf4", color: "#15803d", fontWeight: 700, borderRadius: 6 },
   cardDesc: { fontSize: 13, color: "#374151", lineHeight: 1.5, marginBottom: 10 },
   vinRow: { fontSize: 12, color: "#6b7280", marginBottom: 12 },
   vinLink: { color: "#1d4ed8", fontWeight: 600, textDecoration: "none" },
