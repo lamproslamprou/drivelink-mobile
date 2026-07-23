@@ -356,16 +356,16 @@ if (ref) {
   // ── Buyer disputes a pending sale instead of confirming receipt (car not as
   // described, seller no-show, etc). Flips the listing to "disputed" so it's out
   // of the normal flow until an admin reviews it.
-  const fileDispute = async (listingId, reason, details) => {
-    const listing = listings.find(l => l.id === listingId);
-    if (!listing) return;
-    const row = { id: "disp" + Date.now(), listing_id: listingId, buyer_id: currentUser.id, seller_id: listing.seller_id, reason, details, status: "open" };
-    const { error } = await supabase.from("disputes").insert(row);
-    if (error) { showToast("Couldn't file dispute", "error"); return; }
-    await supabase.from("listings").update({ status: "disputed" }).eq("id", listingId);
-    await loadData();
-    showToast("Dispute filed. Our team will review it — the sale is on hold until then.");
-  };
+  const fileDispute = async (listingId, reason, details, evidenceUrls) => {
+  const listing = listings.find(l => l.id === listingId);
+  if (!listing) return;
+  const row = { id: "disp" + Date.now(), listing_id: listingId, buyer_id: currentUser.id, seller_id: listing.seller_id, reason, details, status: "open", evidence_urls: evidenceUrls?.length ? evidenceUrls : null };
+  const { error } = await supabase.from("disputes").insert(row);
+  if (error) { showToast("Couldn't file dispute", "error"); return; }
+  await supabase.from("listings").update({ status: "disputed" }).eq("id", listingId);
+  await loadData();
+  showToast("Dispute filed. Our team will review it — the sale is on hold until then.");
+};
 
   // ── Admin resolves a dispute. "refunded" now issues a REAL Stripe refund via
   // the refund-listing Edge Function (for sales that went through real Checkout)
@@ -1809,12 +1809,12 @@ function MyPurchasesView({ listings, users, reviews, currentUser, onSubmitReview
         })}
       </div>
       {disputing && (
-        <DisputeModal
-          listing={disputing}
-          onCancel={() => setDisputing(null)}
-          onSubmit={(reason, details) => { onFileDispute(disputing.id, reason, details); setDisputing(null); }}
-        />
-      )}
+  <DisputeModal
+    listing={disputing}
+    onCancel={() => setDisputing(null)}
+    onSubmit={(reason, details, evidence) => { onFileDispute(disputing.id, reason, details, evidence); setDisputing(null); }}
+  />
+)}
       {reviewing && (
         <ReviewModal
           listing={reviewing}
@@ -1894,9 +1894,10 @@ function ReviewModal({ listing, onCancel, onSubmit }) {
 function DisputeModal({ listing, onCancel, onSubmit }) {
   const [reason, setReason] = useState("Car not as described");
   const [details, setDetails] = useState("");
+  const [evidence, setEvidence] = useState([]);
   return (
     <div style={styles.overlay} onClick={onCancel}>
-      <div style={styles.modalBox} onClick={e => e.stopPropagation()}>
+      <div style={{ ...styles.modalBox, maxHeight: "88vh", overflowY: "auto" }} onClick={e => e.stopPropagation()}>
         <h3 style={styles.modalTitle}>Report a problem with this purchase</h3>
         <div style={{ fontSize: 13, color: "#6b7280", marginBottom: 12 }}>This puts the sale on hold and notifies our team — don't confirm receipt if something's wrong.</div>
         <label style={styles.fieldLabel}>What happened?</label>
@@ -1909,15 +1910,19 @@ function DisputeModal({ listing, onCancel, onSubmit }) {
         </select>
         <label style={styles.fieldLabel}>Details</label>
         <textarea style={styles.textarea} rows={4} value={details} onChange={e => setDetails(e.target.value)} placeholder="Tell us what went wrong" />
+        <div style={{ marginTop: 16 }}>
+          <label style={styles.fieldLabel}>Photo evidence (optional but strongly recommended)</label>
+          <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 8 }}>Photos of the actual car's condition help our team resolve this fairly and faster.</div>
+          <ImageUpload images={evidence} onChange={setEvidence} />
+        </div>
         <div style={styles.modalActions}>
           <button style={styles.cancelBtn} onClick={onCancel}>Cancel</button>
-          <button style={styles.confirmBtn} onClick={() => onSubmit(reason, details)} disabled={!details.trim()}>File Dispute</button>
+          <button style={styles.confirmBtn} onClick={() => onSubmit(reason, details, evidence)} disabled={!details.trim()}>File Dispute</button>
         </div>
       </div>
     </div>
   );
 }
-
 function OfferModal({ listing, onCancel, onSubmit }) {
   const [amount, setAmount] = useState(Math.round(listing.price * 0.95));
   const [message, setMessage] = useState("");
@@ -2659,22 +2664,15 @@ function DisputeRow({ dispute, listing, buyer, seller, onResolve }) {
         <div style={styles.rowTitle}>{dispute.reason} — {listing ? `${listing.year} ${listing.make} ${listing.model}` : dispute.listing_id}</div>
         <div style={styles.rowMeta}>Buyer: {buyer?.name || dispute.buyer_id} • Seller: {seller?.name || dispute.seller_id}</div>
         {dispute.details && <div style={{ fontSize: 13, color: "#374151", marginTop: 4 }}>"{dispute.details}"</div>}
-        {dispute.status === "open" && (
-          <input style={{ ...styles.fieldInput, marginTop: 8, maxWidth: 320 }} placeholder="Resolution note (optional)" value={note} onChange={e => setNote(e.target.value)} />
+        {dispute.evidence_urls?.length > 0 && (
+          <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
+            {dispute.evidence_urls.map((url, i) => (
+              <a key={i} href={url} target="_blank" rel="noreferrer">
+                <img src={url} alt={`Evidence ${i + 1}`} style={{ width: 64, height: 48, objectFit: "cover", borderRadius: 6, border: "1px solid #e5e7eb" }} />
+              </a>
+            ))}
+          </div>
         )}
-        {dispute.status !== "open" && dispute.resolution_note && <div style={{ fontSize: 12, color: "#6b7280", marginTop: 4 }}>Note: "{dispute.resolution_note}"</div>}
-      </div>
-      <span style={{ ...styles.statusPill, background: dispute.status === "open" ? "#fef9c3" : dispute.status === "refunded" ? "#fee2e2" : "#f1f5f9", color: dispute.status === "open" ? "#854d0e" : dispute.status === "refunded" ? "#b91c1c" : "#6b7280" }}>{dispute.status}</span>
-      {dispute.status === "open" && (
-        <>
-          <button style={styles.removeBtn} onClick={() => onResolve(dispute.id, "refunded", note)} title="Only marks it here — you still issue the actual refund in Stripe">Mark Refunded</button>
-          <button style={styles.pendingBtn} onClick={() => onResolve(dispute.id, "dismissed", note)}>Dismiss</button>
-        </>
-      )}
-    </div>
-  );
-}
-
 function DangerZone({ onResetData }) {
   const [selected, setSelected] = useState({
     activeListings: false, soldListings: false, archivedListings: false,
