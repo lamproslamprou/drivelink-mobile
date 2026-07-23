@@ -3172,7 +3172,7 @@ const styles = {
   heroBadge: { display: "inline-block", background: "rgba(255,255,255,.12)", color: "#94a3b8", fontSize: 12, fontWeight: 600, letterSpacing: ".08em", textTransform: "uppercase", padding: "5px 12px", borderRadius: 20, marginBottom: 20 },
   heroTitle: { fontSize: 48, fontWeight: 800, color: "#fff", lineHeight: 1.1, letterSpacing: "-0.03em", marginBottom: 16 },
   heroAccent: { color: "#60a5fa" },
-  heroSub: { fontSize: 18, color: "#94a3b8", lineHeight: 1.6, marginBottom: 36, maxWidth: 520 },
+  heroSub: { fontSize: 18, color: "#94a3b8", lineHeight: 1.6, marginBottom: 36, maxWidth: 520, marginLeft: "auto", marginRight: "auto" },
   heroStats: { display: "flex", gap: 32, alignItems: "center", justifyContent: "center" },
   heroStat: { display: "flex", flexDirection: "column", gap: 2, alignItems: "center", textAlign: "center" },
   heroStatNum: { fontSize: 28, fontWeight: 800, color: "#fff" },
