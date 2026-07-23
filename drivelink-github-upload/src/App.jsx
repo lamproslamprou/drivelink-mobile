@@ -578,6 +578,20 @@ export default function App() {
     showToast(`${fmt(amount)} sent via Stripe.`);
   };
 
+  // ── AI Deal Check — asks the assess-deal Edge Function to compare this listing
+  // against other active DriveLink listings, falling back to real web search
+  // when there isn't enough internal data. Result is cached server-side per
+  // listing, so repeat views don't re-trigger the AI call.
+  const checkDealAssessment = async (listingId) => {
+    const { data, error } = await supabase.functions.invoke("assess-deal", { body: { listing_id: listingId } });
+    if (error || data?.error) {
+      showToast(data?.error || error?.message || "Couldn't run the price check — try again.", "error");
+      return null;
+    }
+    setListings(prev => prev.map(l => l.id === listingId ? { ...l, deal_assessment: data.assessment, deal_assessment_at: new Date().toISOString() } : l));
+    return data.assessment;
+  };
+
   // ── Profile page handlers.
   // Simple fields live on the users table row.
   const updateProfile = async (patch) => {
@@ -809,6 +823,7 @@ export default function App() {
           onToggleBlock={toggleBlock}
           onMakeOffer={makeOffer}
           onSignIn={() => setView("auth")}
+          onCheckDeal={checkDealAssessment}
         />
       )}
     </div>
@@ -1256,7 +1271,7 @@ function CarCard({ listing, seller, avgPrice, similarCount, onSeeSimilar, curren
   );
 }
 
-function ListingDetailModal({ data, currentUser, isFavorited, isBlocked, onClose, onBuy, onShare, onMessageSeller, onReport, onReportUser, onToggleFavorite, onToggleBlock, onMakeOffer, onSignIn }) {
+function ListingDetailModal({ data, currentUser, isFavorited, isBlocked, onClose, onBuy, onShare, onMessageSeller, onReport, onReportUser, onToggleFavorite, onToggleBlock, onMakeOffer, onSignIn, onCheckDeal }) {
   const { listing, seller, myRef, sellerRating, sellerReviewCount, myOffer } = data;
   const [activeImg, setActiveImg] = useState(0);
   const [copied, setCopied] = useState(false);
@@ -1352,6 +1367,8 @@ function ListingDetailModal({ data, currentUser, isFavorited, isBlocked, onClose
             )
           )}
 
+          <DealCheckButton listing={listing} onCheckDeal={onCheckDeal} />
+
           {currentUser && !isOwnListing && (
             <div style={styles.cardSecondaryActions}>
               <button style={styles.messageLink} onClick={() => onMessageSeller(listing)}>💬 Message seller</button>
@@ -1379,6 +1396,59 @@ function ListingDetailModal({ data, currentUser, isFavorited, isBlocked, onClose
           onSubmit={(reason, details) => { onReport(listing.id, reason, details); setReporting(false); }}
         />
       )}
+    </div>
+  );
+}
+
+// ── AI Price Check button/panel. Calls the assess-deal Edge Function (which
+// compares against other DriveLink listings for free, or falls back to real
+// web search when there isn't enough internal data) and shows the cached
+// result once available. Result is cached server-side per listing, so this
+// only makes a real call the first time (or after cache expiry).
+function DealCheckButton({ listing, onCheckDeal }) {
+  const [loading, setLoading] = useState(false);
+  const [assessment, setAssessment] = useState(listing.deal_assessment || null);
+
+  const run = async () => {
+    setLoading(true);
+    const result = await onCheckDeal(listing.id);
+    if (result) setAssessment(result);
+    setLoading(false);
+  };
+
+  const styleFor = {
+    great_deal: { bg: "#dcfce7", color: "#15803d", label: "🟢 Great Deal" },
+    fair_price: { bg: "#fef9c3", color: "#854d0e", label: "🟡 Fair Price" },
+    above_market: { bg: "#fee2e2", color: "#b91c1c", label: "🔴 Above Market" },
+    not_enough_data: { bg: "#f1f5f9", color: "#6b7280", label: "⚪ Not Enough Data Yet" },
+  };
+
+  if (!assessment) {
+    return (
+      <button type="button" style={styles.dealCheckBtn} onClick={run} disabled={loading}>
+        {loading ? "Checking market data…" : "🤖 AI Price Check"}
+      </button>
+    );
+  }
+
+  const s = styleFor[assessment.rating] || styleFor.fair_price;
+  const sourceLabel = assessment.source === "web_search"
+    ? "Live market research"
+    : assessment.comparable_count > 0
+      ? `Based on ${assessment.comparable_count} DriveLink listing${assessment.comparable_count === 1 ? "" : "s"}`
+      : null;
+
+  return (
+    <div style={{ ...styles.dealCheckPanel, background: s.bg }}>
+      <div style={{ fontSize: 13, fontWeight: 700, color: s.color, marginBottom: 4 }}>{s.label}</div>
+      <div style={{ fontSize: 13, color: "#374151", lineHeight: 1.5 }}>{assessment.summary}</div>
+      {assessment.estimated_market_range && (
+        <div style={{ fontSize: 12, color: "#374151", marginTop: 4 }}>Estimated market range: {assessment.estimated_market_range}</div>
+      )}
+      {sourceLabel && <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 6 }}>{sourceLabel}</div>}
+      <button type="button" style={styles.dealCheckRefresh} onClick={run} disabled={loading}>
+        {loading ? "Refreshing…" : "↻ Re-check"}
+      </button>
     </div>
   );
 }
@@ -2694,6 +2764,9 @@ const styles = {
   shareBtn: { flex: 1, color: "#fff", border: "none", padding: "10px 0", borderRadius: 10, cursor: "pointer", fontSize: 14, fontWeight: 600, transition: "background .3s" },
   offerBtn: { width: "100%", background: "#fff", color: "#0f172a", border: "1px solid #e5e7eb", padding: "9px 0", borderRadius: 10, cursor: "pointer", fontSize: 13, fontWeight: 600, marginTop: 8 },
   offerStatusRow: { fontSize: 13, color: "#1d4ed8", fontWeight: 600, background: "#eff6ff", padding: "8px 12px", borderRadius: 8, marginTop: 8 },
+  dealCheckBtn: { width: "100%", background: "#fff", color: "#1d4ed8", border: "1px solid #bfdbfe", padding: "9px 0", borderRadius: 10, cursor: "pointer", fontSize: 13, fontWeight: 600, marginTop: 8 },
+  dealCheckPanel: { borderRadius: 10, padding: "12px 14px", marginTop: 8 },
+  dealCheckRefresh: { background: "none", border: "none", color: "#6b7280", fontSize: 11, fontWeight: 600, cursor: "pointer", padding: 0, marginTop: 6 },
   overlay: { position: "fixed", inset: 0, background: "rgba(0,0,0,.5)", zIndex: 999, display: "flex", alignItems: "center", justifyContent: "center", padding: 16, boxSizing: "border-box" },
   modalBox: { background: "#fff", borderRadius: 20, padding: 28, maxWidth: 440, width: "100%", boxShadow: "0 20px 60px rgba(0,0,0,.2)", boxSizing: "border-box" },
   detailBox: { background: "#fff", borderRadius: 20, width: "100%", maxWidth: 760, maxHeight: "90vh", overflowY: "auto", boxShadow: "0 20px 60px rgba(0,0,0,.25)", boxSizing: "border-box", position: "relative" },
