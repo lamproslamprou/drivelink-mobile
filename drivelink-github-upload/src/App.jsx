@@ -3174,7 +3174,7 @@ const styles = {
   heroAccent: { color: "#60a5fa" },
   heroSub: { fontSize: 18, color: "#94a3b8", lineHeight: 1.6, marginBottom: 36, maxWidth: 520 },
   heroStats: { display: "flex", gap: 32, alignItems: "center", justifyContent: "center" },
-  heroStat: { display: "flex", flexDirection: "column", gap: 2 },
+  heroStat: { display: "flex", flexDirection: "column", gap: 2, alignItems: "center", textAlign: "center" },
   heroStatNum: { fontSize: 28, fontWeight: 800, color: "#fff" },
   heroStatLabel: { fontSize: 13, color: "#64748b" },
   heroStatDiv: { width: 1, height: 40, background: "#334155" },
