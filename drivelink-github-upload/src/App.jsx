@@ -2673,6 +2673,22 @@ function DisputeRow({ dispute, listing, buyer, seller, onResolve }) {
             ))}
           </div>
         )}
+        {dispute.status === "open" && (
+          <input style={{ ...styles.fieldInput, marginTop: 8, maxWidth: 320 }} placeholder="Resolution note (optional)" value={note} onChange={e => setNote(e.target.value)} />
+        )}
+        {dispute.status !== "open" && dispute.resolution_note && <div style={{ fontSize: 12, color: "#6b7280", marginTop: 4 }}>Note: "{dispute.resolution_note}"</div>}
+      </div>
+      <span style={{ ...styles.statusPill, background: dispute.status === "open" ? "#fef9c3" : dispute.status === "refunded" ? "#fee2e2" : "#f1f5f9", color: dispute.status === "open" ? "#854d0e" : dispute.status === "refunded" ? "#b91c1c" : "#6b7280" }}>{dispute.status}</span>
+      {dispute.status === "open" && (
+        <>
+          <button style={styles.removeBtn} onClick={() => onResolve(dispute.id, "refunded", note)} title="Only marks it here — you still issue the actual refund in Stripe">Mark Refunded</button>
+          <button style={styles.pendingBtn} onClick={() => onResolve(dispute.id, "dismissed", note)}>Dismiss</button>
+        </>
+      )}
+    </div>
+  );
+}
+
 function DangerZone({ onResetData }) {
   const [selected, setSelected] = useState({
     activeListings: false, soldListings: false, archivedListings: false,
