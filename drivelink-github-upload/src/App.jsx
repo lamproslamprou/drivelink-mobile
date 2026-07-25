@@ -1741,19 +1741,23 @@ function ListingDetailModal({ data, currentUser, isFavorited, isBlocked, onClose
               </button>
             )}
             {!currentUser && <button style={styles.buyBtn} onClick={onSignIn}>Sign in to buy or share →</button>}
-            {/* Plain link to this car — no commission attached. Sellers sharing
-                their own listing and signed-out visitors both need this. */}
-            <button
-              style={{ ...styles.shareBtn, background: linkCopied ? "#16a34a" : "#475569" }}
-              onClick={async () => {
-                const result = await shareOrCopy(listingUrl(listing.id), `${listing.year} ${listing.make} ${listing.model} on DriveLink`);
-                if (result === "cancelled" || result === "failed") return;
-                setLinkCopied(true);
-                setTimeout(() => setLinkCopied(false), 2500);
-              }}
-            >
-              {linkCopied ? "✓ Link copied!" : "🔗 Copy link"}
-            </button>
+            {/* Plain link to this car, no commission attached. Only shown when
+                the Scout button isn't available — sellers on their own listing,
+                and signed-out visitors — so there's never more than one share
+                button competing for the same tap. */}
+            {(isOwnListing || !currentUser) && (
+              <button
+                style={{ ...styles.shareBtn, background: linkCopied ? "#16a34a" : "#475569" }}
+                onClick={async () => {
+                  const result = await shareOrCopy(listingUrl(listing.id), `${listing.year} ${listing.make} ${listing.model} on DriveLink`);
+                  if (result === "cancelled" || result === "failed") return;
+                  setLinkCopied(true);
+                  setTimeout(() => setLinkCopied(false), 2500);
+                }}
+              >
+                {linkCopied ? "✓ Link copied!" : "🔗 Copy link"}
+              </button>
+            )}
           </div>
 
           {currentUser && !isOwnListing && onMakeOffer && (
