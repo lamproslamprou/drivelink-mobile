@@ -183,6 +183,11 @@ export default function App() {
   const loadData = async () => {
     const { data: listingsData } = await supabase.from("listings").select("*").order("created_at", { ascending: false });
     const { data: referralsData } = await supabase.from("referrals").select("*");
+    // Under RLS, `users` returns only your own row (or everything, if you're an
+    // admin). Seller names and badges across the marketplace come from the
+    // public_profiles view instead, which exposes display fields only. Merge the
+    // two so full rows win wherever they're available.
+    const { data: profilesData } = await supabase.from("public_profiles").select("*");
     const { data: usersData } = await supabase.from("users").select("*");
     const { data: reportsData } = await supabase.from("reports").select("*").order("created_at", { ascending: false });
     const { data: feedbackData } = await supabase.from("feedback").select("*").order("created_at", { ascending: false });
@@ -207,7 +212,11 @@ export default function App() {
     }
     if (finalListings) setListings(finalListings);
     if (referralsData) setReferrals(referralsData);
-    if (usersData) setUsers(usersData);
+    if (profilesData || usersData) {
+      const byId = new Map((profilesData || []).map(p => [p.id, p]));
+      for (const u of usersData || []) byId.set(u.id, { ...(byId.get(u.id) || {}), ...u });
+      setUsers([...byId.values()]);
+    }
     if (reportsData) setReports(reportsData);
     if (feedbackData) setFeedback(feedbackData);
     if (userReportsData) setUserReports(userReportsData);
@@ -559,6 +568,38 @@ const denyFlaggedReferral = async (refId) => {
     await supabase.from("offers").update({ status: accept ? "accepted" : "withdrawn", responded_at: new Date().toISOString() }).eq("id", offerId);
     await loadData();
     showToast(accept ? "Counter-offer accepted — the seller will follow up to close the sale." : "Offer withdrawn.");
+  };
+
+  // ── Scout retracts their own pending referral ───────────────────────────────
+  // Deletes the row so the /s/:code link stops resolving. Guarded three ways:
+  // status must still be pending, the car must not have a sale in flight, and
+  // the delete is scoped by promoter_id so it can only ever hit your own row.
+  // The matching RLS policy enforces the same conditions server-side — these
+  // client checks are for the error message, not for security.
+  const retractReferral = async (refId) => {
+    const ref = referrals.find(r => r.id === refId);
+    if (!ref) return;
+    if (ref.status !== "pending") {
+      showToast("Only pending referrals can be retracted.", "error");
+      return;
+    }
+    const listing = listings.find(l => l.id === ref.listing_id);
+    if (listing && listing.status !== "active") {
+      showToast("This car already has a sale in progress — the referral can't be retracted now.", "error");
+      return;
+    }
+    const { error } = await supabase
+      .from("referrals")
+      .delete()
+      .eq("id", refId)
+      .eq("promoter_id", currentUser.id)
+      .eq("status", "pending");
+    if (error) {
+      showToast("Couldn't retract that referral — try again.", "error");
+      return;
+    }
+    await loadData();
+    showToast("Referral retracted — that share link no longer works.");
   };
 
   // ── Generate share link
@@ -1021,7 +1062,7 @@ const denyFlaggedReferral = async (refId) => {
         {view === "savedSearches" && <SavedSearchesView savedSearches={savedSearches} onDelete={deleteSavedSearch} onBrowse={() => setView("home")} />}
         {view === "favorites" && <FavoritesView favorites={favorites} listings={listings} users={users} referrals={referrals} currentUser={dbUser} onShare={generateShare} onBuy={handleBuyNow} onMessageSeller={messageSeller} onReport={fileReport} onToggleFavorite={toggleFavorite} onBrowse={() => setView("home")} onOpenListing={openListing} />}
         {view === "blocked" && <BlockedUsersView blocks={blocks} users={users} onToggleBlock={toggleBlock} onBrowse={() => setView("home")} />}
-        {view === "dashboard" && <PromoterDashboard currentUser={dbUser} referrals={referrals.filter(r => r.promoter_id === currentUser?.id)} listings={listings} payouts={payouts} onSetupPayouts={setupPayouts} />}
+        {view === "dashboard" && <PromoterDashboard currentUser={dbUser} referrals={referrals.filter(r => r.promoter_id === currentUser?.id)} listings={listings} payouts={payouts} onSetupPayouts={setupPayouts} onRetract={retractReferral} />}
         {view === "profile" && <ProfileView dbUser={dbUser} authEmail={currentUser?.email} onUpdateProfile={updateProfile} onChangeEmail={changeEmail} onChangePassword={changePassword} onSetupPayouts={setupPayouts} onStartIdentityVerification={startIdentityVerification} />}
        {view === "admin" && <AdminView listings={listings} users={users} referrals={referrals} reports={reports} feedback={feedback} userReports={userReports} reviews={reviews} payouts={payouts} disputes={disputes} onArchive={archiveListing} onMarkSold={markSold} onConfirmReceipt={confirmReceipt} onResolveReport={resolveReport} onResolveUserReport={resolveUserReport} onToggleVerified={toggleVerified} onResetData={resetTestData} onRecordPayout={recordPayout} onPayoutViaStripe={payoutPromoterViaStripe} onResolveDispute={resolveDispute} onDeleteUser={deleteUser} onApproveFlaggedReferral={approveFlaggedReferral} onDenyFlaggedReferral={denyFlaggedReferral} />}
         {view === "success" && <SuccessView onHome={() => setView("home")} />}
@@ -1516,7 +1557,7 @@ function CarCard({ listing, seller, avgPrice, similarCount, onSeeSimilar, curren
             VIN: {listing.vin} {listing.vin_verified && <span style={styles.verifiedBadge} title="VIN was decoded and matches the make/model/year on this listing">✓ VIN Verified</span>} · <a href={`https://www.carfax.com/vehicle/${listing.vin}`} target="_blank" rel="noreferrer" style={styles.vinLink}>Check Carfax history →</a>
           </div>
         )}
-        {myRef && <div style={styles.refTag}>{myRef.status === "paid" ? `✅ Commission paid: ${fmt(myRef.commission_amount)}` : `🔗 Tracking active • Code: ${myRef.share_code}`}</div>}
+        {myRef && <div style={styles.refTag}>{myRef.status === "paid" ? `✅ Commission paid: ${fmt(myRef.commission_amount)}` : "🔗 Your Scout link is live — you'll earn 1% if this sells through it"}</div>}
         <div style={styles.cardActions}>
           {currentUser && !isOwnListing && (
             <button style={styles.buyBtn} onClick={() => onBuy(listing)}>💳 Buy Now</button>
@@ -1731,7 +1772,7 @@ function ListingDetailModal({ data, currentUser, isFavorited, isBlocked, onClose
             </div>
           )}
 
-          {myRef && <div style={styles.refTag}>{myRef.status === "paid" ? `✅ Commission paid: ${fmt(myRef.commission_amount)}` : `🔗 Tracking active • Code: ${myRef.share_code}`}</div>}
+          {myRef && <div style={styles.refTag}>{myRef.status === "paid" ? `✅ Commission paid: ${fmt(myRef.commission_amount)}` : "🔗 Your Scout link is live — you'll earn 1% if this sells through it"}</div>}
 
           <div style={styles.cardActions}>
             {currentUser && !isOwnListing && <button style={styles.buyBtn} onClick={() => onBuy(listing)}>💳 Buy Now</button>}
@@ -2806,7 +2847,7 @@ function Field({ label, value, onChange, placeholder, type = "text" }) {
   );
 }
 
-function PromoterDashboard({ currentUser, referrals, listings, payouts, onSetupPayouts }) {
+function PromoterDashboard({ currentUser, referrals, listings, payouts, onSetupPayouts, onRetract }) {
   const pending = referrals.filter(r => r.status === "pending");
   const lifetimeEarned = referrals.filter(r => r.status === "paid").reduce((s, r) => s + (r.commission_amount || 0), 0);
   const myPayouts = (payouts || []).filter(p => p.user_id === currentUser?.id);
@@ -2831,20 +2872,14 @@ function PromoterDashboard({ currentUser, referrals, listings, payouts, onSetupP
       <h3 style={styles.sectionTitle}>Your Referrals</h3>
       {referrals.length === 0 && <p style={{ color: "#6b7280" }}>No referrals yet. Browse listings and share to earn 1% commission on sales.</p>}
       <div style={styles.tableWrap}>
-        {referrals.map(r => {
-          const listing = listings.find(l => l.id === r.listing_id);
-          return (
-            <div key={r.id} style={styles.listingRow} className="app-listing-row">
-              <div style={styles.rowInfo} className="app-row-info">
-                <div style={styles.rowTitle}>{listing ? `${listing.year} ${listing.make} ${listing.model}` : "Unknown listing"}</div>
-                <ScoutLinkRow code={r.share_code} listing={listing} />
-                {r.status === "paid" && <div style={styles.soldBadge}>✅ Commission: {fmt(r.commission_amount)} on {r.paid_at}</div>}
-                {r.status === "pending" && <div style={styles.promoterTag}>⏳ Pending — you'll earn {listing ? fmt(Math.round(listing.price * 0.01)) : "1%"} when it sells</div>}
-              </div>
-              <span style={{ ...styles.statusPill, background: r.status === "paid" ? "#dcfce7" : "#fef9c3", color: r.status === "paid" ? "#15803d" : "#854d0e" }}>{r.status}</span>
-            </div>
-          );
-        })}
+        {referrals.map(r => (
+          <ReferralRow
+            key={r.id}
+            referral={r}
+            listing={listings.find(l => l.id === r.listing_id)}
+            onRetract={onRetract}
+          />
+        ))}
       </div>
       <div style={styles.infoBox}><b>How commissions work:</b> When you share a listing and a buyer completes the purchase, 1% of the sale price is automatically credited to your account.</div>
       <h3 style={{ ...styles.sectionTitle, marginTop: 32 }}>Payout History</h3>
@@ -2898,7 +2933,94 @@ function ScoutLinkRow({ code, listing }) {
           {state === "copied" ? "✓ Link copied!" : state === "shared" ? "✓ Shared!" : "🔗 Copy / Share link"}
         </button>
       </div>
-      <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 6 }}>Code: {code}</div>
+    </div>
+  );
+}
+
+// One row in the Scout's referral list. Pending referrals show the shareable
+// link and can be retracted; settled ones are read-only history.
+function ReferralRow({ referral: r, listing, onRetract }) {
+  const [confirming, setConfirming] = useState(false);
+  const [working, setWorking] = useState(false);
+
+  // A referral can only be pulled back while it's still pending AND the car
+  // hasn't entered a sale. Once a buyer is in checkout the attribution is
+  // already recorded and money is moving — retracting then would quietly
+  // forfeit a commission that's arguably already earned.
+  const saleInFlight = listing && listing.status !== "active";
+  const canRetract = r.status === "pending" && !saleInFlight;
+
+  const doRetract = async () => {
+    setWorking(true);
+    await onRetract(r.id);
+    setWorking(false);
+    setConfirming(false);
+  };
+
+  return (
+    <div style={styles.listingRow} className="app-listing-row">
+      <div style={styles.rowInfo} className="app-row-info">
+        <div style={styles.rowTitle}>{listing ? `${listing.year} ${listing.make} ${listing.model}` : "Listing no longer available"}</div>
+
+        {r.status === "pending" && <ScoutLinkRow code={r.share_code} listing={listing} />}
+
+        {r.status === "paid" && <div style={styles.soldBadge}>✅ Commission: {fmt(r.commission_amount)} on {r.paid_at}</div>}
+        {r.status === "pending" && (
+          <div style={styles.promoterTag}>
+            ⏳ Pending — you'll earn {listing ? fmt(Math.round(listing.price * 0.01)) : "1%"} when it sells
+          </div>
+        )}
+        {r.status === "flagged" && (
+          <div style={{ fontSize: 13, color: "#b45309", marginTop: 6 }}>
+            🔍 Under review — we'll confirm this commission before it's paid.
+          </div>
+        )}
+        {r.status === "denied" && (
+          <div style={{ fontSize: 13, color: "#6b7280", marginTop: 6 }}>
+            This referral wasn't eligible for a commission.
+          </div>
+        )}
+
+        {saleInFlight && r.status === "pending" && (
+          <div style={{ fontSize: 12, color: "#6b7280", marginTop: 6 }}>
+            This car has a sale in progress — the link is locked until it settles.
+          </div>
+        )}
+
+        {canRetract && (
+          confirming ? (
+            <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap", alignItems: "center" }}>
+              <span style={{ fontSize: 13, color: "#b91c1c" }}>Retract this referral? Your link will stop working.</span>
+              <button
+                disabled={working}
+                onClick={doRetract}
+                style={{ background: "#b91c1c", color: "#fff", border: "none", borderRadius: 8, padding: "6px 12px", fontSize: 13, fontWeight: 600, cursor: working ? "default" : "pointer", opacity: working ? 0.6 : 1 }}
+              >
+                {working ? "Retracting…" : "Yes, retract"}
+              </button>
+              <button
+                disabled={working}
+                onClick={() => setConfirming(false)}
+                style={{ background: "transparent", color: "#475569", border: "1px solid #cbd5e1", borderRadius: 8, padding: "6px 12px", fontSize: 13, fontWeight: 600, cursor: "pointer" }}
+              >
+                Keep it
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setConfirming(true)}
+              style={{ background: "transparent", color: "#b91c1c", border: "none", padding: 0, marginTop: 10, fontSize: 13, fontWeight: 600, cursor: "pointer", textDecoration: "underline" }}
+            >
+              Retract this referral
+            </button>
+          )
+        )}
+      </div>
+      <span style={{
+        ...styles.statusPill,
+        background: r.status === "paid" ? "#dcfce7" : r.status === "flagged" ? "#ffedd5" : r.status === "denied" ? "#f1f5f9" : "#fef9c3",
+        color: r.status === "paid" ? "#15803d" : r.status === "flagged" ? "#9a3412" : r.status === "denied" ? "#64748b" : "#854d0e",
+      }}>{r.status}</span>
     </div>
   );
 }
