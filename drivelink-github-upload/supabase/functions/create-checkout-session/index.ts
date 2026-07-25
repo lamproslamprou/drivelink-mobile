@@ -11,7 +11,7 @@ Deno.serve(async (req) => {
 
   try {
     const buyerId = await requireUser(req);
-    const { listing_id } = await req.json();
+    const { listing_id, share_code } = await req.json();
     if (!listing_id) throw new Error("listing_id is required");
 
     const stripe = stripeClient();
@@ -37,6 +37,38 @@ Deno.serve(async (req) => {
     if (sellerErr || !seller) throw new Error("Seller not found");
     if (!seller.stripe_payouts_enabled) {
       throw new Error("This seller hasn't finished setting up payouts yet");
+    }
+
+    // ── Scout attribution ────────────────────────────────────────────────────
+    // The client sends whatever share_code it stored when the buyer arrived via
+    // a /s/:code link. That value is fully under the buyer's control, so it is
+    // never written as-is: it has to name a real PENDING referral on THIS
+    // listing. Anything that doesn't verify is dropped and the sale is recorded
+    // as organic — an unverifiable code should cost nobody a commission, and
+    // should never let a buyer redirect one to an account of their choosing.
+    let attributedCode: string | null = null;
+
+    if (typeof share_code === "string" && share_code.length > 0 && share_code.length <= 64) {
+      const { data: ref, error: refErr } = await supabase
+        .from("referrals")
+        .select("id, promoter_id, share_code")
+        .eq("listing_id", listing_id)
+        .eq("status", "pending")
+        .ilike("share_code", share_code)
+        .maybeSingle();
+
+      if (refErr) {
+        // Attribution is not worth failing a sale over — log and continue.
+        console.error("referral lookup failed:", share_code, refErr);
+      } else if (ref) {
+        if (ref.promoter_id === buyerId) {
+          // A Scout buying through their own link earns nothing. Record no
+          // attribution rather than creating a self-referral to be flagged later.
+          console.log("self-referral ignored at checkout:", ref.share_code, buyerId);
+        } else {
+          attributedCode = ref.share_code;
+        }
+      }
     }
 
     // If this buyer has an accepted offer on this listing, honor that price
@@ -74,14 +106,23 @@ Deno.serve(async (req) => {
         listing_id: String(listing.id),
         buyer_id: buyerId,
         seller_id: String(listing.seller_id),
+        // Mirrored into Stripe so attribution is visible in the dashboard and
+        // survives a webhook replay even if the listings row is later touched.
+        referral_code: attributedCode ?? "",
       },
       success_url: `${origin}/?purchase=success&listing=${listing.id}`,
       cancel_url: `${origin}/?purchase=cancelled&listing=${listing.id}`,
     });
 
+    // Stamp the session and the attributed Scout code together. referral_code is
+    // written with the service role key (RLS bypassed) — buyers must never have
+    // update access to listings, or they could rewrite attribution directly.
+    const listingPatch: Record<string, string> = { stripe_checkout_session_id: session.id };
+    if (attributedCode) listingPatch.referral_code = attributedCode;
+
     await supabase
       .from("listings")
-      .update({ stripe_checkout_session_id: session.id })
+      .update(listingPatch)
       .eq("id", listing.id);
 
     return jsonResponse({ url: session.url });

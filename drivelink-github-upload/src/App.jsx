@@ -16,6 +16,83 @@ const HIGH_VALUE_LISTING_THRESHOLD = 20000; // above this price, nudge buyers if
 const STALE_WARN_DAYS_MS = 30 * 24 * 60 * 60 * 1000; // show "seller inactive" badge after 30 days
 const STALE_ARCHIVE_DAYS_MS = 60 * 24 * 60 * 60 * 1000; // auto-archive after 60 days
 
+// ── Shareable URLs ────────────────────────────────────────────────────────────
+// Every listing now has a real, linkable URL. Two shapes exist:
+//   /listing/:id  — canonical listing page (ads, SEO, direct sharing)
+//   /s/:code      — Scout referral link; records attribution, then forwards
+//                   to the canonical /listing/:id for that code.
+const SITE_ORIGIN = typeof window !== "undefined" ? window.location.origin : "https://drivelink.deals";
+const listingUrl = (id) => `${SITE_ORIGIN}/listing/${id}`;
+const scoutUrl = (code) => `${SITE_ORIGIN}/s/${code}`;
+
+// ── Scout attribution ─────────────────────────────────────────────────────────
+// When someone lands via /s/:code we remember the code locally for 30 days so a
+// purchase made later still credits the Scout who sent them.
+const ATTRIB_KEY = "dl_scout_ref";
+const ATTRIB_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+
+function saveAttribution(code, listingId) {
+  try {
+    localStorage.setItem(ATTRIB_KEY, JSON.stringify({ code, listing_id: listingId, at: Date.now() }));
+  } catch { /* private mode / storage disabled — attribution is best-effort */ }
+}
+
+function getAttribution(listingId) {
+  try {
+    const raw = localStorage.getItem(ATTRIB_KEY);
+    if (!raw) return null;
+    const a = JSON.parse(raw);
+    if (!a?.code || Date.now() - a.at > ATTRIB_TTL_MS) { localStorage.removeItem(ATTRIB_KEY); return null; }
+    if (listingId && a.listing_id !== listingId) return null; // attribution is per-listing
+    return a;
+  } catch { return null; }
+}
+
+// Share codes are built as FIRSTNAME-LISTINGID, so the listing can be recovered
+// from the code alone. This is the fallback when the referrals table isn't
+// readable (e.g. a signed-out visitor opening a Scout link).
+function listingIdFromShareCode(code) {
+  const parts = (code || "").split("-");
+  if (parts.length < 2) return null;
+  return parts.slice(1).join("-").toLowerCase();
+}
+
+// ── Share sheet on mobile, clipboard everywhere else ──────────────────────────
+async function shareOrCopy(url, title) {
+  if (typeof navigator !== "undefined" && navigator.share) {
+    try { await navigator.share({ title, url }); return "shared"; }
+    catch (e) { if (e?.name === "AbortError") return "cancelled"; /* else fall through to copy */ }
+  }
+  try { await navigator.clipboard.writeText(url); return "copied"; }
+  catch {
+    // Clipboard API needs a secure context and can be blocked — fall back to the
+    // old execCommand trick so the button is never a no-op.
+    const ta = document.createElement("textarea");
+    ta.value = url;
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand("copy"); return "copied"; }
+    catch { return "failed"; }
+    finally { document.body.removeChild(ta); }
+  }
+}
+
+// ── Minimal history-based routing ─────────────────────────────────────────────
+// Deliberately dependency-free: the app's page switching still runs on `view`
+// state, and this only tracks the browser path so listings are linkable and the
+// back button behaves.
+function usePath() {
+  const [path, setPath] = useState(() => (typeof window === "undefined" ? "/" : window.location.pathname));
+  useEffect(() => {
+    const onPop = () => setPath(window.location.pathname);
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
+  return [path, setPath];
+}
+
 // ── Free, keyless VIN decoder via NHTSA's public vPIC API. This validates that a
 // VIN is real and decodes make/model/year/trim from the VIN itself — it does NOT
 // pull accident or title history (that requires a paid provider like Carfax/
@@ -66,6 +143,7 @@ export default function App() {
   const [confirmResult, setConfirmResult] = useState(null); // { status: 'success' | 'error', message? }
   const [returnToAdvertise, setReturnToAdvertise] = useState(false);
   const [viewingListing, setViewingListing] = useState(null); // { listing, seller, myRef, sellerRating, sellerReviewCount, myOffer }
+  const [path, setPath] = usePath();
 
   // ── Nav bar horizontal scrolling. It has overflow-x:auto for touch/trackpad,
   // but a plain vertical mouse wheel and click-drag don't scroll horizontal
@@ -256,7 +334,7 @@ export default function App() {
   const handleBuyNow = async (listing) => {
     showToast("Redirecting to secure checkout…", "info");
     const { data, error } = await supabase.functions.invoke("create-checkout-session", {
-      body: { listing_id: listing.id },
+      body: { listing_id: listing.id, share_code: getAttribution(listing.id)?.code || null },
     });
     if (error || !data?.url) {
       showToast(data?.error || error?.message || "Couldn't start checkout — try again.", "error");
@@ -343,22 +421,49 @@ export default function App() {
       return;
     }
     const promoterCommission = Math.round((listing.sale_price || 0) * PROMOTER_FEE);
-await supabase.from("listings").update({ status: "sold", confirmed_at: new Date().toISOString() }).eq("id", listingId);
-const ref = referrals.find(r => r.listing_id === listingId && r.status === "pending");
-if (ref) {
-  // Self-dealing check: a promoter buying through their own referral link
-  // should never earn a commission on it. Flag for admin review instead of
-  // paying automatically or silently dropping it.
-  const isSelfReferral = listing.buyer_id && ref.promoter_id === listing.buyer_id;
-  if (isSelfReferral) {
-    await supabase.from("referrals").update({ status: "flagged", commission_amount: promoterCommission }).eq("id", ref.id);
-    showToast("Sale confirmed. Note: this referral looks like a self-purchase and has been flagged for admin review before any commission is paid.", "info");
-  } else {
-    await supabase.from("referrals").update({ status: "paid", commission_amount: promoterCommission, paid_at: new Date().toISOString().slice(0, 10) }).eq("id", ref.id);
-    const promoter = users.find(u => u.id === ref.promoter_id);
-    await supabase.from("users").update({ balance: (promoter?.balance || 0) + promoterCommission }).eq("id", ref.promoter_id);
-  }
-}
+    await supabase.from("listings").update({ status: "sold", confirmed_at: new Date().toISOString() }).eq("id", listingId);
+
+    // ── Resolve which Scout (if any) actually earned this commission.
+    // listings.referral_code is written at checkout from the buyer's stored
+    // attribution, so it names one specific Scout. Only when it's absent — manual
+    // markSold entries, or a buyer who never used a link — do we fall back, and
+    // only when the fallback is unambiguous.
+    const pendingRefs = referrals.filter(r => r.listing_id === listingId && r.status === "pending");
+    let ref = null;
+    let ambiguous = false;
+
+    if (listing.referral_code) {
+      ref = pendingRefs.find(r => (r.share_code || "").toUpperCase() === listing.referral_code.toUpperCase()) || null;
+    } else if (pendingRefs.length === 1) {
+      ref = pendingRefs[0]; // only one candidate — nothing to guess between
+    } else if (pendingRefs.length > 1) {
+      ambiguous = true; // several Scouts shared this car and we can't tell who sent the buyer
+    }
+
+    if (ambiguous) {
+      // Never pick arbitrarily. Flag them all for admin review instead.
+      await supabase.from("referrals")
+        .update({ status: "flagged", commission_amount: promoterCommission })
+        .in("id", pendingRefs.map(r => r.id));
+      await loadData();
+      showToast(`Sale confirmed. ${pendingRefs.length} Scouts shared this listing and no referral was recorded at checkout — flagged for admin review before any commission is paid.`, "info");
+      return;
+    }
+
+    if (ref) {
+      // Self-dealing check: a promoter buying through their own referral link
+      // should never earn a commission on it. Flag for admin review instead of
+      // paying automatically or silently dropping it.
+      const isSelfReferral = listing.buyer_id && ref.promoter_id === listing.buyer_id;
+      if (isSelfReferral) {
+        await supabase.from("referrals").update({ status: "flagged", commission_amount: promoterCommission }).eq("id", ref.id);
+        showToast("Sale confirmed. Note: this referral looks like a self-purchase and has been flagged for admin review before any commission is paid.", "info");
+      } else {
+        await supabase.from("referrals").update({ status: "paid", commission_amount: promoterCommission, paid_at: new Date().toISOString().slice(0, 10) }).eq("id", ref.id);
+        const promoter = users.find(u => u.id === ref.promoter_id);
+        await supabase.from("users").update({ balance: (promoter?.balance || 0) + promoterCommission }).eq("id", ref.promoter_id);
+      }
+    }
     await loadData();
     showToast("Receipt confirmed — sale finalized and commission released.");
   };
@@ -464,12 +569,12 @@ const denyFlaggedReferral = async (refId) => {
     return null;
   }
   const existing = referrals.find(r => r.listing_id === listingId && r.promoter_id === currentUser.id);
-  if (existing) { showToast("Share code: " + existing.share_code, "info"); return existing.share_code; }
+  if (existing) { showToast("Your Scout link is ready — " + scoutUrl(existing.share_code), "info"); return existing.share_code; }
     const code = (dbUser?.name || "USER").split(" ")[0].toUpperCase() + "-" + listingId.toUpperCase();
     const newRef = { id: "r" + Date.now(), promoter_id: currentUser.id, listing_id: listingId, share_code: code, status: "pending", commission_amount: 0 };
     await supabase.from("referrals").insert(newRef);
     await loadData();
-    showToast("Share link created! Code: " + code, "info");
+    showToast("Scout link created — " + scoutUrl(code), "info");
     return code;
   };
 
@@ -715,6 +820,82 @@ const denyFlaggedReferral = async (refId) => {
     showToast("Test data cleared.");
   };
 
+  // ── Navigation ──────────────────────────────────────────────────────────────
+  const navigate = (to, { replace = false } = {}) => {
+    if (window.location.pathname === to && !replace) return;
+    window.history[replace ? "replaceState" : "pushState"](null, "", to);
+    setPath(to);
+  };
+
+  // Builds the payload the detail modal expects, from a bare listing row. Used
+  // both by in-app clicks and by direct /listing/:id loads.
+  const buildListingPayload = (l) => {
+    const seller = users.find(u => u.id === l.seller_id);
+    const myRef = currentUser ? referrals.find(r => r.listing_id === l.id && r.promoter_id === currentUser.id) : null;
+    const sellerReviews = reviews?.filter(r => r.seller_id === l.seller_id) || [];
+    const sellerRating = sellerReviews.length ? sellerReviews.reduce((s, r) => s + r.rating, 0) / sellerReviews.length : null;
+    const myOffer = currentUser
+      ? offers?.find(o => o.listing_id === l.id && o.buyer_id === currentUser.id && o.status !== "withdrawn" && o.status !== "declined")
+      : null;
+    return { listing: l, seller, myRef, sellerRating, sellerReviewCount: sellerReviews.length, myOffer };
+  };
+
+  const openListing = (payload) => {
+    if (!payload?.listing) return;
+    setViewingListing(payload);
+    navigate(`/listing/${payload.listing.id}`);
+  };
+
+  const closeListing = () => {
+    setViewingListing(null);
+    if (window.location.pathname.startsWith("/listing/")) navigate("/");
+  };
+
+  // ── Route resolution ────────────────────────────────────────────────────────
+  // Runs whenever the path or the loaded data changes. Handles /s/:code Scout
+  // links and /listing/:id deep links; any other path clears the modal.
+  useEffect(() => {
+    if (loading) return;
+
+    const scoutMatch = path.match(/^\/s\/([^/?#]+)\/?$/);
+    if (scoutMatch) {
+      const code = decodeURIComponent(scoutMatch[1]).toUpperCase();
+      const ref = referrals.find(r => (r.share_code || "").toUpperCase() === code);
+      const targetId = ref?.listing_id || listingIdFromShareCode(code);
+      if (targetId && listings.some(l => l.id === targetId)) {
+        saveAttribution(code, targetId);
+        setView("home");
+        navigate(`/listing/${targetId}`, { replace: true });
+      } else {
+        showToast("That share link is no longer valid — showing all listings instead.", "info");
+        setView("home");
+        navigate("/", { replace: true });
+      }
+      return;
+    }
+
+    const listingMatch = path.match(/^\/listing\/([^/?#]+)\/?$/);
+    if (listingMatch) {
+      const id = decodeURIComponent(listingMatch[1]);
+      const l = listings.find(x => x.id === id);
+      if (!l) {
+        // Listings may not have arrived yet — only redirect once we know they have.
+        if (listings.length) {
+          showToast("That listing isn't available anymore.", "info");
+          setView("home");
+          navigate("/", { replace: true });
+        }
+        return;
+      }
+      setView("home");
+      setViewingListing(buildListingPayload(l));
+      return;
+    }
+
+    if (viewingListing) setViewingListing(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [path, loading, listings, referrals, users, reviews, offers, currentUser]);
+
   const activeListings = listings.filter(l => l.status === "active" && !blocks.some(b => b.blocked_id === l.seller_id));
   const archivedListings = listings.filter(l => l.status === "archived");
 
@@ -831,14 +1012,14 @@ const denyFlaggedReferral = async (refId) => {
 
       <main style={styles.main} className="app-main">
         {view === "advertise" && <AdvertiseView currentUser={dbUser} onSubmit={createAdCheckout} onSignIn={() => { setReturnToAdvertise(true); setView("auth"); }} />}
-        {view === "home" && <HomeView key={homeResetKey} listings={activeListings} allListings={listings} currentUser={dbUser} users={users} onShare={generateShare} onBuy={handleBuyNow} referrals={referrals} onSignIn={() => setView("auth")} onMessageSeller={messageSeller} onReport={fileReport} onSaveSearch={saveSearch} favorites={favorites} onToggleFavorite={toggleFavorite} onToggleBlock={toggleBlock} onReportUser={reportUserAction} blocks={blocks} reviews={reviews} offers={offers} onMakeOffer={makeOffer} onOpenListing={setViewingListing} />}
+        {view === "home" && <HomeView key={homeResetKey} listings={activeListings} allListings={listings} currentUser={dbUser} users={users} onShare={generateShare} onBuy={handleBuyNow} referrals={referrals} onSignIn={() => setView("auth")} onMessageSeller={messageSeller} onReport={fileReport} onSaveSearch={saveSearch} favorites={favorites} onToggleFavorite={toggleFavorite} onToggleBlock={toggleBlock} onReportUser={reportUserAction} blocks={blocks} reviews={reviews} offers={offers} onMakeOffer={makeOffer} onOpenListing={openListing} />}
         {view === "myListings" && <MyListingsView listings={listings.filter(l => l.seller_id === currentUser?.id)} referrals={referrals} users={users} offers={offers} onMarkSold={markSold} onSetStatus={setListingStatus} onUpdate={updateListing} onRespondToOffer={respondToOffer} onOpenSafety={() => setView("safety")} currentUser={dbUser} onSetupPayouts={setupPayouts} />}
         {view === "myPurchases" && <MyPurchasesView listings={listings.filter(l => l.buyer_id === currentUser?.id)} users={users} reviews={reviews} currentUser={currentUser} onSubmitReview={submitReview} onConfirmReceipt={confirmReceipt} onFileDispute={fileDispute} onBrowse={() => setView("home")} onOpenSafety={() => setView("safety")} />}
         {view === "myOffers" && <MyOffersView offers={offers.filter(o => o.buyer_id === currentUser?.id)} listings={listings} onRespondToCounter={respondToCounter} onBuy={handleBuyNow} onBrowse={() => setView("home")} />}
         {view === "postListing" && <PostListingView onPost={postListing} />}
         {view === "messages" && currentUser && <Messages currentUser={{ ...dbUser, id: currentUser.id }} listings={listings} users={users} openThread={openThread} onOpened={() => setOpenThread(null)} />}
         {view === "savedSearches" && <SavedSearchesView savedSearches={savedSearches} onDelete={deleteSavedSearch} onBrowse={() => setView("home")} />}
-        {view === "favorites" && <FavoritesView favorites={favorites} listings={listings} users={users} referrals={referrals} currentUser={dbUser} onShare={generateShare} onBuy={handleBuyNow} onMessageSeller={messageSeller} onReport={fileReport} onToggleFavorite={toggleFavorite} onBrowse={() => setView("home")} onOpenListing={setViewingListing} />}
+        {view === "favorites" && <FavoritesView favorites={favorites} listings={listings} users={users} referrals={referrals} currentUser={dbUser} onShare={generateShare} onBuy={handleBuyNow} onMessageSeller={messageSeller} onReport={fileReport} onToggleFavorite={toggleFavorite} onBrowse={() => setView("home")} onOpenListing={openListing} />}
         {view === "blocked" && <BlockedUsersView blocks={blocks} users={users} onToggleBlock={toggleBlock} onBrowse={() => setView("home")} />}
         {view === "dashboard" && <PromoterDashboard currentUser={dbUser} referrals={referrals.filter(r => r.promoter_id === currentUser?.id)} listings={listings} payouts={payouts} onSetupPayouts={setupPayouts} />}
         {view === "profile" && <ProfileView dbUser={dbUser} authEmail={currentUser?.email} onUpdateProfile={updateProfile} onChangeEmail={changeEmail} onChangePassword={changePassword} onSetupPayouts={setupPayouts} onStartIdentityVerification={startIdentityVerification} />}
@@ -871,7 +1052,7 @@ const denyFlaggedReferral = async (refId) => {
           currentUser={dbUser}
           isFavorited={favorites?.some(f => f.listing_id === viewingListing.listing.id)}
           isBlocked={blocks?.some(b => b.blocked_id === viewingListing.listing.seller_id)}
-          onClose={() => setViewingListing(null)}
+          onClose={closeListing}
           onBuy={handleBuyNow}
           onShare={generateShare}
           onMessageSeller={messageSeller}
@@ -1255,7 +1436,14 @@ function CarCard({ listing, seller, avgPrice, similarCount, onSeeSimilar, curren
   const [reporting, setReporting] = useState(false);
   const [reportingUser, setReportingUser] = useState(false);
   const [offering, setOffering] = useState(false);
-  const handleShare = () => { onShare(listing.id); setCopied(true); setTimeout(() => setCopied(false), 2000); };
+  const handleShare = async () => {
+    const code = await onShare(listing.id);
+    if (!code) return; // blocked (own listing) or failed — onShare already explained why
+    const result = await shareOrCopy(scoutUrl(code), `${listing.year} ${listing.make} ${listing.model} on DriveLink`);
+    if (result === "cancelled" || result === "failed") return;
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2500);
+  };
   const cover = (listing.images && listing.images[0]) || listing.image;
   const isOwnListing = currentUser && listing.seller_id === currentUser.id;
 
@@ -1335,7 +1523,7 @@ function CarCard({ listing, seller, avgPrice, similarCount, onSeeSimilar, curren
           )}
           {currentUser && !isOwnListing && (
             <button style={{ ...styles.shareBtn, background: copied ? "#16a34a" : "#1d4ed8" }} onClick={handleShare}>
-              {copied ? "✓ Copied!" : myRef ? "Share Again" : "Share & Earn 1%"}
+              {copied ? "✓ Link copied!" : myRef ? "Share Again" : "Share & Earn 1%"}
             </button>
           )}
           {!currentUser && (
@@ -1471,13 +1659,21 @@ function ListingDetailModal({ data, currentUser, isFavorited, isBlocked, onClose
   const { listing, seller, myRef, sellerRating, sellerReviewCount, myOffer } = data;
   const [activeImg, setActiveImg] = useState(0);
   const [copied, setCopied] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
   const [reporting, setReporting] = useState(false);
   const [offering, setOffering] = useState(false);
 
   const images = (listing.images && listing.images.length ? listing.images : [listing.image]).filter(Boolean);
   const isOwnListing = currentUser && listing.seller_id === currentUser.id;
 
-  const handleShare = () => { onShare(listing.id); setCopied(true); setTimeout(() => setCopied(false), 2000); };
+  const handleShare = async () => {
+    const code = await onShare(listing.id);
+    if (!code) return; // blocked (own listing) or failed — onShare already explained why
+    const result = await shareOrCopy(scoutUrl(code), `${listing.year} ${listing.make} ${listing.model} on DriveLink`);
+    if (result === "cancelled" || result === "failed") return;
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2500);
+  };
 
   // Close on Escape
   useEffect(() => {
@@ -1541,10 +1737,23 @@ function ListingDetailModal({ data, currentUser, isFavorited, isBlocked, onClose
             {currentUser && !isOwnListing && <button style={styles.buyBtn} onClick={() => onBuy(listing)}>💳 Buy Now</button>}
             {currentUser && !isOwnListing && (
               <button style={{ ...styles.shareBtn, background: copied ? "#16a34a" : "#1d4ed8" }} onClick={handleShare}>
-                {copied ? "✓ Copied!" : myRef ? "Share Again" : "Share & Earn 1%"}
+                {copied ? "✓ Link copied!" : myRef ? "Share Again" : "Share & Earn 1%"}
               </button>
             )}
             {!currentUser && <button style={styles.buyBtn} onClick={onSignIn}>Sign in to buy or share →</button>}
+            {/* Plain link to this car — no commission attached. Sellers sharing
+                their own listing and signed-out visitors both need this. */}
+            <button
+              style={{ ...styles.shareBtn, background: linkCopied ? "#16a34a" : "#475569" }}
+              onClick={async () => {
+                const result = await shareOrCopy(listingUrl(listing.id), `${listing.year} ${listing.make} ${listing.model} on DriveLink`);
+                if (result === "cancelled" || result === "failed") return;
+                setLinkCopied(true);
+                setTimeout(() => setLinkCopied(false), 2500);
+              }}
+            >
+              {linkCopied ? "✓ Link copied!" : "🔗 Copy link"}
+            </button>
           </div>
 
           {currentUser && !isOwnListing && onMakeOffer && (
@@ -2624,7 +2833,7 @@ function PromoterDashboard({ currentUser, referrals, listings, payouts, onSetupP
             <div key={r.id} style={styles.listingRow} className="app-listing-row">
               <div style={styles.rowInfo} className="app-row-info">
                 <div style={styles.rowTitle}>{listing ? `${listing.year} ${listing.make} ${listing.model}` : "Unknown listing"}</div>
-                <div style={styles.rowMeta}>Share code: <b>{r.share_code}</b></div>
+                <ScoutLinkRow code={r.share_code} listing={listing} />
                 {r.status === "paid" && <div style={styles.soldBadge}>✅ Commission: {fmt(r.commission_amount)} on {r.paid_at}</div>}
                 {r.status === "pending" && <div style={styles.promoterTag}>⏳ Pending — you'll earn {listing ? fmt(Math.round(listing.price * 0.01)) : "1%"} when it sells</div>}
               </div>
@@ -2649,6 +2858,43 @@ function PromoterDashboard({ currentUser, referrals, listings, payouts, onSetupP
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+// Shows the actual shareable URL with working Copy / Share buttons. The raw code
+// is kept visible but secondary — it's a reference, not the thing you send.
+function ScoutLinkRow({ code, listing }) {
+  const [state, setState] = useState(null); // "copied" | "shared"
+  const url = scoutUrl(code);
+  const title = listing ? `${listing.year} ${listing.make} ${listing.model} on DriveLink` : "A car on DriveLink";
+
+  const doShare = async () => {
+    const result = await shareOrCopy(url, title);
+    if (result === "cancelled" || result === "failed") return;
+    setState(result);
+    setTimeout(() => setState(null), 2500);
+  };
+
+  return (
+    <div style={{ marginTop: 6 }}>
+      <div style={{
+        fontSize: 13, color: "#1d4ed8", wordBreak: "break-all",
+        background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 8,
+        padding: "8px 10px", fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+      }}>{url}</div>
+      <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
+        <button
+          onClick={doShare}
+          style={{
+            background: state ? "#16a34a" : "#1d4ed8", color: "#fff", border: "none",
+            borderRadius: 8, padding: "8px 14px", fontSize: 13, fontWeight: 600, cursor: "pointer",
+          }}
+        >
+          {state === "copied" ? "✓ Link copied!" : state === "shared" ? "✓ Shared!" : "🔗 Copy / Share link"}
+        </button>
+      </div>
+      <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 6 }}>Code: {code}</div>
     </div>
   );
 }
