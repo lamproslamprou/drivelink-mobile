@@ -14,7 +14,8 @@ const PLATFORM_FEE = 0.01; // 1% platform fee
 const PROMOTER_FEE = 0.01; // 1% promoter commission
 const HIGH_VALUE_LISTING_THRESHOLD = 20000; // above this price, nudge buyers if the seller isn't ID-verified
 const STALE_WARN_DAYS_MS = 30 * 24 * 60 * 60 * 1000; // show "seller inactive" badge after 30 days
-const STALE_ARCHIVE_DAYS_MS = 60 * 24 * 60 * 60 * 1000; // auto-archive after 60 days
+// Auto-archive at 60 days is enforced by the archive-stale-listings pg_cron job,
+// not from the client — see auto-archive-cron.sql. Change the threshold there.
 
 // ── Shareable URLs ────────────────────────────────────────────────────────────
 // Every listing now has a real, linkable URL. Two shapes exist:
@@ -197,19 +198,10 @@ export default function App() {
     const { data: disputesData } = await supabase.from("disputes").select("*").order("created_at", { ascending: false });
     const { data: offersData } = await supabase.from("offers").select("*").order("created_at", { ascending: false });
     let finalListings = listingsData || [];
-    // ── Auto-archive listings whose seller has gone quiet for 60+ days (best-effort,
-    // runs opportunistically whenever anyone loads the app — there's no cron here).
-    if (listingsData) {
-      const now = Date.now();
-      const staleIds = listingsData
-        .filter(l => l.status === "active" && l.last_active_at && (now - new Date(l.last_active_at).getTime()) > STALE_ARCHIVE_DAYS_MS)
-        .map(l => l.id);
-      if (staleIds.length) {
-        const archivedAt = new Date().toISOString();
-        await supabase.from("listings").update({ status: "archived", archived_at: archivedAt }).in("id", staleIds);
-        finalListings = finalListings.map(l => staleIds.includes(l.id) ? { ...l, status: "archived", archived_at: archivedAt } : l);
-      }
-    }
+    // Stale-listing auto-archive runs server-side in the archive-stale-listings
+    // pg_cron job, not here. It used to run opportunistically from whichever
+    // browser loaded the app, which meant writing to other sellers' rows — now
+    // blocked by RLS — and only happening when someone happened to visit.
     if (finalListings) setListings(finalListings);
     if (referralsData) setReferrals(referralsData);
     if (profilesData || usersData) {
@@ -414,67 +406,28 @@ export default function App() {
   const confirmReceipt = async (listingId) => {
     const listing = listings.find(l => l.id === listingId);
     if (!listing) return;
-    // Sales that went through real Stripe Checkout (have a payment_intent)
-    // route through release-funds so the seller actually gets paid via
-    // Stripe transfer. Sales entered manually via markSold (off-platform/cash,
-    // no stripe_payment_intent_id) keep the old direct-update behavior since
-    // there's no real Stripe charge behind them to release.
-    if (listing.stripe_payment_intent_id) {
-      const { data, error } = await supabase.functions.invoke("release-funds", { body: { listing_id: listingId } });
-      if (error || data?.error) {
-        showToast(data?.error || error?.message || "Couldn't release funds — try again.", "error");
-        return;
-      }
-      await loadData();
-      showToast("Receipt confirmed — seller paid out and commission released.");
+    // Both branches now run server-side on the service role. Sales with a real
+    // Stripe charge go to release-funds, which also transfers the seller's net.
+    // Manually recorded cash/off-platform sales go to confirm-manual-sale, which
+    // settles the referral without moving money through Stripe. Neither can run
+    // in the browser: crediting users.balance from a client means any client can
+    // credit itself.
+    const fn = listing.stripe_payment_intent_id ? "release-funds" : "confirm-manual-sale";
+    const { data, error } = await supabase.functions.invoke(fn, { body: { listing_id: listingId } });
+    if (error || data?.error) {
+      showToast(data?.error || error?.message || "Couldn't confirm this sale — try again.", "error");
       return;
-    }
-    const promoterCommission = Math.round((listing.sale_price || 0) * PROMOTER_FEE);
-    await supabase.from("listings").update({ status: "sold", confirmed_at: new Date().toISOString() }).eq("id", listingId);
-
-    // ── Resolve which Scout (if any) actually earned this commission.
-    // listings.referral_code is written at checkout from the buyer's stored
-    // attribution, so it names one specific Scout. Only when it's absent — manual
-    // markSold entries, or a buyer who never used a link — do we fall back, and
-    // only when the fallback is unambiguous.
-    const pendingRefs = referrals.filter(r => r.listing_id === listingId && r.status === "pending");
-    let ref = null;
-    let ambiguous = false;
-
-    if (listing.referral_code) {
-      ref = pendingRefs.find(r => (r.share_code || "").toUpperCase() === listing.referral_code.toUpperCase()) || null;
-    } else if (pendingRefs.length === 1) {
-      ref = pendingRefs[0]; // only one candidate — nothing to guess between
-    } else if (pendingRefs.length > 1) {
-      ambiguous = true; // several Scouts shared this car and we can't tell who sent the buyer
-    }
-
-    if (ambiguous) {
-      // Never pick arbitrarily. Flag them all for admin review instead.
-      await supabase.from("referrals")
-        .update({ status: "flagged", commission_amount: promoterCommission })
-        .in("id", pendingRefs.map(r => r.id));
-      await loadData();
-      showToast(`Sale confirmed. ${pendingRefs.length} Scouts shared this listing and no referral was recorded at checkout — flagged for admin review before any commission is paid.`, "info");
-      return;
-    }
-
-    if (ref) {
-      // Self-dealing check: a promoter buying through their own referral link
-      // should never earn a commission on it. Flag for admin review instead of
-      // paying automatically or silently dropping it.
-      const isSelfReferral = listing.buyer_id && ref.promoter_id === listing.buyer_id;
-      if (isSelfReferral) {
-        await supabase.from("referrals").update({ status: "flagged", commission_amount: promoterCommission }).eq("id", ref.id);
-        showToast("Sale confirmed. Note: this referral looks like a self-purchase and has been flagged for admin review before any commission is paid.", "info");
-      } else {
-        await supabase.from("referrals").update({ status: "paid", commission_amount: promoterCommission, paid_at: new Date().toISOString().slice(0, 10) }).eq("id", ref.id);
-        const promoter = users.find(u => u.id === ref.promoter_id);
-        await supabase.from("users").update({ balance: (promoter?.balance || 0) + promoterCommission }).eq("id", ref.promoter_id);
-      }
     }
     await loadData();
-    showToast("Receipt confirmed — sale finalized and commission released.");
+    if (data?.referral === "flagged_ambiguous") {
+      showToast("Sale confirmed. Several Scouts shared this listing, so the commission is flagged for review before it's paid.", "info");
+    } else if (data?.referral === "flagged_self_referral") {
+      showToast("Sale confirmed. The referral looks like a self-purchase and has been flagged for review.", "info");
+    } else if (listing.stripe_payment_intent_id) {
+      showToast("Receipt confirmed — seller paid out and commission released.");
+    } else {
+      showToast("Receipt confirmed — sale finalized and commission released.");
+    }
   };
 
   // ── Buyer disputes a pending sale instead of confirming receipt (car not as
