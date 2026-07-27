@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<meta name="robots" content="noindex" />
+<title>Your listing · DriveLink</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800&display=swap" rel="stylesheet" />
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;
+       background:radial-gradient(120% 90% at 50% 0%,#1b2431 0%,#0b0f14 70%);
+       font-family:Poppins,-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;
+       color:#e5e7eb;padding:24px}
+  .card{width:100%;max-width:440px;background:rgba(255,255,255,.04);
+        border:1px solid rgba(255,255,255,.08);border-radius:18px;
+        padding:34px 30px;text-align:center;backdrop-filter:blur(6px)}
+  .mark{font-size:20px;font-weight:800;letter-spacing:-.02em;color:#fff;margin-bottom:22px}
+  .mark span{color:#FFB020}
+  h1{font-size:21px;font-weight:800;margin:0 0 10px;color:#fff;letter-spacing:-.01em}
+  p{font-size:14.5px;line-height:1.6;color:#9ca3af;margin:0 0 8px}
+  p b{color:#e5e7eb;font-weight:600}
+  .btn{display:inline-block;margin-top:18px;background:#FFB020;color:#0f172a;
+       text-decoration:none;font-weight:700;font-size:15px;padding:13px 26px;
+       border-radius:10px;border:none;cursor:pointer;font-family:inherit}
+  .btn:disabled{opacity:.6;cursor:default}
+  .rule{height:2px;width:64px;margin:22px auto;
+        background:repeating-linear-gradient(90deg,#FFB020 0 12px,transparent 12px 22px)}
+  .ghost{display:inline-block;margin-top:14px;color:#9ca3af;font-size:13px;text-decoration:underline}
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="mark">Drive<span>Link</span></div>
+    <h1 id="title">One moment…</h1>
+    <p id="msg"></p>
+    <form id="confirmForm" method="POST"
+          action="https://ykzovtfwcjkaigwznrsi.supabase.co/functions/v1/confirm-listing-status"
+          style="display:none">
+      <input type="hidden" name="id" id="f_id" />
+      <input type="hidden" name="action" value="remove" />
+      <input type="hidden" name="exp" id="f_exp" />
+      <input type="hidden" name="sig" id="f_sig" />
+      <button class="btn" type="submit" id="confirmBtn">Yes, remove it</button>
+    </form>
+    <div class="rule"></div>
+    <a class="ghost" href="/">Go to DriveLink</a>
+  </div>
+
+<script>
+(function () {
+  var q = new URLSearchParams(location.search);
+  var s = q.get("s") || "";
+  var car = q.get("car") || "Your listing";
+  var days = q.get("days") || "30";
+
+  var titleEl = document.getElementById("title");
+  var msgEl = document.getElementById("msg");
+  var form = document.getElementById("confirmForm");
+
+  // Values come from a query string, so everything below is written with
+  // textContent / createTextNode. Never innerHTML — the car name is attacker
+  // controllable in a hand-crafted URL.
+  function render(title, parts) {
+    titleEl.textContent = title;
+    msgEl.textContent = "";
+    parts.forEach(function (part) {
+      if (part.bold) {
+        var b = document.createElement("b");
+        b.textContent = part.text;
+        msgEl.appendChild(b);
+      } else {
+        msgEl.appendChild(document.createTextNode(part.text));
+      }
+    });
+  }
+
+  switch (s) {
+    case "confirm":
+      render("Remove this listing?", [
+        { text: car, bold: true },
+        { text: " will be removed from DriveLink. You can always list it again later." }
+      ]);
+      document.getElementById("f_id").value = q.get("id") || "";
+      document.getElementById("f_exp").value = q.get("exp") || "";
+      document.getElementById("f_sig").value = q.get("sig") || "";
+      form.style.display = "block";
+      form.addEventListener("submit", function () {
+        document.getElementById("confirmBtn").disabled = true;
+        document.getElementById("confirmBtn").textContent = "Removing…";
+      });
+      break;
+
+    case "renewed":
+      render("Still for sale — got it", [
+        { text: car, bold: true },
+        { text: " stays live. We'll check in again if it goes quiet for another " + days + " days." }
+      ]);
+      break;
+
+    case "removed":
+      render("Listing removed", [
+        { text: car, bold: true },
+        { text: " is no longer showing on DriveLink. Thanks for letting us know." }
+      ]);
+      break;
+
+    case "inactive":
+      render("Nothing to update", [
+        { text: car, bold: true },
+        { text: " is no longer an active listing, so there's nothing to renew." }
+      ]);
+      break;
+
+    case "expired":
+      render("This link has expired", [
+        { text: "Links in listing emails are good for a limited time. Sign in to update your listing directly." }
+      ]);
+      break;
+
+    case "notfound":
+      render("Listing not found", [
+        { text: "This listing may have already been removed." }
+      ]);
+      break;
+
+    case "error":
+      render("Something went wrong", [
+        { text: "We couldn't update your listing. Try again from DriveLink." }
+      ]);
+      break;
+
+    default:
+      render("Link not recognized", [
+        { text: "That link isn't valid. Sign in to manage your listing." }
+      ]);
+  }
+})();
+</script>
+</body>
+</html>
