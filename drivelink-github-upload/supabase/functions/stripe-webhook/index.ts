@@ -21,7 +21,26 @@
 // meaning sellers were shorted 1% with nobody receiving it. This version only
 // deducts the promoter fee when a pending referral actually exists for the
 // listing, computed once here and honored downstream by release-funds.
-import { corsHeaders, jsonResponse, sendEmail, stripeClient, supabaseAdmin, PLATFORM_FEE, PROMOTER_FEE, AUTO_RELEASE_DAYS } from "../_shared/helpers.ts";
+//
+// ALERT DELIVERY: these used to call sendEmail() without awaiting it, on the
+// reasoning that a slow email shouldn't hold up the webhook. Sound goal, wrong
+// mechanism — Supabase's Edge Runtime can destroy the isolate the moment the
+// handler returns, killing the in-flight fetch. notifyAdmin() keeps the same
+// non-blocking behavior but registers the work with EdgeRuntime.waitUntil()
+// so it survives to completion.
+import {
+  corsHeaders,
+  jsonResponse,
+  notifyAdmin,
+  alertHtml,
+  dollars,
+  money,
+  stripeClient,
+  supabaseAdmin,
+  PLATFORM_FEE,
+  PROMOTER_FEE,
+  AUTO_RELEASE_DAYS,
+} from "../_shared/helpers.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -81,7 +100,7 @@ Deno.serve(async (req) => {
         const endDate = new Date(startDate);
         endDate.setMonth(endDate.getMonth() + months);
 
-        const { data: adRow } = await supabase
+        const { data: adRow, error: adErr } = await supabase
           .from("ad_placements")
           .update({
             status: "active",
@@ -93,18 +112,30 @@ Deno.serve(async (req) => {
           .select("business_name, contact_email, link_url, plan, amount_cents")
           .single();
 
-        // Fire-and-forget — don't let a slow/failed email hold up the webhook.
-        sendEmail({
-          to: "support@drivelink.deals",
-          subject: `New ad placement purchased — ${adRow?.business_name ?? "Unknown business"}`,
-          html: `
-            <h2>New ad placement</h2>
-            <p><b>Business:</b> ${adRow?.business_name ?? "—"}</p>
-            <p><b>Contact:</b> ${adRow?.contact_email ?? "—"}</p>
-            <p><b>Link:</b> ${adRow?.link_url ?? "—"}</p>
-            <p><b>Plan:</b> ${adRow?.plan ?? plan} (${((adRow?.amount_cents ?? 0) / 100).toLocaleString("en-US", { style: "currency", currency: "USD" })})</p>
-            <p><b>Runs:</b> ${startDate.toISOString().slice(0, 10)} to ${endDate.toISOString().slice(0, 10)}</p>
-          `,
+        // Money has already changed hands at this point. If the row update
+        // failed, that is exactly when you most need to know — alert either
+        // way, and say so in the subject.
+        if (adErr) console.error("ad_placements update failed:", adErr.message, meta.ad_id);
+
+        notifyAdmin({
+          subject: adErr
+            ? `⚠️ Ad paid but NOT activated — ${meta.ad_id}`
+            : `New ad placement purchased — ${adRow?.business_name ?? "Unknown business"}`,
+          html: alertHtml(
+            adErr ? "Ad payment received but the placement did not activate" : "New ad placement",
+            [
+              ["Business", adRow?.business_name],
+              ["Contact", adRow?.contact_email],
+              ["Link", adRow?.link_url],
+              ["Plan", adRow?.plan ?? plan],
+              ["Amount", money(adRow?.amount_cents)],
+              ["Runs", `${startDate.toISOString().slice(0, 10)} to ${endDate.toISOString().slice(0, 10)}`],
+              ["Ad ID", meta.ad_id],
+            ],
+            adErr
+              ? `Database error: ${adErr.message}. The customer has been charged — activate this manually.`
+              : undefined,
+          ),
         });
 
         return jsonResponse({ received: true });
@@ -130,7 +161,7 @@ Deno.serve(async (req) => {
       const releaseAt = new Date();
       releaseAt.setDate(releaseAt.getDate() + AUTO_RELEASE_DAYS);
 
-      const { data: soldListing } = await supabase
+      const { data: soldListing, error: listingErr } = await supabase
         .from("listings")
         .update({
           status: "pending_confirmation",
@@ -146,6 +177,8 @@ Deno.serve(async (req) => {
         .select("make, model, year, seller_id")
         .single();
 
+      if (listingErr) console.error("listings update failed:", listingErr.message, listing_id);
+
       // Referral stays "pending" — it's marked "paid" and credited to the
       // promoter's balance in release-funds, same moment the seller is paid,
       // same as the existing confirmReceipt() behavior.
@@ -157,18 +190,35 @@ Deno.serve(async (req) => {
           : Promise.resolve({ data: null }),
       ]);
 
-      // Fire-and-forget — don't let a slow/failed email hold up the webhook.
-      sendEmail({
-        to: "support@drivelink.deals",
-        subject: `New car sale — ${soldListing ? `${soldListing.year} ${soldListing.make} ${soldListing.model}` : listing_id} (${salePrice.toLocaleString("en-US", { style: "currency", currency: "USD" })})`,
-        html: `
-          <h2>New sale — payment received, awaiting buyer confirmation</h2>
-          <p><b>Vehicle:</b> ${soldListing ? `${soldListing.year} ${soldListing.make} ${soldListing.model}` : listing_id}</p>
-          <p><b>Sale price:</b> ${salePrice.toLocaleString("en-US", { style: "currency", currency: "USD" })}</p>
-          <p><b>Platform fee:</b> ${platformFee.toLocaleString("en-US", { style: "currency", currency: "USD" })}${promoterFeeReserved ? ` (plus ${promoterFeeReserved.toLocaleString("en-US", { style: "currency", currency: "USD" })} reserved for a promoter)` : ""}</p>
-          <p><b>Buyer:</b> ${buyerRow?.name ?? "—"} (${buyerRow?.email ?? "—"})</p>
-          <p><b>Seller:</b> ${sellerRow?.name ?? "—"} (${sellerRow?.email ?? "—"})</p>
-        `,
+      const carLabel = soldListing
+        ? `${soldListing.year} ${soldListing.make} ${soldListing.model}`
+        : listing_id;
+
+      notifyAdmin({
+        subject: listingErr
+          ? `⚠️ Sale paid but listing NOT updated — ${listing_id}`
+          : `New car sale — ${carLabel} (${dollars(salePrice)})`,
+        html: alertHtml(
+          listingErr
+            ? "Payment received but the listing did not update"
+            : "New sale — payment received, awaiting buyer confirmation",
+          [
+            ["Vehicle", carLabel],
+            ["Sale price", dollars(salePrice)],
+            ["Platform fee", dollars(platformFee)],
+            ...(promoterFeeReserved
+              ? [["Promoter reserved", dollars(promoterFeeReserved)] as [string, unknown]]
+              : []),
+            ["Seller net", dollars(sellerNet)],
+            ["Buyer", `${buyerRow?.name ?? "—"} (${buyerRow?.email ?? "—"})`],
+            ["Seller", `${sellerRow?.name ?? "—"} (${sellerRow?.email ?? "—"})`],
+            ["Auto-release", releaseAt.toISOString().slice(0, 10)],
+            ["Listing ID", listing_id],
+          ],
+          listingErr
+            ? `Database error: ${listingErr.message}. The buyer has been charged — reconcile this manually.`
+            : `Funds auto-release in ${AUTO_RELEASE_DAYS} days unless the buyer confirms or disputes first.`,
+        ),
       });
     }
 
@@ -219,6 +269,18 @@ Deno.serve(async (req) => {
     return jsonResponse({ received: true });
   } catch (err) {
     console.error("stripe-webhook processing error:", err);
+
+    // A thrown error here means a paid checkout may not have been recorded.
+    // Silence was the old behavior; a log line nobody reads is not a signal.
+    notifyAdmin({
+      subject: "⚠️ Stripe webhook threw an error",
+      html: alertHtml("Webhook processing failed", [
+        ["Event type", event?.type],
+        ["Event ID", event?.id],
+        ["Error", err instanceof Error ? err.message : String(err)],
+      ], "Check the function logs and Stripe dashboard — a payment may be unrecorded."),
+    });
+
     // Still 200 so Stripe doesn't hammer retries on a bug we need to fix
     // server-side — but log loudly so it doesn't go unnoticed.
     return jsonResponse({ received: true, processingError: true });
