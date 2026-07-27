@@ -122,9 +122,7 @@ export async function sendEmail(
 // nothing surfaces it because the promise was never inspected.
 //
 // EdgeRuntime.waitUntil() is the supported way to keep work alive past the
-// response. Falls back to awaiting if it isn't available, which is slower but
-// correct; a webhook that takes an extra 300ms is better than a sale you never
-// hear about.
+// response. Falls back to leaving the promise running if unavailable.
 export function notifyAdmin(
   { subject, html, to = ALERT_EMAIL }: { subject: string; html: string; to?: string },
 ): void {
@@ -137,12 +135,11 @@ export function notifyAdmin(
   if (rt && typeof rt.waitUntil === "function") {
     rt.waitUntil(task);
   }
-  // If waitUntil is unavailable the promise is left running; the handler
-  // should await notifyAdminSync() instead in that case.
 }
 
 // Awaitable variant, for paths where you'd rather pay the latency than risk
-// losing the alert (disputes, refunds — anything with money or a clock on it).
+// losing the alert (disputes, refunds, cron jobs — anything with money or a
+// clock on it, and anything with no user waiting on a response).
 export async function notifyAdminSync(
   { subject, html, to = ALERT_EMAIL }: { subject: string; html: string; to?: string },
 ): Promise<void> {
@@ -161,6 +158,123 @@ export function alertHtml(title: string, rows: Array<[string, unknown]>, footer?
     ${body}
     ${footer ? `<p style="margin:16px 0 0;font-size:12px;color:#6b7280;">${esc(footer)}</p>` : ""}
   </div>`;
+}
+
+// ── Referral settlement ──────────────────────────────────────────────────────
+//
+// Decides which Scout (if any) earns the commission on a completed sale, and
+// credits them. Lives here because BOTH release paths need identical behavior:
+// release-funds (buyer confirmed) and auto-release-cron (7 days elapsed). They
+// had drifted — auto-release-cron still used .maybeSingle(), which errors when
+// two Scouts shared the same listing, silently paying nobody, and skipped the
+// self-referral check entirely. A sale settling differently depending on
+// whether the buyer happened to click a button is not acceptable.
+//
+// Never throws. The seller has already been paid by the time this runs, so a
+// referral problem must not surface as a failed release.
+export type ReferralOutcome =
+  | "none"
+  | "paid"
+  | "flagged_ambiguous"
+  | "flagged_self_referral"
+  | "attributed_not_pending"
+  | "lookup_failed";
+
+export async function settleReferral(
+  // deno-lint-ignore no-explicit-any
+  supabase: any,
+  listing: {
+    id: string;
+    buyer_id: string | null;
+    sale_price: number | null;
+    referral_code?: string | null;
+  },
+): Promise<{ outcome: ReferralOutcome; promoterId?: string; commission?: number }> {
+  const commission = Math.round(Number(listing.sale_price ?? 0) * PROMOTER_FEE);
+
+  // Fetch ALL pending referrals rather than using .maybeSingle(): a listing
+  // shared by several Scouts returns multiple rows, and maybeSingle() errors
+  // on that. Reading only `data` and discarding the error means a contested
+  // listing silently pays nobody at all.
+  const { data: pendingRefs, error: refsErr } = await supabase
+    .from("referrals")
+    .select("id, promoter_id, share_code")
+    .eq("listing_id", listing.id)
+    .eq("status", "pending");
+
+  if (refsErr) {
+    console.error("referral lookup failed for listing:", listing.id, refsErr);
+    return { outcome: "lookup_failed" };
+  }
+
+  const refs = (pendingRefs ?? []) as Array<{ id: string; promoter_id: string; share_code: string | null }>;
+  if (refs.length === 0) return { outcome: "none" };
+
+  let ref: { id: string; promoter_id: string; share_code: string | null } | null = null;
+  let ambiguous = false;
+
+  // listings.referral_code is written at checkout from the buyer's stored
+  // attribution, after being validated against a real pending referral. It
+  // names one specific Scout, so it wins whenever it's present.
+  if (listing.referral_code) {
+    ref = refs.find(
+      (r) => (r.share_code ?? "").toUpperCase() === String(listing.referral_code).toUpperCase(),
+    ) ?? null;
+    if (!ref) {
+      console.warn("attributed referral not pending:", listing.referral_code, listing.id);
+      return { outcome: "attributed_not_pending" };
+    }
+  } else if (refs.length === 1) {
+    ref = refs[0]; // only one candidate — nothing to guess between
+  } else {
+    ambiguous = true; // several Scouts shared this car, no attribution recorded
+  }
+
+  if (ambiguous) {
+    // Never pick arbitrarily and never pay everyone. Flag them all so the
+    // admin Approve/Deny UI can settle it against the real evidence.
+    await supabase
+      .from("referrals")
+      .update({ status: "flagged", commission_amount: commission })
+      .in("id", refs.map((r) => r.id));
+    console.warn("ambiguous referral on listing:", listing.id, refs.length, "competing scouts");
+    return { outcome: "flagged_ambiguous", commission };
+  }
+
+  if (!ref) return { outcome: "none" };
+
+  // Self-dealing check: a promoter buying through their own referral link
+  // should never earn a commission. Flag for admin review rather than
+  // transferring money automatically.
+  if (ref.promoter_id === listing.buyer_id) {
+    await supabase
+      .from("referrals")
+      .update({ status: "flagged", commission_amount: commission })
+      .eq("id", ref.id);
+    return { outcome: "flagged_self_referral", promoterId: ref.promoter_id, commission };
+  }
+
+  await supabase
+    .from("referrals")
+    .update({
+      status: "paid",
+      commission_amount: commission,
+      paid_at: new Date().toISOString().slice(0, 10),
+    })
+    .eq("id", ref.id);
+
+  const { data: promoter } = await supabase
+    .from("users")
+    .select("balance")
+    .eq("id", ref.promoter_id)
+    .single();
+
+  await supabase
+    .from("users")
+    .update({ balance: (Number(promoter?.balance) || 0) + commission })
+    .eq("id", ref.promoter_id);
+
+  return { outcome: "paid", promoterId: ref.promoter_id, commission };
 }
 
 // Platform + Promoter cut, mirrors the PLATFORM_FEE/PROMOTER_FEE constants
