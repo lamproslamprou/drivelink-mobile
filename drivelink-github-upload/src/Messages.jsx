@@ -22,7 +22,13 @@ function buildThreads(messages, myId) {
 export default function Messages({ currentUser, listings, users, openThread, onOpened }) {
   const [messages, setMessages] = useState([]);
   const [activeKey, setActiveKey] = useState(null);
+  // A thread that has been opened from a listing but has no messages yet. Kept in
+  // local state because the parent clears `openThread` as soon as onOpened() fires,
+  // which would otherwise leave the chat pane with nothing to render.
+  const [pendingThread, setPendingThread] = useState(null);
   const [draft, setDraft] = useState("");
+  const [sendError, setSendError] = useState("");
+  const [sending, setSending] = useState(false);
   const bottomRef = useRef(null);
 
   const load = async () => {
@@ -41,7 +47,8 @@ export default function Messages({ currentUser, listings, users, openThread, onO
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages" }, (payload) => {
         const m = payload.new;
         if (m.sender_id === currentUser.id || m.recipient_id === currentUser.id) {
-          setMessages(prev => [...prev, m]);
+          // Don't re-add a message we already inserted optimistically.
+          setMessages(prev => (prev.some(x => x.id === m.id) ? prev : [...prev, m]));
         }
       })
       .subscribe();
@@ -50,8 +57,12 @@ export default function Messages({ currentUser, listings, users, openThread, onO
 
   useEffect(() => {
     if (openThread) {
-      const key = `${openThread.listingId}::${openThread.otherId}`;
+      const listingId = String(openThread.listingId);
+      const otherId = String(openThread.otherId);
+      const key = `${listingId}::${otherId}`;
+      setPendingThread({ key, listingId, otherId });
       setActiveKey(key);
+      setSendError("");
       onOpened?.();
     }
   }, [openThread]);
@@ -59,22 +70,36 @@ export default function Messages({ currentUser, listings, users, openThread, onO
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [activeKey, messages]);
 
   const threads = buildThreads(messages, currentUser.id);
-  const active = threads.find(t => t.key === activeKey) ||
-    (openThread ? { key: activeKey, listingId: openThread.listingId, otherId: openThread.otherId, msgs: [], unread: 0 } : null);
+  const active =
+    threads.find(t => t.key === activeKey) ||
+    (pendingThread && pendingThread.key === activeKey
+      ? { ...pendingThread, msgs: [], unread: 0 }
+      : null);
 
   const send = async () => {
-    if (!draft.trim() || !active) return;
+    const body = draft.trim();
+    if (!body || !active || sending) return;
     const row = {
-      id: "m" + Date.now(),
+      id: "m" + Date.now() + Math.random().toString(36).slice(2, 7),
       listing_id: active.listingId,
       sender_id: currentUser.id,
       recipient_id: active.otherId,
-      body: draft.trim(),
+      body,
       read: false,
     };
     setDraft("");
+    setSendError("");
+    setSending(true);
     setMessages(prev => [...prev, { ...row, created_at: new Date().toISOString() }]);
-    await supabase.from("messages").insert(row);
+
+    const { error } = await supabase.from("messages").insert(row);
+    setSending(false);
+    if (error) {
+      // Roll the optimistic message back so the UI doesn't lie about delivery.
+      setMessages(prev => prev.filter(m => m.id !== row.id));
+      setDraft(body);
+      setSendError(error.message || "Message didn't send. Try again.");
+    }
   };
 
   const markRead = async (thread) => {
@@ -85,30 +110,54 @@ export default function Messages({ currentUser, listings, users, openThread, onO
     }
   };
 
+  const selectThread = (t) => {
+    setActiveKey(t.key);
+    setSendError("");
+    markRead(t);
+  };
+
+  const otherName = (id) => users.find(u => u.id === id)?.name || "User";
+  const listingLabel = (id) => {
+    const l = listings.find(x => x.id === id);
+    return l ? `${l.year} ${l.make} ${l.model}` : "Listing";
+  };
+
   return (
     <div style={s.pageWrap}>
       <h2 style={s.pageTitle}>Messages</h2>
       <div style={s.layout}>
         <div style={s.threadList}>
-          {threads.length === 0 && <p style={{ color: "#6b7280", padding: 16, fontSize: 13 }}>No conversations yet. Message a seller from a listing to start one.</p>}
-          {threads.map(t => {
-            const other = users.find(u => u.id === t.otherId);
-            const listing = listings.find(l => l.id === t.listingId);
-            return (
-              <div
-                key={t.key}
-                style={{ ...s.threadItem, ...(activeKey === t.key ? s.threadItemActive : {}) }}
-                onClick={() => { setActiveKey(t.key); markRead(t); }}
-              >
-                <div style={s.threadTop}>
-                  <span style={s.threadName}>{other?.name || "User"}</span>
-                  {t.unread > 0 && <span style={s.unreadDot}>{t.unread}</span>}
-                </div>
-                <div style={s.threadSub}>{listing ? `${listing.year} ${listing.make} ${listing.model}` : "Listing"}</div>
-                <div style={s.threadPreview}>{t.last.body}</div>
+          {threads.length === 0 && !pendingThread && (
+            <p style={{ color: "#6b7280", padding: 16, fontSize: 13 }}>
+              No conversations yet. Message a seller from a listing to start one.
+            </p>
+          )}
+          {pendingThread && !threads.some(t => t.key === pendingThread.key) && (
+            <div
+              style={{ ...s.threadItem, ...(activeKey === pendingThread.key ? s.threadItemActive : {}) }}
+              onClick={() => { setActiveKey(pendingThread.key); setSendError(""); }}
+            >
+              <div style={s.threadTop}>
+                <span style={s.threadName}>{otherName(pendingThread.otherId)}</span>
               </div>
-            );
-          })}
+              <div style={s.threadSub}>{listingLabel(pendingThread.listingId)}</div>
+              <div style={{ ...s.threadPreview, fontStyle: "italic" }}>New conversation</div>
+            </div>
+          )}
+          {threads.map(t => (
+            <div
+              key={t.key}
+              style={{ ...s.threadItem, ...(activeKey === t.key ? s.threadItemActive : {}) }}
+              onClick={() => selectThread(t)}
+            >
+              <div style={s.threadTop}>
+                <span style={s.threadName}>{otherName(t.otherId)}</span>
+                {t.unread > 0 && <span style={s.unreadDot}>{t.unread}</span>}
+              </div>
+              <div style={s.threadSub}>{listingLabel(t.listingId)}</div>
+              <div style={s.threadPreview}>{t.last.body}</div>
+            </div>
+          ))}
         </div>
         <div style={s.chatPane}>
           {!active ? (
@@ -116,13 +165,14 @@ export default function Messages({ currentUser, listings, users, openThread, onO
           ) : (
             <>
               <div style={s.chatHeader}>
-                {(() => {
-                  const other = users.find(u => u.id === active.otherId);
-                  const listing = listings.find(l => l.id === active.listingId);
-                  return <><b>{other?.name || "User"}</b> — {listing ? `${listing.year} ${listing.make} ${listing.model}` : "Listing"}</>;
-                })()}
+                <b>{otherName(active.otherId)}</b> — {listingLabel(active.listingId)}
               </div>
               <div style={s.chatBody}>
+                {active.msgs.length === 0 && (
+                  <div style={s.firstMsgHint}>
+                    Say hello — ask about condition, service history, or set up a time to see the car.
+                  </div>
+                )}
                 {active.msgs.map(m => (
                   <div key={m.id} style={{ ...s.bubble, ...(m.sender_id === currentUser.id ? s.bubbleMine : s.bubbleTheirs) }}>
                     {m.body}
@@ -130,6 +180,7 @@ export default function Messages({ currentUser, listings, users, openThread, onO
                 ))}
                 <div ref={bottomRef} />
               </div>
+              {sendError && <div style={s.errorBar}>{sendError}</div>}
               <div style={s.chatInputRow}>
                 <input
                   style={s.chatInput}
@@ -138,7 +189,9 @@ export default function Messages({ currentUser, listings, users, openThread, onO
                   onChange={e => setDraft(e.target.value)}
                   onKeyDown={e => e.key === "Enter" && send()}
                 />
-                <button style={s.sendBtn} onClick={send}>Send</button>
+                <button style={{ ...s.sendBtn, ...(sending ? s.sendBtnDisabled : {}) }} onClick={send} disabled={sending}>
+                  {sending ? "Sending…" : "Send"}
+                </button>
               </div>
             </>
           )}
@@ -160,14 +213,17 @@ const s = {
   unreadDot: { background: "#dc2626", color: "#fff", fontSize: 11, fontWeight: 700, borderRadius: 20, padding: "1px 7px" },
   threadSub: { fontSize: 12, color: "#3b82f6", marginTop: 2 },
   threadPreview: { fontSize: 12, color: "#6b7280", marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
-  chatPane: { flex: 1, display: "flex", flexDirection: "column" },
+  chatPane: { flex: 1, display: "flex", flexDirection: "column", minWidth: 0 },
   emptyChat: { display: "flex", alignItems: "center", justifyContent: "center", height: "100%", color: "#9ca3af", fontSize: 14 },
   chatHeader: { padding: "14px 20px", borderBottom: "1px solid #e5e7eb", fontSize: 14, color: "#374151" },
   chatBody: { flex: 1, padding: 20, overflowY: "auto", display: "flex", flexDirection: "column", gap: 8, maxHeight: 420 },
+  firstMsgHint: { color: "#9ca3af", fontSize: 13, textAlign: "center", padding: "24px 12px", lineHeight: 1.5 },
   bubble: { maxWidth: "70%", padding: "8px 14px", borderRadius: 14, fontSize: 14, lineHeight: 1.4 },
   bubbleMine: { alignSelf: "flex-end", background: "#0f172a", color: "#fff" },
   bubbleTheirs: { alignSelf: "flex-start", background: "#f1f5f9", color: "#0f172a" },
+  errorBar: { background: "#fef2f2", color: "#b91c1c", fontSize: 12, padding: "8px 16px", borderTop: "1px solid #fecaca" },
   chatInputRow: { display: "flex", gap: 10, padding: 16, borderTop: "1px solid #e5e7eb" },
-  chatInput: { flex: 1, padding: "10px 14px", borderRadius: 10, border: "1px solid #e5e7eb", fontSize: 14, outline: "none" },
+  chatInput: { flex: 1, minWidth: 0, padding: "10px 14px", borderRadius: 10, border: "1px solid #e5e7eb", fontSize: 14, outline: "none" },
   sendBtn: { background: "#0f172a", color: "#fff", border: "none", padding: "10px 20px", borderRadius: 10, cursor: "pointer", fontWeight: 600, fontSize: 14 },
+  sendBtnDisabled: { opacity: 0.6, cursor: "default" },
 };
