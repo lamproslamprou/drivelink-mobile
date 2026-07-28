@@ -359,7 +359,7 @@ export default function App() {
   const moderateRecord = async (surface, contentId) => {
     try {
       const { data, error } = await supabase.functions.invoke("moderate-content", {
-        body: { surface, contentId },
+        body: contentId ? { surface, contentId } : { surface },
       });
       if (error) {
         let parsed = null;
@@ -797,6 +797,17 @@ const denyFlaggedReferral = async (refId) => {
   const updateProfile = async (patch) => {
     const { error } = await supabase.from("users").update(patch).eq("id", currentUser.id);
     if (error) { showToast("Couldn't save changes.", "error"); return; }
+
+    // A database trigger parks a changed display name in users.pending_name
+    // and leaves the visible `name` untouched, so an offensive name is never
+    // shown even for an instant. This promotes it once it passes.
+    if (Object.prototype.hasOwnProperty.call(patch, "name")) {
+      const mod = await moderateRecord("profile");
+      await loadDbUser(currentUser);
+      await handleModerationResult(mod, "Profile updated.");
+      return;
+    }
+
     await loadDbUser(currentUser);
     showToast("Profile updated.");
   };
