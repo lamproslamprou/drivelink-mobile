@@ -56,33 +56,40 @@ const PUBLIC_PREFIX = `/storage/v1/object/public/${PUBLIC_IMAGE_BUCKET}/`;
 type Decision = "reject" | "strike" | "ban";
 
 interface Rule {
-  threshold: number;
+  hold: number;       // >= this but < threshold: hold for manual review
+  threshold: number;  // >= this: act (reject / strike / ban)
   decision: Decision;
   strikes: number;
   severity: "soft" | "hard";
   label: string;
 }
 
-// Tuned for a car marketplace. `violence` sits very high on purpose — listing
-// copy is full of "this thing is a killer". Retune from real scores after a
-// week; every check logs its full score vector to moderation_events.scores.
+// THREE TIERS, not two:
+//   score >= threshold  -> reject / strike / ban
+//   score >= hold       -> stays 'pending' (invisible) and goes to the admin
+//                          queue for a human decision. No strike.
+//   below both          -> approved
+//
+// The hold band is what makes this strict without punishing false positives.
+// Nothing borderline reaches buyers, but a seller writing "this thing is an
+// absolute killer" gets a short review rather than a strike on their account.
 //
 // self-harm rejects the content but never strikes or bans. Someone in crisis
 // should not be punished by an automated system.
 const POLICY: Record<string, Rule> = {
-  "sexual/minors":          { threshold: 0.05, decision: "ban",    strikes: 0, severity: "hard", label: "sexual content involving minors" },
-  "illicit/violent":        { threshold: 0.50, decision: "strike", strikes: 2, severity: "hard", label: "weapons or violent illicit content" },
-  "harassment/threatening": { threshold: 0.40, decision: "strike", strikes: 2, severity: "hard", label: "threats" },
-  "hate/threatening":       { threshold: 0.30, decision: "strike", strikes: 2, severity: "hard", label: "threatening hate speech" },
-  "hate":                   { threshold: 0.50, decision: "strike", strikes: 1, severity: "hard", label: "hate speech" },
-  "sexual":                 { threshold: 0.60, decision: "strike", strikes: 1, severity: "soft", label: "sexual content" },
-  "violence/graphic":       { threshold: 0.70, decision: "strike", strikes: 1, severity: "soft", label: "graphic violence" },
-  "illicit":                { threshold: 0.75, decision: "strike", strikes: 1, severity: "soft", label: "illicit content" },
-  "harassment":             { threshold: 0.80, decision: "strike", strikes: 1, severity: "soft", label: "harassment" },
-  "violence":               { threshold: 0.92, decision: "strike", strikes: 1, severity: "soft", label: "violent content" },
-  "self-harm/instructions": { threshold: 0.50, decision: "reject", strikes: 0, severity: "soft", label: "self-harm instructions" },
-  "self-harm/intent":       { threshold: 0.50, decision: "reject", strikes: 0, severity: "soft", label: "self-harm" },
-  "self-harm":              { threshold: 0.60, decision: "reject", strikes: 0, severity: "soft", label: "self-harm" },
+  "sexual/minors":          { hold: 0.01, threshold: 0.03, decision: "ban",    strikes: 0, severity: "hard", label: "sexual content involving minors" },
+  "illicit/violent":        { hold: 0.20, threshold: 0.40, decision: "strike", strikes: 2, severity: "hard", label: "weapons or violent illicit content" },
+  "harassment/threatening": { hold: 0.15, threshold: 0.30, decision: "strike", strikes: 2, severity: "hard", label: "threats" },
+  "hate/threatening":       { hold: 0.10, threshold: 0.20, decision: "strike", strikes: 2, severity: "hard", label: "threatening hate speech" },
+  "hate":                   { hold: 0.15, threshold: 0.35, decision: "strike", strikes: 1, severity: "hard", label: "hate speech" },
+  "sexual":                 { hold: 0.20, threshold: 0.45, decision: "strike", strikes: 1, severity: "soft", label: "sexual content" },
+  "violence/graphic":       { hold: 0.25, threshold: 0.55, decision: "strike", strikes: 1, severity: "soft", label: "graphic violence" },
+  "illicit":                { hold: 0.30, threshold: 0.60, decision: "strike", strikes: 1, severity: "soft", label: "illicit content" },
+  "harassment":             { hold: 0.35, threshold: 0.65, decision: "strike", strikes: 1, severity: "soft", label: "harassment" },
+  "violence":               { hold: 0.50, threshold: 0.85, decision: "strike", strikes: 1, severity: "soft", label: "violent content" },
+  "self-harm/instructions": { hold: 0.25, threshold: 0.45, decision: "reject", strikes: 0, severity: "soft", label: "self-harm instructions" },
+  "self-harm/intent":       { hold: 0.25, threshold: 0.45, decision: "reject", strikes: 0, severity: "soft", label: "self-harm" },
+  "self-harm":              { hold: 0.30, threshold: 0.55, decision: "reject", strikes: 0, severity: "soft", label: "self-harm" },
 };
 
 const STRIKE_LIMIT = 3;
@@ -135,22 +142,70 @@ function decide(results: ModerationResult[]) {
 
   const rank: Record<Decision, number> = { reject: 1, strike: 2, ban: 3 };
   let worst: { rule: Rule; category: string; score: number } | null = null;
+  let held: { rule: Rule; category: string; score: number } | null = null;
 
   for (const [cat, score] of Object.entries(merged)) {
     const rule = POLICY[cat];
-    if (!rule || score < rule.threshold) continue;
-    if (
-      !worst ||
-      rank[rule.decision] > rank[worst.rule.decision] ||
-      (rank[rule.decision] === rank[worst.rule.decision] &&
-        rule.strikes > worst.rule.strikes)
-    ) {
-      worst = { rule, category: cat, score };
+    if (!rule) continue;
+
+    if (score >= rule.threshold) {
+      if (
+        !worst ||
+        rank[rule.decision] > rank[worst.rule.decision] ||
+        (rank[rule.decision] === rank[worst.rule.decision] &&
+          rule.strikes > worst.rule.strikes)
+      ) {
+        worst = { rule, category: cat, score };
+      }
+    } else if (score >= rule.hold) {
+      // Track the hold candidate that cleared its band by the widest margin.
+      if (!held || score / rule.hold > held.score / held.rule.hold) {
+        held = { rule, category: cat, score };
+      }
     }
   }
 
   const top = Object.entries(merged).sort((a, b) => b[1] - a[1])[0];
-  return { hit: worst, scores: merged, topCategory: top?.[0] ?? null, topScore: top?.[1] ?? null };
+  return {
+    hit: worst,
+    held,
+    scores: merged,
+    topCategory: top?.[0] ?? null,
+    topScore: top?.[1] ?? null,
+  };
+}
+
+/**
+ * Defeat basic filter evasion. The classifier handles natural language well
+ * but is weaker against deliberate obfuscation: "h4te", "s l u r", "hαte"
+ * with a Greek alpha. Normalizing and submitting BOTH the raw and normalized
+ * text costs nothing (same request, two inputs) and the worst score across
+ * either one wins.
+ */
+function normalize(text: string): string {
+  let t = text.normalize("NFKD").replace(/[\u0300-\u036f]/g, "");
+
+  // Cyrillic and Greek homoglyphs commonly used to dodge filters
+  const homoglyphs: Record<string, string> = {
+    "а": "a", "е": "e", "о": "o", "р": "p", "с": "c", "х": "x", "у": "y",
+    "і": "i", "ѕ": "s", "ν": "v", "α": "a", "ο": "o", "ρ": "p", "τ": "t",
+    "κ": "k", "ε": "e", "ι": "i",
+  };
+  t = t.replace(/[аеорсхуіѕναορτκει]/g, (c) => homoglyphs[c] ?? c);
+
+  // Leetspeak
+  t = t.toLowerCase()
+    .replace(/[4@]/g, "a").replace(/[3]/g, "e").replace(/[1!|]/g, "i")
+    .replace(/[0]/g, "o").replace(/[5$]/g, "s").replace(/[7]/g, "t");
+
+  // Collapse letter-spacing ("s l u r") and character runs ("sluuuur")
+  t = t.replace(/\b(?:[a-z]\s){2,}[a-z]\b/g, (m) => m.replace(/\s/g, ""));
+  t = t.replace(/(.)\1{2,}/g, "$1$1");
+
+  // Strip separators used to break up words
+  t = t.replace(/[._\-*+]/g, "");
+
+  return t.replace(/\s+/g, " ").trim();
 }
 
 /** Object path inside car-images, or null if the URL is external. */
@@ -211,6 +266,10 @@ Deno.serve(async (req) => {
     const text = (body.text ?? "").trim();
     if (!text) return json({ status: "approved" });
     inputs.push({ type: "text", text: text.slice(0, 8000) });
+    const norm = normalize(text);
+    if (norm && norm !== text.toLowerCase()) {
+      inputs.push({ type: "text", text: norm.slice(0, 8000) });
+    }
     excerpt = text.slice(0, 500);
   } else {
     if (!body.contentId) return json({ error: "contentId is required" }, 400);
@@ -239,6 +298,10 @@ Deno.serve(async (req) => {
 
     if (text.trim()) {
       inputs.push({ type: "text", text: text.slice(0, 8000) });
+      const norm = normalize(text);
+      if (norm && norm !== text.toLowerCase()) {
+        inputs.push({ type: "text", text: norm.slice(0, 8000) });
+      }
       excerpt = text.slice(0, 500);
     }
 
@@ -280,7 +343,29 @@ Deno.serve(async (req) => {
     }, 202);
   }
 
-  const { hit, scores, topCategory, topScore } = decide(results);
+  const { hit, held, scores, topCategory, topScore } = decide(results);
+
+  // --- hold for review -----------------------------------------------------
+  // Below the action threshold but above the hold band. The row stays
+  // 'pending', so RLS keeps it invisible to everyone but its author, and it
+  // lands in admin_moderation_queue for a human call. No strike is applied.
+  if (!hit && held) {
+    await admin.from("moderation_events").insert({
+      user_id: userId,
+      surface,
+      content_id: body.contentId ?? null,
+      action: "hold",
+      severity: held.rule.severity,
+      top_category: held.category,
+      top_score: held.score,
+      scores,
+      excerpt: imageUrl ? `${excerpt}\n[image] ${imageUrl}`.slice(0, 500) : excerpt,
+    });
+    return json({
+      status: "held",
+      reason: "This is being reviewed before it goes live. You'll usually see it published within a few hours.",
+    });
+  }
 
   // --- clean ---------------------------------------------------------------
   if (!hit) {

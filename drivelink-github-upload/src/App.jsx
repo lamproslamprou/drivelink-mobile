@@ -372,6 +372,22 @@ export default function App() {
     }
   };
 
+  // Returns true if the caller should stop (content did not go live).
+  const handleModerationResult = async (mod, successMessage) => {
+    if (mod.status === "blocked") {
+      showToast(mod.reason, "error");
+      await supabase.auth.signOut();
+      return true;
+    }
+    if (mod.status === "rejected") { showToast(mod.reason, "error"); return true; }
+    if (mod.status === "held" || mod.status === "pending") {
+      showToast(mod.reason, "info");
+      return true;
+    }
+    showToast(successMessage);
+    return false;
+  };
+
   // ── Post listing
   const postListing = async (data) => {
     const coords = await geocode(data.location_text);
@@ -394,16 +410,7 @@ export default function App() {
     const mod = await moderateRecord("listing", newListing.id);
     await loadData();
     setView("myListings");
-
-    if (mod.status === "blocked") {
-      showToast(mod.reason, "error");
-      await supabase.auth.signOut();
-      return;
-    }
-    if (mod.status === "rejected") { showToast(mod.reason, "error"); return; }
-    if (mod.status === "pending") { showToast(mod.reason, "info"); return; }
-
-    showToast("Listing posted successfully!");
+    await handleModerationResult(mod, "Listing posted successfully!");
   };
 
   // ── Mark sold (admin manual override)
@@ -610,8 +617,13 @@ const denyFlaggedReferral = async (refId) => {
     if (coords) { patch.lat = coords.lat; patch.lng = coords.lng; }
     const { error } = await supabase.from("listings").update(patch).eq("id", listingId);
     if (error) { showToast("Error updating listing", "error"); return; }
+
+    // A database trigger resets moderation_status to 'pending' whenever a
+    // moderated field changes, so an edited listing is hidden until this
+    // re-approves it. Without this call it would stay hidden forever.
+    const mod = await moderateRecord("listing", listingId);
     await loadData();
-    showToast("Listing updated.");
+    await handleModerationResult(mod, "Listing updated.");
   };
 
   // ── Remove listing (admin)
