@@ -355,6 +355,23 @@ export default function App() {
     window.location.href = data.url;
   };
 
+  // ── Content moderation
+  const moderateRecord = async (surface, contentId) => {
+    try {
+      const { data, error } = await supabase.functions.invoke("moderate-content", {
+        body: { surface, contentId },
+      });
+      if (error) {
+        let parsed = null;
+        try { parsed = await error.context?.json?.(); } catch {}
+        return parsed?.status ? parsed : { status: "pending", reason: "Your content is under review." };
+      }
+      return data;
+    } catch {
+      return { status: "pending", reason: "Your content is under review." };
+    }
+  };
+
   // ── Post listing
   const postListing = async (data) => {
     const coords = await geocode(data.location_text);
@@ -370,9 +387,23 @@ export default function App() {
     };
     const { error } = await supabase.from("listings").insert(newListing);
     if (error) { showToast("Error posting listing", "error"); return; }
+
+    // Listing inserts with moderation_status = 'pending', which the
+    // listings_hide_unapproved RLS policy keeps hidden from buyers until this
+    // returns. The seller sees it in My Listings the whole time.
+    const mod = await moderateRecord("listing", newListing.id);
     await loadData();
-    showToast("Listing posted successfully!");
     setView("myListings");
+
+    if (mod.status === "blocked") {
+      showToast(mod.reason, "error");
+      await supabase.auth.signOut();
+      return;
+    }
+    if (mod.status === "rejected") { showToast(mod.reason, "error"); return; }
+    if (mod.status === "pending") { showToast(mod.reason, "info"); return; }
+
+    showToast("Listing posted successfully!");
   };
 
   // ── Mark sold (admin manual override)

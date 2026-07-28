@@ -44,8 +44,13 @@ export default function Messages({ currentUser, listings, users, openThread, onO
     load();
     const channel = supabase
       .channel("messages-" + currentUser.id)
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages" }, (payload) => {
+      // Listens for UPDATE as well as INSERT. Messages insert with
+      // moderation_status = 'pending', which RLS hides from the recipient, so
+      // the recipient never receives the INSERT event — they only become
+      // visible on the UPDATE that flips the status to 'approved'.
+      .on("postgres_changes", { event: "*", schema: "public", table: "messages" }, (payload) => {
         const m = payload.new;
+        if (!m) return;
         if (m.sender_id === currentUser.id || m.recipient_id === currentUser.id) {
           // Don't re-add a message we already inserted optimistically.
           setMessages(prev => (prev.some(x => x.id === m.id) ? prev : [...prev, m]));
@@ -93,12 +98,36 @@ export default function Messages({ currentUser, listings, users, openThread, onO
     setMessages(prev => [...prev, { ...row, created_at: new Date().toISOString() }]);
 
     const { error } = await supabase.from("messages").insert(row);
-    setSending(false);
     if (error) {
+      setSending(false);
       // Roll the optimistic message back so the UI doesn't lie about delivery.
       setMessages(prev => prev.filter(m => m.id !== row.id));
       setDraft(body);
       setSendError(error.message || "Message didn't send. Try again.");
+      return;
+    }
+
+    // Inserts with moderation_status = 'pending', so the recipient cannot see
+    // it until this returns approved. On failure it stays pending, which is
+    // the safe direction.
+    let mod = { status: "pending" };
+    try {
+      const { data, error: modErr } = await supabase.functions.invoke("moderate-content", {
+        body: { surface: "message", contentId: row.id },
+      });
+      if (modErr) {
+        let parsed = null;
+        try { parsed = await modErr.context?.json?.(); } catch {}
+        mod = parsed?.status ? parsed : { status: "pending" };
+      } else {
+        mod = data;
+      }
+    } catch { /* stays pending */ }
+    setSending(false);
+
+    if (mod.status === "rejected" || mod.status === "blocked") {
+      setMessages(prev => prev.filter(m => m.id !== row.id));
+      setSendError(mod.reason || "That message violates our content policy.");
     }
   };
 
