@@ -34,6 +34,7 @@ const SURFACES: Record<string, {
   textColumns: string[];
   ownerColumn: string;
   imageColumn?: string;
+  imageArrayColumn?: string;
 }> = {
   listing: {
     table: "listings",
@@ -41,6 +42,10 @@ const SURFACES: Record<string, {
     textColumns: ["make", "model", "color", "description", "location_text"],
     ownerColumn: "seller_id",
     imageColumn: "image",
+    // listings.images is a JSON array of up to ~20 photos. Checking only the
+    // first one let a seller put a clean car photo in `image` and anything
+    // they liked in the rest.
+    imageArrayColumn: "images",
   },
   message: {
     table: "messages",
@@ -93,6 +98,9 @@ const POLICY: Record<string, Rule> = {
 };
 
 const STRIKE_LIMIT = 3;
+// Cap per request. Every photo is checked, but a listing with 20 images
+// would otherwise make one very slow call.
+const MAX_IMAGES = 10;
 const PERMANENT_BAN = "876000h"; // 100 years
 
 const CORS = {
@@ -214,6 +222,28 @@ function ownObjectPath(url: string): string | null {
   return i === -1 ? null : decodeURIComponent(url.slice(i + PUBLIC_PREFIX.length).split("?")[0]);
 }
 
+/** Log the failure and leave the row pending — invisible, which is safe. */
+async function failClosed(
+  admin: ReturnType<typeof createClient>,
+  userId: string,
+  surface: string,
+  contentId: string | null,
+  message: string,
+) {
+  await admin.from("moderation_events").insert({
+    user_id: userId,
+    surface,
+    content_id: contentId,
+    action: "error",
+    severity: "clean",
+    excerpt: message.slice(0, 500),
+  });
+  return json({
+    status: "pending",
+    reason: "Moderation service unavailable. Your content is under review.",
+  }, 202);
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   if (req.method !== "POST") return json({ error: "POST only" }, 405);
@@ -261,21 +291,36 @@ Deno.serve(async (req) => {
   const inputs: Array<Record<string, unknown>> = [];
   let excerpt = "";
   let imageUrl: string | null = null;
+  let imageUrls: string[] = [];
+  let proposedName: string | null = null;
 
   if (surface === "profile") {
-    const text = (body.text ?? "").trim();
+    // Read the proposed name from the database, never from the request body.
+    // A client-supplied string could differ from what was actually stored.
+    const { data: prof, error: profErr } = await admin
+      .from("users")
+      .select("pending_name, name_status")
+      .eq("id", userId)
+      .maybeSingle();
+
+    if (profErr) return json({ error: `Read failed: ${profErr.message}` }, 500);
+
+    const text = (prof?.pending_name ?? "").trim();
     if (!text) return json({ status: "approved" });
+
     inputs.push({ type: "text", text: text.slice(0, 8000) });
     const norm = normalize(text);
     if (norm && norm !== text.toLowerCase()) {
       inputs.push({ type: "text", text: norm.slice(0, 8000) });
     }
     excerpt = text.slice(0, 500);
+    proposedName = text;
   } else {
     if (!body.contentId) return json({ error: "contentId is required" }, 400);
 
     const cols = [...config!.textColumns, config!.ownerColumn];
     if (config!.imageColumn) cols.push(config!.imageColumn);
+    if (config!.imageArrayColumn) cols.push(config!.imageArrayColumn);
 
     const { data: row, error: rowErr } = await admin
       .from(config!.table)
@@ -305,12 +350,32 @@ Deno.serve(async (req) => {
       excerpt = text.slice(0, 500);
     }
 
+    // Collect every photo: the primary URL plus the array.
+    const urls: string[] = [];
     if (config!.imageColumn) {
       const raw = r[config!.imageColumn];
       if (typeof raw === "string" && /^https?:\/\//i.test(raw.trim())) {
-        imageUrl = raw.trim();
-        inputs.push({ type: "image_url", image_url: { url: imageUrl } });
+        urls.push(raw.trim());
       }
+    }
+    if (config!.imageArrayColumn) {
+      let arr = r[config!.imageArrayColumn];
+      if (typeof arr === "string") {
+        try { arr = JSON.parse(arr); } catch { arr = null; }
+      }
+      if (Array.isArray(arr)) {
+        for (const u of arr) {
+          if (typeof u === "string" && /^https?:\/\//i.test(u.trim())) {
+            urls.push(u.trim());
+          }
+        }
+      }
+    }
+
+    imageUrls = [...new Set(urls)].slice(0, MAX_IMAGES);
+    imageUrl = imageUrls[0] ?? null;
+    for (const u of imageUrls) {
+      inputs.push({ type: "image_url", image_url: { url: u } });
     }
   }
 
@@ -325,23 +390,30 @@ Deno.serve(async (req) => {
   }
 
   // --- classify (fail closed) ----------------------------------------------
+  // A dead image URL makes the whole request 400, which would strand the row
+  // in 'pending' forever. Retry text-only, but do NOT auto-approve: an image
+  // we could not check is an unverified image, so it goes to review instead.
   let results: ModerationResult[];
+  let imageUnverified = false;
   try {
     results = await classify(inputs);
-  } catch (e) {
-    await admin.from("moderation_events").insert({
-      user_id: userId,
-      surface,
-      content_id: body.contentId ?? null,
-      action: "error",
-      severity: "clean",
-      excerpt: String(e).slice(0, 500),
-    });
-    return json({
-      status: "pending",
-      reason: "Moderation service unavailable. Your content is under review.",
-    }, 202);
+  } catch (e0) {
+    const msg = String(e0);
+    const imageFailed = /Failed to download image|invalid_image|unsupported image|timed out/i.test(msg);
+    const textOnly = inputs.filter((i) => i.type === "text");
+
+    if (imageFailed && textOnly.length > 0) {
+      try {
+        results = await classify(textOnly);
+        imageUnverified = true;
+      } catch (e1) {
+        return await failClosed(admin, userId, surface, body.contentId ?? null, String(e1));
+      }
+    } else {
+      return await failClosed(admin, userId, surface, body.contentId ?? null, msg);
+    }
   }
+
 
   const { hit, held, scores, topCategory, topScore } = decide(results);
 
@@ -349,6 +421,32 @@ Deno.serve(async (req) => {
   // Below the action threshold but above the hold band. The row stays
   // 'pending', so RLS keeps it invisible to everyone but its author, and it
   // lands in admin_moderation_queue for a human call. No strike is applied.
+  if (!hit && !held && imageUnverified) {
+    await admin.from("moderation_events").insert({
+      user_id: userId, surface, content_id: body.contentId ?? null,
+      action: "hold", severity: "soft",
+      top_category: "image_unverified", top_score: null, scores,
+      excerpt: `Text clean, image could not be fetched: ${imageUrl}`.slice(0, 500),
+    });
+    return json({
+      status: "held",
+      reason: "We couldn't load your photo, so this is being reviewed before it goes live. Re-uploading the image usually fixes it.",
+    });
+  }
+
+  if (!hit && held && surface === "profile") {
+    await admin.from("moderation_events").insert({
+      user_id: userId, surface, content_id: null,
+      action: "hold", severity: held.rule.severity,
+      top_category: held.category, top_score: held.score, scores,
+      excerpt: `Proposed display name held: ${proposedName}`.slice(0, 500),
+    });
+    return json({
+      status: "held",
+      reason: "Your new display name is being reviewed. Your current name stays visible until then.",
+    });
+  }
+
   if (!hit && held) {
     await admin.from("moderation_events").insert({
       user_id: userId,
@@ -375,6 +473,13 @@ Deno.serve(async (req) => {
         .update({ moderation_status: "approved", moderated_at: new Date().toISOString() })
         .eq("id", body.contentId);
     }
+    if (surface === "profile" && proposedName) {
+      // Service role, so guard_display_name lets this through.
+      await admin
+        .from("users")
+        .update({ name: proposedName, pending_name: null, name_status: "approved" })
+        .eq("id", userId);
+    }
     await admin.from("moderation_events").insert({
       user_id: userId,
       surface,
@@ -396,8 +501,8 @@ Deno.serve(async (req) => {
   // Preserve evidence for hard violations rather than deleting it. A
   // sexual/minors hit carries a US reporting obligation under 18 USC 2258A.
   // External URLs cannot be captured — the logged URL is all there is.
-  if (rule.severity === "hard" && imageUrl) {
-    const objectPath = ownObjectPath(imageUrl);
+  for (const u of (rule.severity === "hard" ? imageUrls : [])) {
+    const objectPath = ownObjectPath(u);
     if (objectPath) {
       try {
         const { data: file } = await admin.storage.from(PUBLIC_IMAGE_BUCKET).download(objectPath);
@@ -420,6 +525,13 @@ Deno.serve(async (req) => {
       .from(config.table)
       .update({ moderation_status: "rejected", moderated_at: new Date().toISOString() })
       .eq("id", body.contentId);
+  }
+  if (surface === "profile") {
+    // Drop the proposed name; the approved one on `name` is untouched.
+    await admin
+      .from("users")
+      .update({ pending_name: null, name_status: "rejected" })
+      .eq("id", userId);
   }
 
   const priorStrikes = userRow?.moderation_strikes ?? 0;
