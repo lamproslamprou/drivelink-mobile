@@ -3,7 +3,6 @@ import { supabase } from "./supabase.js";
 import logoIcon from "./assets/logo-icon.png";
 
 export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn }) {
-  const [email, setEmail] = useState("");
   const handleCta = signedIn ? onBrowse : onSignIn;
 
   return (
@@ -29,22 +28,31 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn }) {
         <div style={styles.heroBannerWrap} className="dl-hero-banner-wrap">
           <div style={styles.heroBanner} className="dl-hero-banner">
             <span style={styles.heroBannerDot} />
-            Nationwide&nbsp;&nbsp;•&nbsp;&nbsp;Peer-to-peer&nbsp;&nbsp;•&nbsp;&nbsp;Commission-backed
+            Nationwide&nbsp;&nbsp;•&nbsp;&nbsp;Escrow protected&nbsp;&nbsp;•&nbsp;&nbsp;Peer-to-peer
           </div>
         </div>
         <div style={styles.heroInner}>
           <h1 style={styles.heroTitle} className="dl-hero-title">
-            Buy & sell cars directly.<br />
-            <span style={styles.heroAccent}>Share listings. Earn cash.</span>
+            Buy &amp; sell cars directly.<br />
+            <span style={styles.heroAccent}>Get paid like a dealership.</span>
           </h1>
           <p style={styles.heroSub} className="dl-hero-sub">
-            DriveLink connects car buyers and sellers directly — no dealerships, no middlemen.
-            Share any listing with your network and earn <b style={{ color: "#60a5fa" }}>1% of the sale price</b> when it sells.
+            Every car on DriveLink closes through escrow — the buyer's money is held until the keys
+            and title change hands. Browse what's listed, list your own, or share a car and earn{" "}
+            <b style={{ color: "#60a5fa" }}>1% of the sale price</b>.
           </p>
           <div style={styles.heroActions} className="dl-hero-actions">
             <button style={styles.ctaPrimary} onClick={onBrowse}>Browse Cars →</button>
             <button style={styles.ctaSecondary} onClick={handleCta}>List My Car</button>
           </div>
+
+          <div style={styles.trustStrip} className="dl-trust-strip">
+            <span style={styles.trustItem}>🔒 Funds held by Stripe</span>
+            <span style={styles.trustItem}>🪪 ID verified</span>
+            <span style={styles.trustItem}>📄 Bill of sale included</span>
+            <span style={styles.trustItem}>✅ No fee if the deal falls through</span>
+          </div>
+
           <div style={styles.heroStats} className="dl-hero-stats">
             <div style={styles.heroStat}>
               <span style={styles.heroStatNum}>1%</span>
@@ -67,20 +75,104 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn }) {
         </div>
       </section>
 
-      {/* HOW IT WORKS */}
+      {/* THE PROBLEM */}
+      <section style={{ ...styles.section, background: "#f8fafc", paddingTop: 64, paddingBottom: 64 }} className="dl-section">
+        <div style={styles.sectionInner}>
+          <div style={styles.sectionBadge}>Why escrow</div>
+          <h2 style={{ ...styles.sectionTitle, marginBottom: 32 }} className="dl-section-title">
+            Everything about a private sale is fine until the money moves.
+          </h2>
+          <div style={styles.problemGrid} className="dl-problem-grid">
+            <div style={styles.problemCard}>
+              <div style={styles.problemLabel}>The buyer's problem</div>
+              <p style={styles.problemText}>
+                You're about to send five figures to someone you met online, for a car you can't take
+                with you until the title clears. If they vanish, you have a text thread and a name
+                that might not be real.
+              </p>
+            </div>
+            <div style={styles.problemCard}>
+              <div style={styles.problemLabel}>The seller's problem</div>
+              <p style={styles.problemText}>
+                The cashier's check looks perfect. Cashier's checks always look perfect. You find out
+                in ten days whether it was — and by then the car is in another state.
+              </p>
+            </div>
+            <div style={styles.problemCard}>
+              <div style={styles.problemLabel}>Both of your problem</div>
+              <p style={styles.problemText}>
+                Neither of you knows how to sign over a title. Neither of you has a bill of sale.
+                So the deal drags, one of you gets nervous, and it dies.
+              </p>
+            </div>
+          </div>
+          <p style={styles.problemClose}>This is the part nobody built for. So we did.</p>
+        </div>
+      </section>
+
+      {/* HOW ESCROW WORKS */}
       <section style={styles.section} className="dl-section">
+        <div style={styles.sectionInner}>
+          <div style={styles.sectionBadge}>How escrow works</div>
+          <h2 style={{ ...styles.sectionTitle, marginBottom: 32 }} className="dl-section-title">
+            Four steps. About ten minutes of actual work.
+          </h2>
+          <div style={styles.escrowSteps} className="dl-escrow-steps">
+            <div style={styles.escrowStep}>
+              <div style={styles.escrowNum}>01</div>
+              <h4 style={styles.escrowTitle}>Agree on the car</h4>
+              <p style={styles.escrowDesc}>
+                Buyer finds a listing, messages the seller, and the two of you settle on a price
+                through offers right on the listing page.
+              </p>
+            </div>
+            <div style={styles.escrowStep}>
+              <div style={styles.escrowNum}>02</div>
+              <h4 style={styles.escrowTitle}>Both sides verify</h4>
+              <p style={styles.escrowDesc}>
+                Government ID check on both parties through Stripe Identity. You find out who you're
+                dealing with before any money moves.
+              </p>
+            </div>
+            <div style={styles.escrowStep}>
+              <div style={styles.escrowNum}>03</div>
+              <h4 style={styles.escrowTitle}>Buyer funds escrow</h4>
+              <p style={styles.escrowDesc}>
+                The money goes to a secured Stripe account — not to the seller, not yet. The seller
+                can see it's there and hand over the car with confidence.
+              </p>
+            </div>
+            <div style={styles.escrowStep}>
+              <div style={styles.escrowNum}>04</div>
+              <h4 style={styles.escrowTitle}>Keys change hands, funds release</h4>
+              <p style={styles.escrowDesc}>
+                The buyer confirms they have the car and signed title. Funds transfer to the seller,
+                usually same day. We generate the bill of sale for both of you.
+              </p>
+            </div>
+          </div>
+          <div style={styles.feeNote}>
+            <b>1% platform fee</b>, seller side, on a completed sale — 2% max if a promoter referral
+            brought the buyer. If the deal falls apart before release, the buyer's funds return and
+            nobody is charged.
+          </div>
+        </div>
+      </section>
+
+      {/* HOW IT WORKS — ROLES */}
+      <section style={{ ...styles.section, background: "#f8fafc" }} className="dl-section">
         <div style={styles.sectionInner}>
           <div style={styles.sectionBadge}>How it works</div>
           <h2 style={styles.sectionTitle} className="dl-section-title">Three ways to use DriveLink</h2>
           <div style={styles.cards} className="dl-cards">
 
-            <div style={styles.roleCard}>
+            <div style={{ ...styles.roleCard, background: "#fff" }}>
               <div style={styles.roleEmoji}>🚗</div>
               <h3 style={styles.roleTitle}>Sellers</h3>
-              <p style={styles.roleDesc}>List your car for free in minutes. Upload photos, set your price, and let our network of promoters share it for you. Pay a 1% platform fee when it sells — plus 1% more if the buyer came through a promoter's shared link.</p>
+              <p style={styles.roleDesc}>List your car for free in minutes. Upload photos, set your price, and let our network of promoters share it for you. The buyer's money sits in escrow before you hand over anything — so you're never deciding whether to trust a piece of paper in a parking lot.</p>
               <ul style={styles.roleList}>
                 <li>✅ Free to list</li>
-                <li>✅ Real buyers, no tire kickers</li>
+                <li>✅ Buyer's funds verified before handover</li>
                 <li>✅ 1% fee, 2% max if referred</li>
               </ul>
               <button style={styles.roleBtn} onClick={handleCta}>List My Car →</button>
@@ -100,14 +192,14 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn }) {
               <button style={{ ...styles.roleBtn, background: "#3b82f6" }} onClick={handleCta}>Start Earning →</button>
             </div>
 
-            <div style={styles.roleCard}>
+            <div style={{ ...styles.roleCard, background: "#fff" }}>
               <div style={styles.roleEmoji}>🛒</div>
               <h3 style={styles.roleTitle}>Buyers</h3>
-              <p style={styles.roleDesc}>Browse thousands of cars listed directly by their owners. No dealer markups, no pressure. Pay the price you see — nothing more.</p>
+              <p style={styles.roleDesc}>Browse cars listed directly by their owners. No dealer markups, no pressure. Your payment is held in escrow until you confirm you have the car and the title in your hands.</p>
               <ul style={styles.roleList}>
                 <li>✅ Direct from owners</li>
-                <li>✅ No hidden fees</li>
-                <li>✅ Secure checkout</li>
+                <li>✅ Money held until you have the keys</li>
+                <li>✅ Seller ID verified</li>
               </ul>
               <button style={styles.roleBtn} onClick={onBrowse}>Browse Cars →</button>
             </div>
@@ -131,7 +223,7 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn }) {
             <div style={styles.step}>
               <div style={styles.stepNum}>2</div>
               <h4 style={styles.stepTitle}>Share your link</h4>
-              <p style={styles.stepDesc}>Click "Share & Earn 1%" to get your unique referral code. Share it anywhere.</p>
+              <p style={styles.stepDesc}>Click "Share &amp; Earn 1%" to get your unique referral code. Share it anywhere.</p>
             </div>
             <div style={styles.stepArrow} className="dl-step-arrow">→</div>
             <div style={styles.step}>
@@ -143,6 +235,20 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn }) {
           <div style={styles.exampleBox}>
             <b>Example:</b> A $30,000 Honda CR-V sells through your referral → You earn <span style={{ color: "#16a34a", fontWeight: 800 }}>$300</span> automatically.
           </div>
+        </div>
+      </section>
+
+      {/* EVERY LISTING */}
+      <section style={styles.assureBand} className="dl-section">
+        <div style={styles.assureInner}>
+          <div style={styles.assureBadge}>On every listing</div>
+          <h2 style={styles.assureTitle} className="dl-assure-title">You don't have to ask whether it's the safe kind of deal.</h2>
+          <p style={styles.assureText}>
+            There's no premium tier and nothing to opt into. Every car on DriveLink closes the same
+            way — escrow, verified IDs on both sides, and a bill of sale generated for you. That's
+            the only way to buy or sell here.
+          </p>
+          <button style={styles.assureBtn} onClick={onBrowse}>Browse cars →</button>
         </div>
       </section>
 
@@ -168,7 +274,7 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn }) {
             <img src={logoIcon} alt="DriveLink" style={{ height: 26, width: "auto" }} />
             <span style={{ fontWeight: 800, color: "#0f172a" }}>DriveLink</span>
           </div>
-          <p style={styles.footerText}>Peer-to-peer car marketplace. Buy, sell & earn.</p>
+          <p style={styles.footerText}>Peer-to-peer car marketplace with escrow on every deal.</p>
           <p style={styles.footerText}>© 2026 DriveLink. All rights reserved.</p>
           <div style={styles.footerLinks}>
             <button style={styles.footerLinkBtn} onClick={() => onNavigate?.("safety")}>🛡️ Safety Tips</button>
@@ -260,10 +366,12 @@ const styles = {
   heroTagline: { fontSize: 15, fontWeight: 700, color: "#3b82f6", marginBottom: 14, letterSpacing: "-0.01em" },
   heroTitle: { fontSize: 52, fontWeight: 800, color: "#0f172a", lineHeight: 1.1, letterSpacing: "-0.03em", marginBottom: 20 },
   heroAccent: { color: "#3b82f6" },
-  heroSub: { fontSize: 18, color: "#4b5563", lineHeight: 1.7, marginBottom: 32 },
-  heroActions: { display: "flex", gap: 12, marginBottom: 40, flexWrap: "wrap" },
+  heroSub: { fontSize: 18, color: "#4b5563", lineHeight: 1.7, marginBottom: 28 },
+  heroActions: { display: "flex", gap: 12, marginBottom: 24, flexWrap: "wrap" },
   ctaPrimary: { background: "#0f172a", color: "#fff", border: "none", padding: "14px 28px", borderRadius: 12, cursor: "pointer", fontSize: 16, fontWeight: 700 },
   ctaSecondary: { background: "none", border: "2px solid #e5e7eb", padding: "14px 28px", borderRadius: 12, cursor: "pointer", fontSize: 16, fontWeight: 700, color: "#374151" },
+  trustStrip: { display: "flex", flexWrap: "wrap", gap: "8px 18px", marginBottom: 32, paddingTop: 20, borderTop: "1px solid #e5e7eb" },
+  trustItem: { fontSize: 12.5, color: "#6b7280", fontWeight: 500, whiteSpace: "nowrap" },
   heroStats: { display: "flex", gap: 32, alignItems: "center" },
   heroStat: { display: "flex", flexDirection: "column", gap: 2 },
   heroStatNum: { fontSize: 28, fontWeight: 800, color: "#0f172a" },
@@ -275,6 +383,20 @@ const styles = {
   sectionInner: { maxWidth: 1200, margin: "0 auto" },
   sectionBadge: { display: "inline-block", background: "#eff6ff", color: "#1d4ed8", fontSize: 12, fontWeight: 600, padding: "5px 12px", borderRadius: 20, marginBottom: 16 },
   sectionTitle: { fontSize: 36, fontWeight: 800, color: "#0f172a", marginBottom: 48, letterSpacing: "-0.02em" },
+
+  problemGrid: { display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 24 },
+  problemCard: { background: "#fff", border: "1px solid #e5e7eb", borderRadius: 16, padding: 28 },
+  problemLabel: { fontSize: 13, fontWeight: 800, color: "#1d4ed8", marginBottom: 10, letterSpacing: "-0.01em" },
+  problemText: { fontSize: 14.5, color: "#4b5563", lineHeight: 1.7, margin: 0 },
+  problemClose: { textAlign: "center", fontSize: 19, fontWeight: 700, color: "#0f172a", marginTop: 36, marginBottom: 0, letterSpacing: "-0.02em" },
+
+  escrowSteps: { display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 20 },
+  escrowStep: { background: "#f8fafc", border: "1px solid #e5e7eb", borderRadius: 16, padding: 24 },
+  escrowNum: { fontSize: 13, fontWeight: 800, color: "#3b82f6", letterSpacing: ".08em", marginBottom: 10 },
+  escrowTitle: { fontSize: 16, fontWeight: 800, color: "#0f172a", marginBottom: 8, marginTop: 0, lineHeight: 1.3 },
+  escrowDesc: { fontSize: 14, color: "#4b5563", lineHeight: 1.65, margin: 0 },
+  feeNote: { marginTop: 28, background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: 12, padding: "16px 24px", fontSize: 14.5, color: "#374151", lineHeight: 1.65 },
+
   cards: { display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 24 },
   roleCard: { background: "#f8fafc", borderRadius: 20, padding: 32, border: "1px solid #e5e7eb", position: "relative" },
   roleCardFeatured: { background: "#0f172a", border: "none" },
@@ -291,6 +413,14 @@ const styles = {
   stepDesc: { fontSize: 14, color: "#4b5563", lineHeight: 1.6 },
   stepArrow: { fontSize: 24, color: "#9ca3af", textAlign: "center" },
   exampleBox: { background: "#fff", border: "2px solid #bbf7d0", borderRadius: 12, padding: "16px 24px", fontSize: 15, color: "#374151", textAlign: "center" },
+
+  assureBand: { background: "#0f172a", padding: "72px 24px" },
+  assureInner: { maxWidth: 760, margin: "0 auto", textAlign: "center" },
+  assureBadge: { display: "inline-block", background: "rgba(59,130,246,.15)", color: "#60a5fa", fontSize: 12, fontWeight: 700, padding: "5px 12px", borderRadius: 20, marginBottom: 16 },
+  assureTitle: { fontSize: 34, fontWeight: 800, color: "#fff", marginBottom: 16, letterSpacing: "-0.02em", lineHeight: 1.2 },
+  assureText: { fontSize: 16.5, color: "#94a3b8", lineHeight: 1.7, marginBottom: 28 },
+  assureBtn: { background: "#3b82f6", color: "#fff", border: "none", padding: "14px 30px", borderRadius: 12, cursor: "pointer", fontSize: 16, fontWeight: 700 },
+
   ctaSection: { background: "linear-gradient(135deg,#0f172a 0%,#1e3a5f 100%)", padding: "80px 24px", textAlign: "center" },
   ctaTitle: { fontSize: 40, fontWeight: 800, color: "#fff", marginBottom: 12, letterSpacing: "-0.02em" },
   ctaSub: { fontSize: 18, color: "#94a3b8", marginBottom: 32 },
@@ -298,7 +428,7 @@ const styles = {
   footerInner: { maxWidth: 1200, margin: "0 auto", display: "flex", flexDirection: "column", alignItems: "center", gap: 8 },
   footerLogo: { display: "flex", alignItems: "center", gap: 8, fontSize: 18, marginBottom: 4 },
   footerText: { fontSize: 13, color: "#6b7280" },
-  footerLinks: { display: "flex", gap: 10, alignItems: "center", marginTop: 8 },
+  footerLinks: { display: "flex", gap: 10, alignItems: "center", marginTop: 8, flexWrap: "wrap", justifyContent: "center" },
   footerLinkBtn: { background: "none", border: "none", cursor: "pointer", fontSize: 13, color: "#6b7280", padding: 0 },
   feedbackSection: { padding: "56px 24px", background: "#fff" },
   feedbackBox: { maxWidth: 640, margin: "0 auto", background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: 20, padding: "36px 40px", textAlign: "center" },
@@ -328,17 +458,24 @@ const css = `
     .dl-hero-banner, .dl-hero-banner span { animation: none; }
   }
 
+  @media (max-width: 1100px) {
+    .dl-escrow-steps { grid-template-columns: repeat(2, 1fr) !important; }
+  }
+
   @media (max-width: 900px) {
     .dl-hero { grid-template-columns: 1fr !important; padding: 40px 20px 32px !important; gap: 28px !important; text-align: center; }
     .dl-hero-image { order: -1; }
     .dl-hero-image img { height: 220px !important; }
     .dl-cards { grid-template-columns: 1fr !important; }
+    .dl-problem-grid { grid-template-columns: 1fr !important; }
     .dl-steps { grid-template-columns: 1fr !important; gap: 12px !important; }
     .dl-step-arrow { transform: rotate(90deg); padding: 4px 0; }
     .dl-section { padding: 48px 20px !important; }
     .dl-section-title { font-size: 26px !important; margin-bottom: 28px !important; }
     .dl-hero-title { font-size: 38px !important; }
     .dl-hero-actions { justify-content: center !important; }
+    .dl-trust-strip { justify-content: center !important; }
+    .dl-assure-title { font-size: 26px !important; }
   }
 
   @media (max-width: 900px) and (min-width: 481px) {
@@ -355,6 +492,8 @@ const css = `
     .dl-hero-actions { flex-direction: column !important; }
     .dl-hero-actions button { width: 100% !important; }
     .dl-hero-stats { gap: 16px !important; flex-wrap: wrap !important; justify-content: center !important; }
+    .dl-escrow-steps { grid-template-columns: 1fr !important; }
+    .dl-trust-strip { flex-direction: column !important; align-items: center !important; gap: 6px !important; }
     .dl-cta-title { font-size: 28px !important; }
   }
 `;
