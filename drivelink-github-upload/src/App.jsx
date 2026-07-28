@@ -721,20 +721,44 @@ const denyFlaggedReferral = async (refId) => {
     showToast("Thanks for the review!");
   };
 
-  // ── Admin removes a user's account entirely — deletes their Supabase Auth
-  // login (they can no longer sign in) and their users table row. Does NOT
-  // touch their historical listings/offers/messages/etc — see delete-user's
-  // own comments for why. Meant for cleaning up test accounts; for real
-  // accounts with transaction history, think twice before using this.
-  const deleteUser = async (userId, userName) => {
-    if (!window.confirm(`Delete ${userName}'s account? They will no longer be able to sign in. This can't be undone.`)) return;
-    const { data, error } = await supabase.functions.invoke("delete-user", { body: { user_id: userId } });
+  // ── Admin removes a user's account. Two modes:
+  //
+  //   anonymize (default) — scrubs their name, email, phone and address,
+  //     deletes their listings and messages, but KEEPS the users row so
+  //     orders, transactions, payouts, referrals and ad placements still
+  //     resolve to something. The row shows as "[deleted]" in this list.
+  //     Correct for anyone with real transaction history.
+  //
+  //   purge — removes the users row entirely, so nothing is left behind.
+  //     Fails loudly rather than half-completing if anything still
+  //     references them. For test and junk accounts.
+  //
+  // Both delete the Supabase Auth login, so they can no longer sign in.
+  const deleteUser = async (userId, userName, mode = "anonymize") => {
+    const warning = mode === "purge"
+      ? `PERMANENTLY remove ${userName} and all their data?\n\nThis deletes the account row itself along with their listings. Use this only for test or junk accounts — if they have any transaction history, cancel and use Delete Account instead.`
+      : `Delete ${userName}'s account? They will no longer be able to sign in, and their personal details will be scrubbed. A "[deleted]" placeholder row remains so past transactions still resolve.`;
+    if (!window.confirm(warning)) return;
+
+    const { data, error } = await supabase.functions.invoke("delete-user", {
+      body: { user_id: userId, mode },
+    });
+
     if (error || data?.error) {
-      showToast(data?.error || error?.message || "Couldn't delete user — try again.", "error");
+      // The function returns 409 with an `events` list when a purge would
+      // destroy moderation evidence. Surface that rather than swallowing it.
+      let detail = data?.error || error?.message;
+      if (!detail && error?.context) {
+        try { detail = (await error.context.json())?.reason; } catch { /* ignore */ }
+      }
+      showToast(detail || "Couldn't delete user — try again.", "error");
       return;
     }
+
     await loadData();
-    showToast(`${userName}'s account has been deleted.`);
+    showToast(mode === "purge"
+      ? `${userName} has been permanently removed.`
+      : `${userName}'s account has been deleted.`);
   };
 
   // ── Admin records that a promoter's balance was paid out via an external method
@@ -3129,7 +3153,14 @@ function AdminView({ listings, users, referrals, reports, feedback, userReports,
               <button style={u.verified ? styles.removeBtn : styles.pendingBtn} onClick={() => onToggleVerified(u.id, !u.verified)}>
                 {u.verified ? "Unverify" : "Verify Seller"}
               </button>
-              <button style={styles.removeBtn} onClick={() => onDeleteUser(u.id, u.name)}>Delete Account</button>
+              <button style={styles.removeBtn} onClick={() => onDeleteUser(u.id, u.name, "anonymize")}>Delete Account</button>
+              <button
+                style={{ ...styles.removeBtn, background: "#7f1d1d", color: "#fff" }}
+                title="Permanently remove the account row and all their data. Test/junk accounts only."
+                onClick={() => onDeleteUser(u.id, u.name, "purge")}
+              >
+                Purge
+              </button>
             </div>
             );
           })}

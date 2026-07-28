@@ -216,6 +216,45 @@ function normalize(text: string): string {
   return t.replace(/\s+/g, " ").trim();
 }
 
+// ---------------------------------------------------------------------------
+// Profanity list.
+//
+// The classifier scores HARM (hate, threats, sexual, violence). It has no
+// profanity category at all, so "Jesus Fucking Christ" as a display name
+// scores clean on every axis and gets approved. That is correct behaviour for
+// the model and wrong for a marketplace.
+//
+// Division of labour: the classifier catches slurs and threats, this list
+// catches obscenity. Applied to the surfaces in PROFANITY_SURFACES only —
+// listing copy tolerates the odd swear word, a display name shown next to
+// every listing does not.
+// ---------------------------------------------------------------------------
+const PROFANITY_SURFACES = ["profile"];
+
+const PROFANITY = [
+  "fuck", "shit", "cunt", "bitch", "bastard", "asshole", "arsehole",
+  "pussy", "twat", "wank", "bollocks", "prick",
+  // "dick" and "cock" are deliberately absent: Dick is a given name and Cock
+  // is a surname. On a display-name filter that false positive is worse than
+  // the miss.
+  "slut", "whore", "piss", "crap", "damn", "goddamn", "jerkoff",
+  "motherfucker", "bullshit", "dumbass", "jackass", "douche",
+];
+
+const PROFANITY_RE = new RegExp(
+  `\\b(${PROFANITY.join("|")})(s|es|ed|ing|er|ers)?\\b`,
+  "i",
+);
+
+/** Returns the matched word, or null. Checks normalized text so l33t is caught. */
+function findProfanity(text: string): string | null {
+  for (const candidate of [text, normalize(text)]) {
+    const m = candidate.match(PROFANITY_RE);
+    if (m) return m[1];
+  }
+  return null;
+}
+
 /** Object path inside car-images, or null if the URL is external. */
 function ownObjectPath(url: string): string | null {
   const i = url.indexOf(PUBLIC_PREFIX);
@@ -387,6 +426,33 @@ Deno.serve(async (req) => {
         .eq("id", body.contentId);
     }
     return json({ status: "approved" });
+  }
+
+  // --- profanity (deterministic, before the classifier) --------------------
+  if (PROFANITY_SURFACES.includes(surface)) {
+    const word = findProfanity(excerpt);
+    if (word) {
+      if (surface === "profile") {
+        await admin
+          .from("users")
+          .update({ pending_name: null, name_status: "rejected" })
+          .eq("id", userId);
+      }
+      await admin.from("moderation_events").insert({
+        user_id: userId,
+        surface,
+        content_id: body.contentId ?? null,
+        action: "reject",
+        severity: "soft",
+        top_category: "profanity",
+        excerpt: excerpt.slice(0, 500),
+      });
+      return json({
+        status: "rejected",
+        category: "profanity",
+        reason: "Display names can't contain profanity. Please choose another.",
+      });
+    }
   }
 
   // --- classify (fail closed) ----------------------------------------------
