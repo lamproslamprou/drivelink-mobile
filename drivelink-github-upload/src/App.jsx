@@ -1737,6 +1737,9 @@ function ListingDetailModal({ data, currentUser, isFavorited, isBlocked, onClose
 
   const images = (listing.images && listing.images.length ? listing.images : [listing.image]).filter(Boolean);
   const isOwnListing = currentUser && listing.seller_id === currentUser.id;
+  // Treat an unknown/missing seller record as "fine" so this can never hide
+  // checkout on a legitimate listing — only an explicit false gates it.
+  const payoutsReady = seller?.stripe_payouts_enabled !== false;
 
   const handleShare = async () => {
     const code = await onShare(listing.id);
@@ -1788,6 +1791,28 @@ function ListingDetailModal({ data, currentUser, isFavorited, isBlocked, onClose
           </div>
           <div style={{ fontSize: 26, fontWeight: 800, color: "#0f172a", margin: "6px 0 14px" }}>{fmt(listing.price)}</div>
 
+          {/* Escrow reassurance, shown right where the money question forms.
+              Only shows the "pending" variant when we positively know payouts
+              are off — an unknown seller record behaves as before. */}
+          {payoutsReady ? (
+            <div style={styles.escrowBox}>
+              <div style={styles.escrowBoxTitle}>🔒 Escrow protected</div>
+              <div style={styles.escrowBoxText}>
+                Your payment is held securely — it isn't released to the seller until you confirm you
+                have the car and the signed title. Both sides are ID verified, and we generate the
+                bill of sale for you.
+              </div>
+            </div>
+          ) : (
+            <div style={styles.escrowBoxPending}>
+              <div style={styles.escrowBoxTitle}>⏳ Checkout not available yet</div>
+              <div style={styles.escrowBoxText}>
+                This seller hasn't finished payout setup with our payments partner. You can still
+                message them and make an offer — checkout opens once they're set up.
+              </div>
+            </div>
+          )}
+
           <div style={styles.cardMeta}>
             <span>🛣 {listing.mileage?.toLocaleString()} mi</span>
             <span>🎨 {listing.color}</span>
@@ -1806,7 +1831,7 @@ function ListingDetailModal({ data, currentUser, isFavorited, isBlocked, onClose
           {myRef && <div style={styles.refTag}>{myRef.status === "paid" ? `✅ Commission paid: ${fmt(myRef.commission_amount)}` : "🔗 Your Scout link is live — you'll earn 1% if this sells through it"}</div>}
 
           <div style={styles.cardActions}>
-            {currentUser && !isOwnListing && <button style={styles.buyBtn} onClick={() => onBuy(listing)}>💳 Buy Now</button>}
+            {currentUser && !isOwnListing && payoutsReady && <button style={styles.buyBtn} onClick={() => onBuy(listing)}>💳 Buy Now</button>}
             {currentUser && !isOwnListing && (
               <button style={{ ...styles.shareBtn, background: copied ? "#16a34a" : "#1d4ed8" }} onClick={handleShare}>
                 {copied ? "✓ Link copied!" : myRef ? "Share Again" : "Share & Earn 1%"}
@@ -1840,7 +1865,9 @@ function ListingDetailModal({ data, currentUser, isFavorited, isBlocked, onClose
                 {myOffer.status === "accepted" && (
                   <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                     <span>✅ Offer accepted!</span>
-                    <button style={styles.buyBtn} onClick={() => onBuy(listing)}>Complete Purchase — {fmt(myOffer.amount)}</button>
+                    {payoutsReady
+                      ? <button style={styles.buyBtn} onClick={() => onBuy(listing)}>Complete Purchase — {fmt(myOffer.amount)}</button>
+                      : <span style={{ fontSize: 12, color: "#b45309" }}>Waiting on the seller to finish payout setup before you can pay.</span>}
                   </div>
                 )}
               </div>
@@ -3638,6 +3665,10 @@ const styles = {
   vinRow: { fontSize: 12, color: "#6b7280", marginBottom: 12 },
   vinLink: { color: "#1d4ed8", fontWeight: 600, textDecoration: "none" },
   refTag: { background: "#eff6ff", color: "#1d4ed8", fontSize: 12, fontWeight: 600, padding: "6px 10px", borderRadius: 8, marginBottom: 12 },
+  escrowBox: { background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 10, padding: "10px 14px", marginBottom: 14 },
+  escrowBoxPending: { background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 10, padding: "10px 14px", marginBottom: 14 },
+  escrowBoxTitle: { fontSize: 13, fontWeight: 800, color: "#0f172a", marginBottom: 4 },
+  escrowBoxText: { fontSize: 12.5, color: "#4b5563", lineHeight: 1.55 },
   cardActions: { display: "flex", gap: 10 },
   cardSecondaryActions: { display: "flex", gap: 16, marginTop: 12, justifyContent: "center" },
   messageLink: { background: "none", border: "none", color: "#4b5563", fontSize: 12, fontWeight: 600, cursor: "pointer" },
