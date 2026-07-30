@@ -6,6 +6,7 @@ import ImageUpload from "./ImageUpload.jsx";
 import Messages from "./Messages.jsx";
 import ListingsMap, { geocode } from "./ListingsMap.jsx";
 import logoIcon from "./assets/logo-icon.png";
+import { StartDealView, JoinDealView } from "./DealViews.jsx";
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 
 const fmt = (n) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n);
@@ -145,6 +146,11 @@ export default function App() {
   const [returnToAdvertise, setReturnToAdvertise] = useState(false);
   const [viewingListing, setViewingListing] = useState(null); // { listing, seller, myRef, sellerRating, sellerReviewCount, myOffer }
   const [path, setPath] = usePath();
+  // Bring-your-own-deal invite links: /d/:token. Kept separate from the main
+  // route-resolution effect below because that one waits on `loading`, and the
+  // join page fetches its own data through the accept-deal-invite function —
+  // it must render for a signed-out stranger before any listings arrive.
+  const [dealToken, setDealToken] = useState(null);
 
   // ── Nav bar horizontal scrolling. It has overflow-x:auto for touch/trackpad,
   // but a plain vertical mouse wheel and click-drag don't scroll horizontal
@@ -879,7 +885,9 @@ const denyFlaggedReferral = async (refId) => {
   // user balances to 0. Never deletes user accounts themselves (would break auth).
   const resetTestData = async (options) => {
     const { activeListings: wipeActive, soldListings: wipeSold, archivedListings: wipeArchived, referrals: wipeReferrals, messages: wipeMessages, reports: wipeReports, savedSearchesFlag, feedbackFlag, resetBalances } = options;
-    if (wipeActive) await supabase.from("listings").delete().eq("status", "active");
+    // is_private guard: a live bring-your-own-deal may have a buyer's money in
+    // escrow against it. Test-data wipes must never reach one.
+    if (wipeActive) await supabase.from("listings").delete().eq("status", "active").eq("is_private", false);
     if (wipeSold) await supabase.from("listings").delete().eq("status", "sold");
     if (wipeArchived) await supabase.from("listings").delete().eq("status", "archived");
     if (wipeReferrals) await supabase.from("referrals").delete().not("id", "is", null);
@@ -968,8 +976,43 @@ const denyFlaggedReferral = async (refId) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [path, loading, listings, referrals, users, reviews, offers, currentUser]);
 
-  const activeListings = listings.filter(l => l.status === "active" && !blocks.some(b => b.blocked_id === l.seller_id));
+  useEffect(() => {
+    const m = path.match(/^\/d\/([^/?#]+)\/?$/);
+    setDealToken(m ? decodeURIComponent(m[1]) : null);
+  }, [path]);
+
+  // `!l.is_private` keeps bring-your-own-deal listings out of the public grid.
+  // RLS already hides them from everyone else; this hides them from the two
+  // parties, who would otherwise see their own private deal while browsing.
+  const activeListings = listings.filter(l => l.status === "active" && !l.is_private && !blocks.some(b => b.blocked_id === l.seller_id));
   const archivedListings = listings.filter(l => l.status === "archived");
+
+  // Invite links render before the auth/data gate: the recipient is usually a
+  // stranger who has never signed in, and the page has to show them the car
+  // before asking for an account.
+  if (dealToken) return (
+    <JoinDealView
+      token={dealToken}
+      currentUser={currentUser}
+      showToast={showToast}
+      onNavigate={(v) => { navigate("/"); setView(v); }}
+      onJoined={async (listingId) => {
+        // loadData() first, or the /listing/:id route resolver will not find
+        // the new row in state and will bounce to home.
+        await loadData();
+        navigate(`/listing/${listingId}`);
+      }}
+    />
+  );
+
+  if (view === "startDeal") return (
+    <StartDealView
+      currentUser={currentUser}
+      showToast={showToast}
+      onBack={() => { navigate("/"); setView("home"); }}
+      onNavigate={setView}
+    />
+  );
 
   if (!authChecked || loading) return (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", flexDirection: "column", gap: 16, fontFamily: "Inter, sans-serif" }}>
@@ -1041,6 +1084,7 @@ const denyFlaggedReferral = async (refId) => {
             {currentUser && <NavBtn active={view === "myPurchases"} onClick={() => setView("myPurchases")}>My Purchases</NavBtn>}
             {currentUser && <NavBtn active={view === "myOffers"} onClick={() => setView("myOffers")}>💰 My Offers</NavBtn>}
             {currentUser && <NavBtn active={view === "postListing"} onClick={() => setView("postListing")}>+ Post Car</NavBtn>}
+            {currentUser && <NavBtn active={view === "startDeal"} onClick={() => setView("startDeal")}>🔒 Secure a Deal</NavBtn>}
             {currentUser && <NavBtn active={view === "messages"} onClick={() => setView("messages")}>Messages</NavBtn>}
             {currentUser && <NavBtn active={view === "savedSearches"} onClick={() => setView("savedSearches")}>Saved Searches</NavBtn>}
             {currentUser && <NavBtn active={view === "favorites"} onClick={() => setView("favorites")}>❤️ Saved Cars</NavBtn>}

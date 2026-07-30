@@ -1,66 +1,157 @@
 // POST /payout-promoter
-// Admin-only, gated by the same users.role = 'admin' check the frontend uses
-// for the Admin tab — one source of truth for who's an admin. Replaces the
-// "record it happened externally" flow in recordPayout() with a real Stripe
-// transfer when the promoter has a connected account set up (same Connect
-// account type as sellers — a user can be both). Falls back gracefully: if
-// the promoter hasn't set up payouts yet, the frontend keeps using the old
-// manual/external recording path instead of calling this function.
+//
+// Admin-only, gated by a fresh users.role = 'admin' read — one source of
+// truth for who's an admin. Sends a real Stripe transfer to a promoter's
+// connected account. Falls back gracefully: if the promoter hasn't set up
+// payouts, the frontend keeps using the manual record-payout path.
+//
+// ORDERING (this is the important part):
+//   1. debit the balance atomically  — fails safe if insufficient
+//   2. transfer via Stripe           — idempotent, cannot double-send
+//   3. record the payout row
+//   4. if 2 fails, credit the balance back
+//
+// The old order (check → transfer → insert → decrement) meant a failure
+// after the transfer left the promoter paid with their balance intact,
+// so they could be paid again. Debiting first inverts the failure mode:
+// the worst case is a debit with no transfer, which is visible in the
+// balance and correctable, rather than silent money loss.
 import { corsHeaders, jsonResponse, requireUser, stripeClient, supabaseAdmin } from "../_shared/helpers.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
+  const supabase = supabaseAdmin();
+
+  // Declared out here so the catch block can tell whether a rollback is owed.
+  let debited = false;
+  let promoterId: string | null = null;
+  let debitAmount = 0;
+
   try {
     const callerId = await requireUser(req);
-    const { user_id, amount, note } = await req.json();
-    if (!user_id || !amount || amount <= 0) throw new Error("user_id and a positive amount are required");
+    const { user_id, amount, note, idempotency_key } = await req.json();
 
-    const supabase = supabaseAdmin();
+    if (!user_id || amount == null || Number(amount) <= 0) {
+      return jsonResponse({ error: "user_id and a positive amount are required" }, 400);
+    }
+
     const stripe = stripeClient();
 
-    const { data: caller } = await supabase.from("users").select("role").eq("id", callerId).single();
-    if (caller?.role !== "admin") throw new Error("Not authorized to issue payouts");
+    // --- authorization: read the caller's role from the database, never
+    // --- from the request body or the JWT's claims.
+    const { data: caller } = await supabase
+      .from("users").select("role").eq("id", callerId).single();
+    if (caller?.role !== "admin") {
+      return jsonResponse({ error: "Not authorized to issue payouts" }, 403);
+    }
 
     const { data: promoter, error: promoterErr } = await supabase
       .from("users")
       .select("id, name, balance, stripe_account_id, stripe_payouts_enabled")
       .eq("id", user_id)
       .single();
-    if (promoterErr || !promoter) throw new Error("Promoter not found");
-    if (!promoter.stripe_payouts_enabled || !promoter.stripe_account_id) {
-      throw new Error("This promoter hasn't set up Stripe payouts — use the manual record-payout flow instead");
+    if (promoterErr || !promoter) {
+      return jsonResponse({ error: "Promoter not found" }, 404);
     }
-    if (amount > (promoter.balance || 0)) throw new Error("Amount exceeds promoter's tracked balance");
+    if (!promoter.stripe_payouts_enabled || !promoter.stripe_account_id) {
+      return jsonResponse({
+        error: "This promoter hasn't set up Stripe payouts — use the manual record-payout flow instead",
+      }, 409);
+    }
 
-    const amountCents = Math.round(Number(amount) * 100);
+    // --- 1. atomic debit -----------------------------------------------------
+    // Replaces read-then-compare. Two concurrent calls can't both succeed:
+    // the second sees the decremented balance and updates no rows.
+    const { data: newBalance, error: debitErr } = await supabase.rpc(
+      "debit_promoter_balance",
+      { p_user_id: promoter.id, p_amount: Number(amount) },
+    );
+
+    if (debitErr) {
+      return jsonResponse({ error: `Couldn't debit balance: ${debitErr.message}` }, 500);
+    }
+    if (newBalance === null) {
+      return jsonResponse({
+        error: `Amount exceeds ${promoter.name ?? "promoter"}'s tracked balance`,
+      }, 409);
+    }
+
+    debited = true;
+    promoterId = promoter.id;
+    debitAmount = Number(amount);
+
+    // --- 2. transfer ---------------------------------------------------------
+    // The idempotency key is what stops a double-click, a client retry, or a
+    // dropped response from sending the money twice. Stripe remembers keys for
+    // 24h and returns the ORIGINAL transfer instead of creating a second one.
+    //
+    // Default key is deterministic from the payout's contents, so a retry of
+    // the same payout is deduped. Consequence: two genuinely separate payouts
+    // of the same amount to the same promoter within 24h need a distinguishing
+    // note, or an explicit idempotency_key from the caller.
+    const key = idempotency_key ??
+      `promoter_payout_${promoter.id}_${amount}_${note ?? ""}`;
 
     const transfer = await stripe.transfers.create({
-      amount: amountCents,
+      amount: Math.round(Number(amount) * 100),
       currency: "usd",
       destination: promoter.stripe_account_id,
-      transfer_group: `promoter_payout_${promoter.id}_${Date.now()}`,
-    });
+      transfer_group: `promoter_payout_${promoter.id}`,
+      metadata: {
+        promoter_id: promoter.id,
+        issued_by: callerId,
+        note: note ?? "",
+      },
+    }, { idempotencyKey: key });
 
-    const row = {
+    // --- 3. record -----------------------------------------------------------
+    // The money is already gone at this point, so a failure here must NOT roll
+    // back the debit — the balance is correct, only the audit row is missing.
+    // Surface it loudly so it can be reconciled by hand.
+    const { error: insertErr } = await supabase.from("payouts").insert({
       id: "po" + Date.now(),
       user_id: promoter.id,
       amount,
       method: "Stripe",
       note: note || null,
       stripe_transfer_id: transfer.id,
-    };
-    const { error: insertErr } = await supabase.from("payouts").insert(row);
-    if (insertErr) throw new Error(`Transfer succeeded but failed to record payout row: ${insertErr.message}`);
+    });
 
-    await supabase
-      .from("users")
-      .update({ balance: (promoter.balance || 0) - amount })
-      .eq("id", promoter.id);
+    if (insertErr) {
+      console.error("PAYOUT RECORDED IN STRIPE BUT NOT IN DB", {
+        transfer: transfer.id, promoter: promoter.id, amount,
+      });
+      return jsonResponse({
+        error: `Transfer ${transfer.id} succeeded and the balance was debited, but the payout row failed to save: ${insertErr.message}. Record it manually.`,
+        transferId: transfer.id,
+        transferred: amount,
+      }, 500);
+    }
 
-    return jsonResponse({ transferred: amount, transferId: transfer.id });
+    return jsonResponse({
+      transferred: amount,
+      transferId: transfer.id,
+      remainingBalance: newBalance,
+    });
   } catch (err) {
+    // --- 4. roll back a debit whose transfer never landed --------------------
+    if (debited && promoterId) {
+      const { error: creditErr } = await supabase.rpc("credit_promoter_balance", {
+        p_user_id: promoterId,
+        p_amount: debitAmount,
+      });
+      if (creditErr) {
+        console.error("ROLLBACK FAILED — balance debited with no transfer", {
+          promoter: promoterId, amount: debitAmount, error: creditErr.message,
+        });
+      }
+    }
+
     console.error("payout-promoter error:", err);
-    return jsonResponse({ error: err instanceof Error ? err.message : "Unknown error" }, 500);
+    return jsonResponse(
+      { error: err instanceof Error ? err.message : "Unknown error" },
+      500,
+    );
   }
 });

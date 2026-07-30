@@ -19,7 +19,7 @@ Deno.serve(async (req) => {
 
     const { data: listing, error: listingErr } = await supabase
       .from("listings")
-      .select("id, make, model, year, price, seller_id, status")
+      .select("id, make, model, year, price, seller_id, status, is_private, buyer_id")
       .eq("id", listing_id)
       .single();
     if (listingErr || !listing) {
@@ -28,6 +28,17 @@ Deno.serve(async (req) => {
     }
     if (listing.status !== "active") throw new Error("This listing is no longer available");
     if (listing.seller_id === buyerId) throw new Error("You can't buy your own listing");
+
+    // ── Bring-your-own-deal listings are two-party only ──────────────────────
+    // buyer_id is set at join time by accept-deal-invite and is unwritable from
+    // the browser (guard_listings_settlement_columns). Listing IDs are
+    // l${Date.now()} and therefore guessable, so anyone else reaching this point
+    // is enumerating timestamps against a private escrow. RLS already hides the
+    // row from them, but this function runs with the service role key and would
+    // otherwise happily open a session on someone else's deal.
+    if (listing.is_private && listing.buyer_id !== buyerId) {
+      throw new Error("This deal isn't available");
+    }
 
     const { data: seller, error: sellerErr } = await supabase
       .from("users")
@@ -46,9 +57,17 @@ Deno.serve(async (req) => {
     // listing. Anything that doesn't verify is dropped and the sale is recorded
     // as organic — an unverifiable code should cost nobody a commission, and
     // should never let a buyer redirect one to an account of their choosing.
+    //
+    // Private deals are never Scout-attributed: nobody referred a car the two
+    // parties found themselves, and there is no listing page to share.
     let attributedCode: string | null = null;
 
-    if (typeof share_code === "string" && share_code.length > 0 && share_code.length <= 64) {
+    if (
+      !listing.is_private &&
+      typeof share_code === "string" &&
+      share_code.length > 0 &&
+      share_code.length <= 64
+    ) {
       const { data: ref, error: refErr } = await supabase
         .from("referrals")
         .select("id, promoter_id, share_code")
