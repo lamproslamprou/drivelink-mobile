@@ -132,6 +132,12 @@ Deno.serve(async (req) => {
       .from("listings")
       .select("id, seller_id, make, model, year, price, image, images, last_active_at")
       .eq("status", "active")
+      // Bring-your-own-deal listings are excluded. They are not marketplace
+      // inventory going stale — they are a live escrow between two people who
+      // already know each other, and there is no public listing to renew. A
+      // seller mid-deal getting "still for sale?" would be confusing at best,
+      // and the one-click "remove it" link would archive an escrow in progress.
+      .eq("is_private", false)
       .is("final_notice_sent_at", null)
       .not("last_active_at", "is", null)
       .lt("last_active_at", cutoff);

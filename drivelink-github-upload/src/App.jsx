@@ -1084,7 +1084,7 @@ const denyFlaggedReferral = async (refId) => {
             {currentUser && <NavBtn active={view === "myPurchases"} onClick={() => setView("myPurchases")}>My Purchases</NavBtn>}
             {currentUser && <NavBtn active={view === "myOffers"} onClick={() => setView("myOffers")}>💰 My Offers</NavBtn>}
             {currentUser && <NavBtn active={view === "postListing"} onClick={() => setView("postListing")}>+ Post Car</NavBtn>}
-            {currentUser && <NavBtn active={view === "startDeal"} onClick={() => setView("startDeal")}>🔒 Secure a Deal</NavBtn>}
+            <NavBtn active={view === "startDeal"} onClick={() => setView("startDeal")}>🔒 Secure a Deal</NavBtn>
             {currentUser && <NavBtn active={view === "messages"} onClick={() => setView("messages")}>Messages</NavBtn>}
             {currentUser && <NavBtn active={view === "savedSearches"} onClick={() => setView("savedSearches")}>Saved Searches</NavBtn>}
             {currentUser && <NavBtn active={view === "favorites"} onClick={() => setView("favorites")}>❤️ Saved Cars</NavBtn>}

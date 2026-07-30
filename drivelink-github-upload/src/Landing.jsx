@@ -4,6 +4,9 @@ import logoIcon from "./assets/logo-icon.png";
 
 export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn }) {
   const handleCta = signedIn ? onBrowse : onSignIn;
+  // Signed-out visitors go to auth first — StartDealView needs an account to
+  // attach the deal to. This is the one CTA that works with zero inventory.
+  const handleStartDeal = signedIn ? () => onNavigate?.("startDeal") : onSignIn;
 
   return (
     <div style={styles.page}>
@@ -17,6 +20,7 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn }) {
             <span style={styles.logoText}>DriveLink</span>
           </div>
           <div style={styles.navRight} className="dl-nav-right">
+            <button style={styles.byodNavBtn} onClick={handleStartDeal} className="dl-byod-nav">🔒 Secure a Deal</button>
             <button style={styles.browseBtn} onClick={onBrowse}>Browse Cars</button>
             <button style={styles.signInBtn} onClick={signedIn ? onBrowse : onSignIn}>{signedIn ? "Go to App →" : "Sign In"}</button>
           </div>
@@ -37,13 +41,15 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn }) {
             <span style={styles.heroAccent}>Get paid like a dealership.</span>
           </h1>
           <p style={styles.heroSub} className="dl-hero-sub">
-            Every car on DriveLink closes through escrow — the buyer's money is held until the keys
-            and title change hands. Browse what's listed, list your own, or share a car and earn{" "}
+            Every deal on DriveLink closes through escrow — the buyer's money is held until the keys
+            and title change hands. Browse what's listed, list your own, bring a car you found{" "}
+            <b>somewhere else</b>, or share a listing and earn{" "}
             <b style={{ color: "#60a5fa" }}>1% of the sale price</b>.
           </p>
           <div style={styles.heroActions} className="dl-hero-actions">
             <button style={styles.ctaPrimary} onClick={onBrowse}>Browse Cars →</button>
             <button style={styles.ctaSecondary} onClick={handleCta}>List My Car</button>
+            <button style={styles.ctaByod} onClick={handleStartDeal}>Already found a car?</button>
           </div>
 
           <div style={styles.trustStrip} className="dl-trust-strip">
@@ -110,6 +116,44 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn }) {
         </div>
       </section>
 
+      {/* BRING YOUR OWN DEAL */}
+      <section style={styles.byodBand} className="dl-section">
+        <div style={styles.byodInner}>
+          <div style={styles.byodBadge}>Bring your own deal</div>
+          <h2 style={styles.byodTitle} className="dl-byod-title">
+            Already found the car? You don't need our listings.
+          </h2>
+          <p style={styles.byodText}>
+            Found it on Facebook Marketplace, Craigslist, or through a friend of a friend? Start a
+            secure deal, send the other person a link, and DriveLink handles the money exactly the
+            same way — held until the keys and the signed title change hands. No listing to create,
+            nothing to browse, nobody to wait for.
+          </p>
+
+          <div style={styles.byodSplit} className="dl-byod-split">
+            <div style={styles.byodCol}>
+              <div style={styles.byodColLabel}>If you're buying</div>
+              <p style={styles.byodColText}>
+                Enter the car and the price you already agreed on. Send the link. Pay into escrow
+                instead of wiring five figures to someone you met online.
+              </p>
+            </div>
+            <div style={styles.byodCol}>
+              <div style={styles.byodColLabel}>If you're selling</div>
+              <p style={styles.byodColText}>
+                Send the link before you hand over anything. You'll see the buyer's money is real
+                and held — no cashier's check that clears in ten days, or doesn't.
+              </p>
+            </div>
+          </div>
+
+          <button style={styles.byodBtn} onClick={handleStartDeal}>Start a secure deal →</button>
+          <p style={styles.byodFine}>
+            Takes about two minutes. 1% seller fee on completion — nothing if the deal falls through.
+          </p>
+        </div>
+      </section>
+
       {/* HOW ESCROW WORKS */}
       <section style={styles.section} className="dl-section">
         <div style={styles.sectionInner}>
@@ -122,8 +166,8 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn }) {
               <div style={styles.escrowNum}>01</div>
               <h4 style={styles.escrowTitle}>Agree on the car</h4>
               <p style={styles.escrowDesc}>
-                Buyer finds a listing, messages the seller, and the two of you settle on a price
-                through offers right on the listing page.
+                Either the buyer finds a listing here and you settle on a price through offers, or
+                you already agreed on a car somewhere else and start a secure deal with a link.
               </p>
             </div>
             <div style={styles.escrowStep}>
@@ -260,6 +304,7 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn }) {
           <div style={{ ...styles.heroActions, justifyContent: "center" }} className="dl-hero-actions">
             <button style={styles.ctaPrimary} onClick={onBrowse}>Browse Cars →</button>
             <button style={{ ...styles.ctaSecondary, borderColor: "rgba(255,255,255,.3)", color: "#fff" }} onClick={handleCta}>Create Account</button>
+            <button style={styles.ctaByodDark} onClick={handleStartDeal}>Secure a deal I found →</button>
           </div>
         </div>
       </section>
@@ -414,6 +459,20 @@ const styles = {
   stepArrow: { fontSize: 24, color: "#9ca3af", textAlign: "center" },
   exampleBox: { background: "#fff", border: "2px solid #bbf7d0", borderRadius: 12, padding: "16px 24px", fontSize: 15, color: "#374151", textAlign: "center" },
 
+  byodNavBtn: { background: "#fffbeb", border: "1px solid #fde68a", padding: "8px 16px", borderRadius: 10, cursor: "pointer", fontSize: 14, fontWeight: 700, color: "#92400e" },
+  ctaByod: { background: "none", border: "2px dashed #FFB020", padding: "14px 24px", borderRadius: 12, cursor: "pointer", fontSize: 15, fontWeight: 700, color: "#92400e" },
+  ctaByodDark: { background: "#FFB020", border: "none", padding: "14px 28px", borderRadius: 12, cursor: "pointer", fontSize: 16, fontWeight: 700, color: "#0f172a" },
+  byodBand: { background: "#0f172a", padding: "76px 24px", borderTop: "1px dashed rgba(255,176,32,.4)", borderBottom: "1px dashed rgba(255,176,32,.4)" },
+  byodInner: { maxWidth: 820, margin: "0 auto", textAlign: "center" },
+  byodBadge: { display: "inline-block", background: "rgba(255,176,32,.15)", color: "#FFB020", fontSize: 12, fontWeight: 700, letterSpacing: ".04em", textTransform: "uppercase", padding: "5px 12px", borderRadius: 20, marginBottom: 18 },
+  byodTitle: { fontSize: 36, fontWeight: 800, color: "#fff", marginBottom: 18, letterSpacing: "-0.02em", lineHeight: 1.2 },
+  byodText: { fontSize: 16.5, color: "#94a3b8", lineHeight: 1.7, marginBottom: 36, maxWidth: 660, marginLeft: "auto", marginRight: "auto" },
+  byodSplit: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 36, textAlign: "left" },
+  byodCol: { background: "rgba(255,255,255,.04)", border: "1px solid rgba(255,255,255,.08)", borderRadius: 16, padding: "22px 24px" },
+  byodColLabel: { fontSize: 12, fontWeight: 700, letterSpacing: ".06em", textTransform: "uppercase", color: "#FFB020", marginBottom: 10 },
+  byodColText: { fontSize: 15, color: "#cbd5e1", lineHeight: 1.65, margin: 0 },
+  byodBtn: { background: "#FFB020", color: "#0f172a", border: "none", padding: "15px 32px", borderRadius: 12, cursor: "pointer", fontSize: 16, fontWeight: 800 },
+  byodFine: { fontSize: 13, color: "#64748b", marginTop: 16, marginBottom: 0 },
   assureBand: { background: "#0f172a", padding: "72px 24px" },
   assureInner: { maxWidth: 760, margin: "0 auto", textAlign: "center" },
   assureBadge: { display: "inline-block", background: "rgba(59,130,246,.15)", color: "#60a5fa", fontSize: 12, fontWeight: 700, padding: "5px 12px", borderRadius: 20, marginBottom: 16 },
@@ -444,6 +503,13 @@ const styles = {
 };
 
 const css = `
+  @media (max-width: 720px) {
+    .dl-byod-split { grid-template-columns: 1fr !important; }
+    .dl-byod-title { font-size: 27px !important; }
+  }
+  @media (max-width: 560px) {
+    .dl-byod-nav { display: none !important; }
+  }
   * { box-sizing: border-box; }
   img { max-width: 100%; }
   button:active { opacity: .85; }
