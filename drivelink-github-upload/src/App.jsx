@@ -2606,7 +2606,7 @@ function EditListingModal({ listing, onCancel, onSave }) {
   };
 
   const handleSave = async () => {
-    if (!form.make || !form.model || !form.price) return alert("Fill in at least make, model, and price.");
+    if (!form.make || !form.model || !form.price || !form.year) return alert("Fill in at least make, model, year, and price.");
     setSaving(true);
     await onSave({
       ...form,
@@ -2628,7 +2628,7 @@ function EditListingModal({ listing, onCancel, onSave }) {
         <div style={styles.formGrid} className="app-form-grid">
           <Field label="Make" value={form.make} onChange={v => set("make", v)} />
           <Field label="Model" value={form.model} onChange={v => set("model", v)} />
-          <Field label="Year" value={form.year} onChange={v => set("year", v)} type="number" />
+          <YearField value={form.year} onChange={v => set("year", v)} />
           <Field label="Price ($)" value={form.price} onChange={v => set("price", v)} type="number" />
           <Field label="Mileage" value={form.mileage} onChange={v => set("mileage", v)} type="number" />
           <Field label="Color" value={form.color} onChange={v => set("color", v)} />
@@ -2687,7 +2687,7 @@ function PostListingView({ onPost }) {
     }
   };
   const handleSubmit = async () => {
-    if (!form.make || !form.model || !form.price) return alert("Fill in at least make, model, and price.");
+    if (!form.make || !form.model || !form.price || !form.year) return alert("Fill in at least make, model, year, and price.");
     setSubmitting(true);
     await onPost({
       ...form,
@@ -2711,7 +2711,7 @@ function PostListingView({ onPost }) {
         <div style={styles.formGrid} className="app-form-grid">
           <Field label="Make" value={form.make} onChange={v => set("make", v)} placeholder="e.g. Toyota" />
           <Field label="Model" value={form.model} onChange={v => set("model", v)} placeholder="e.g. Camry" />
-          <Field label="Year" value={form.year} onChange={v => set("year", v)} type="number" />
+          <YearField value={form.year} onChange={v => set("year", v)} />
           <Field label="Price ($)" value={form.price} onChange={v => set("price", v)} type="number" placeholder="e.g. 25000" />
           <Field label="Mileage" value={form.mileage} onChange={v => set("mileage", v)} type="number" placeholder="e.g. 35000" />
           <Field label="Color" value={form.color} onChange={v => set("color", v)} placeholder="e.g. Pearl White" />
@@ -2945,6 +2945,34 @@ function Field({ label, value, onChange, placeholder, type = "text" }) {
     <div style={{ marginBottom: 16 }}>
       <label style={styles.fieldLabel}>{label}</label>
       <input style={styles.fieldInput} type={type} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} />
+    </div>
+  );
+}
+
+// Year is a fixed range rather than a free-text number input. Typing produced
+// real bad data — a listing stored as year 201, another as 20200000 — and the
+// listings.listings_year_valid check constraint now rejects those outright, so
+// an unconstrained input just turns a typo into a failed save. Range runs from
+// next year back to 1900 and rolls forward on its own.
+const YEAR_OPTIONS = (() => {
+  const max = new Date().getFullYear() + 1;
+  const out = [];
+  for (let y = max; y >= 1900; y--) out.push(y);
+  return out;
+})();
+
+function YearField({ value, onChange }) {
+  return (
+    <div style={{ marginBottom: 16 }}>
+      <label style={styles.fieldLabel}>Year</label>
+      <select
+        style={{ ...styles.fieldInput, appearance: "none", WebkitAppearance: "none", background: "#fff" }}
+        value={value ?? ""}
+        onChange={e => onChange(e.target.value)}
+      >
+        <option value="">Select year…</option>
+        {YEAR_OPTIONS.map(y => <option key={y} value={y}>{y}</option>)}
+      </select>
     </div>
   );
 }

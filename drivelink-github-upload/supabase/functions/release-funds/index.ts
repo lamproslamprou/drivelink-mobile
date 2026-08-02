@@ -35,22 +35,9 @@ Deno.serve(async (req) => {
       .single();
     if (listingErr || !listing) throw new Error("Listing not found");
 
-    // Identity diagnostic. Logs the exact values being compared, with lengths
-    // so whitespace and case differences are visible. Remove once the first
-    // successful release confirms the guard behaves.
-    console.log("release-funds identity check:", JSON.stringify({
-      requested_listing_id: listing_id,
-      resolved_listing_id: listing.id,
-      caller_id: callerId,
-      caller_len: callerId?.length,
-      buyer_id: listing.buyer_id,
-      buyer_len: listing.buyer_id?.length,
-      strict_equal: listing.buyer_id === callerId,
-      status: listing.status,
-    }));
-
     // Compare normalized. users.id is `text`, not `uuid`, so Postgres does not
-    // canonicalize these — stray whitespace or case survives storage.
+    // canonicalize these — stray whitespace or case survives storage and would
+    // make a strict !== reject the legitimate buyer.
     const buyerId = String(listing.buyer_id ?? "").trim().toLowerCase();
     const caller = String(callerId ?? "").trim().toLowerCase();
 
@@ -80,18 +67,15 @@ Deno.serve(async (req) => {
     // account with a rolling reserve — so releasing before then fails with
     // `balance_insufficient`. Naming the originating charge lets Stripe
     // transfer against those specific funds while they are still pending.
-    let sourceTransaction: string | undefined;
-    if (listing.stripe_payment_intent_id) {
-      const pi = await stripe.paymentIntents.retrieve(listing.stripe_payment_intent_id);
-      const chargeId = typeof pi.latest_charge === "string"
-        ? pi.latest_charge
-        : pi.latest_charge?.id;
-      if (!chargeId) {
-        throw new Error("No charge found on the payment intent for this listing");
-      }
-      sourceTransaction = chargeId;
-    } else {
+    if (!listing.stripe_payment_intent_id) {
       throw new Error("Listing has no stripe_payment_intent_id — cannot release safely");
+    }
+    const pi = await stripe.paymentIntents.retrieve(listing.stripe_payment_intent_id);
+    const sourceTransaction = typeof pi.latest_charge === "string"
+      ? pi.latest_charge
+      : pi.latest_charge?.id;
+    if (!sourceTransaction) {
+      throw new Error("No charge found on the payment intent for this listing");
     }
 
     const sellerNetCents = Math.round(Number(listing.seller_net) * 100);
@@ -106,7 +90,8 @@ Deno.serve(async (req) => {
       transfer_group: `listing_${listing.id}`,
       source_transaction: sourceTransaction,
     }, {
-      // Prevents a double payout if the buyer double-clicks or retries.
+      // Shared with auto-release-cron so a buyer confirming while the cron is
+      // mid-run cannot produce two transfers for one sale.
       idempotencyKey: `release_${listing.id}`,
     });
 
