@@ -26,6 +26,29 @@ export function stripeClient() {
   });
 }
 
+// Calendar date for date-only columns (listings.sold_at, referrals.paid_at).
+//
+// new Date().toISOString().slice(0,10) returns the UTC date, which runs a day
+// ahead of Eastern from 8pm onward (7pm in winter). Edge Functions run in UTC,
+// so a car sold at 9pm Eastern was recorded as sold the following day — a date
+// in the future to everyone reading it. DriveLink is a US business on Eastern
+// time, so the calendar date is resolved in that zone. en-CA formats as
+// YYYY-MM-DD, which is what a Postgres date column expects.
+//
+// Timestamp columns (confirmed_at, created_at, auto_release_at) are unaffected:
+// those store a real instant and were always correct.
+//
+// Takes an optional Date so derived dates (an ad placement's end_date, say)
+// format in the same zone as the day they were computed from.
+export function todayET(d: Date = new Date()): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/New_York",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(d);
+}
+
 export function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
@@ -259,7 +282,7 @@ export async function settleReferral(
     .update({
       status: "paid",
       commission_amount: commission,
-      paid_at: new Date().toISOString().slice(0, 10),
+      paid_at: todayET(),
     })
     .eq("id", ref.id);
 

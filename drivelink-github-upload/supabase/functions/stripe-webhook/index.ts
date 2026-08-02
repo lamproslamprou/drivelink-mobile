@@ -83,6 +83,7 @@ import {
   PLATFORM_FEE,
   PROMOTER_FEE,
   AUTO_RELEASE_DAYS,
+  todayET,
 } from "../_shared/helpers.ts";
 
 // Stripe's standard US card pricing, used ONLY as a fallback when the real
@@ -186,8 +187,8 @@ Deno.serve(async (req) => {
             // piId, not `session.payment_intent as string` — that cast was
             // silently wrong the moment payment_intent became expanded.
             stripe_payment_intent_id: piId,
-            start_date: startDate.toISOString().slice(0, 10),
-            end_date: endDate.toISOString().slice(0, 10),
+            start_date: todayET(startDate),
+            end_date: todayET(endDate),
           })
           .eq("id", meta.ad_id)
           .select("business_name, contact_email, link_url, plan, amount_cents")
@@ -210,7 +211,7 @@ Deno.serve(async (req) => {
               ["Link", adRow?.link_url],
               ["Plan", adRow?.plan ?? plan],
               ["Amount", money(adRow?.amount_cents)],
-              ["Runs", `${startDate.toISOString().slice(0, 10)} to ${endDate.toISOString().slice(0, 10)}`],
+              ["Runs", `${todayET(startDate)} to ${todayET(endDate)}`],
               ["Ad ID", meta.ad_id],
             ],
             adErr
@@ -275,7 +276,7 @@ Deno.serve(async (req) => {
           platform_fee: platformFee,
           seller_net: sellerNet,
           stripe_payment_intent_id: piId,
-          sold_at: new Date().toISOString().slice(0, 10),
+          sold_at: todayET(),
           auto_release_at: releaseAt.toISOString(),
         })
         .eq("id", listing_id)
@@ -338,7 +339,7 @@ Deno.serve(async (req) => {
             ["Seller net", dollars(sellerNet)],
             ["Buyer", `${buyerRow?.name ?? "—"} (${buyerRow?.email ?? "—"})`],
             ["Seller", `${sellerRow?.name ?? "—"} (${sellerRow?.email ?? "—"})`],
-            ["Auto-release", releaseAt.toISOString().slice(0, 10)],
+            ["Auto-release", todayET(releaseAt)],
             ["Listing ID", listing_id],
           ],
           footnote,
