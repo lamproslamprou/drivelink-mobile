@@ -321,15 +321,48 @@ export default function App() {
     poll();
   }, [currentUser]);
 
+  // handle_new_user parks the signup name in pending_name and shows "Member"
+  // until moderation clears it; guard_display_name blocks any client-side
+  // promotion, so only the service-role Edge Function can do it. The profile
+  // editor calls this on every name change — signup never did, so accounts
+  // sat on "Member" indefinitely.
+  //
+  // This lives on the session effect rather than Auth's onAuth because the
+  // email-confirmation path never calls onAuth: the user returns from the
+  // link with a session already established and Auth is never rendered.
+  // onAuthStateChange is the one point every path passes through.
+  //
+  // The ref caps it at one attempt per user per page load. Without it, a
+  // name the moderator holds rather than approves stays pending, and the
+  // loadDbUser-on-users-change effect would re-invoke the function forever.
+  const namePromotionTried = useRef(new Set());
+  const promotePendingName = async (user) => {
+    if (!user || namePromotionTried.current.has(user.id)) return;
+    namePromotionTried.current.add(user.id);
+    try {
+      const { data: row } = await supabase
+        .from("users").select("name_status, pending_name").eq("id", user.id).single();
+      if (row?.name_status !== "pending" || !row?.pending_name) return;
+      const mod = await moderateRecord("profile");
+      await loadDbUser(user);
+      if (mod?.status === "blocked" || mod?.status === "rejected") showToast(mod.reason, "error");
+    } catch {
+      // Never block sign-in on this — the name stays "Member" and the next
+      // page load retries.
+    }
+  };
+
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setCurrentUser(session?.user ?? null);
       loadDbUser(session?.user ?? null);
       setAuthChecked(true);
+      if (session?.user) promotePendingName(session.user);
     });
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setCurrentUser(session?.user ?? null);
       loadDbUser(session?.user ?? null);
+      if (session?.user) promotePendingName(session.user);
     });
     loadData();
     return () => subscription.unsubscribe();
@@ -1069,32 +1102,7 @@ const denyFlaggedReferral = async (refId) => {
   );
 
   if (!currentUser && view === "auth") return (
-    <Auth onAuth={async (user) => {
-      setCurrentUser(user);
-      await loadDbUser(user);
-      loadData();
-      setView(returnToAdvertise ? "advertise" : "home");
-      setReturnToAdvertise(false);
-      // handle_new_user parks the signup name in pending_name and displays
-      // "Member" until moderation clears it, and guard_display_name blocks
-      // any client-side promotion — only the service-role Edge Function can
-      // do it. The profile editor calls this on every name change; signup
-      // never did, so accounts sat on "Member" forever. Re-fetching rather
-      // than reading dbUser because setDbUser has not flushed in this tick.
-      // Runs on every sign-in, so an account left pending self-heals.
-      try {
-        const { data: row } = await supabase
-          .from("users").select("name_status, pending_name").eq("id", user.id).single();
-        if (row?.name_status === "pending" && row?.pending_name) {
-          const mod = await moderateRecord("profile");
-          await loadDbUser(user);
-          if (mod?.status === "blocked" || mod?.status === "rejected") showToast(mod.reason, "error");
-        }
-      } catch {
-        // Never block sign-in on this — the name stays "Member" and the
-        // next sign-in retries.
-      }
-    }} />
+    <Auth onAuth={(user) => { setCurrentUser(user); loadDbUser(user); loadData(); setView(returnToAdvertise ? "advertise" : "home"); setReturnToAdvertise(false); }} />
   );
 
   if (!currentUser && view !== "home" && view !== "advertise") return (
