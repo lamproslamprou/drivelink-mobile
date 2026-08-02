@@ -282,7 +282,10 @@ export function LangSwitchLink({ style }) {
         fontSize: 13,
         fontWeight: 600,
         cursor: "pointer",
-        marginTop: 14,
+        // Tight to the subheadline it belongs with, well clear of the stats
+        // row below — otherwise it reads as a fourth statistic.
+        marginTop: 10,
+        marginBottom: 26,
         ...style,
       }}
     >
