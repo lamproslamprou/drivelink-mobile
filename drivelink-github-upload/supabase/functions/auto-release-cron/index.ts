@@ -15,6 +15,14 @@
 // attribution entirely, and had no self-referral check. A sale must settle the
 // same way whether the buyer clicked confirm or the clock ran out.
 //
+// TRANSFERS ARE CHARGE-SOURCED. Every transfer names the originating charge via
+// source_transaction. Without it the transfer draws on the platform's available
+// balance, which fails with `balance_insufficient` whenever the charge hasn't
+// settled — and on a new account with a rolling reserve that can be a week or
+// more after the sale. This job runs precisely in that window, so unqualified
+// transfers here fail as a rule rather than as an edge case: every run between
+// 2026-07-29 and 2026-08-01 400'd for this reason.
+//
 // This function is unattended by definition — nobody is watching a response.
 // Every outcome that moves money or fails to therefore sends an alert, and the
 // alerts are awaited rather than fire-and-forget.
@@ -41,7 +49,7 @@ Deno.serve(async (req) => {
   try {
     const { data: dueListings, error } = await supabase
       .from("listings")
-      .select("id, seller_id, buyer_id, seller_net, sale_price, status, funds_released, auto_release_at, referral_code, make, model, year")
+      .select("id, seller_id, buyer_id, seller_net, sale_price, status, funds_released, auto_release_at, referral_code, stripe_payment_intent_id, make, model, year")
       .eq("status", "pending_confirmation")
       .eq("funds_released", false)
       .lte("auto_release_at", new Date().toISOString());
@@ -77,11 +85,31 @@ Deno.serve(async (req) => {
       const sellerNetCents = Math.round(Number(listing.seller_net) * 100);
 
       try {
+        if (!Number.isFinite(sellerNetCents) || sellerNetCents <= 0) {
+          throw new Error("Listing has no valid seller_net to transfer");
+        }
+
+        // Resolve the charge behind this sale. Thrown errors land in the catch
+        // below, which alerts and leaves the listing untouched for the next run.
+        if (!listing.stripe_payment_intent_id) {
+          throw new Error("Listing has no stripe_payment_intent_id — cannot source the transfer");
+        }
+        const pi = await stripe.paymentIntents.retrieve(listing.stripe_payment_intent_id);
+        const chargeId = typeof pi.latest_charge === "string" ? pi.latest_charge : pi.latest_charge?.id;
+        if (!chargeId) {
+          throw new Error(`No charge found on payment intent ${listing.stripe_payment_intent_id}`);
+        }
+
         const transfer = await stripe.transfers.create({
           amount: sellerNetCents,
           currency: "usd",
           destination: seller.stripe_account_id,
           transfer_group: `listing_${listing.id}`,
+          source_transaction: chargeId,
+        }, {
+          // Shares the key with release-funds so a buyer confirming at the same
+          // moment this job runs cannot produce two transfers for one sale.
+          idempotencyKey: `release_${listing.id}`,
         });
 
         await supabase
@@ -106,6 +134,7 @@ Deno.serve(async (req) => {
             ["Paid to seller", dollars(Number(listing.seller_net))],
             ["Seller", `${seller.name ?? "—"} (${seller.email ?? "—"})`],
             ["Transfer ID", transfer.id],
+            ["Sourced from charge", chargeId],
             ["Referral", referral.outcome],
             ...(referral.commission
               ? [["Commission", dollars(referral.commission)] as [string, unknown]]
