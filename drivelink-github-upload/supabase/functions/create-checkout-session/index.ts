@@ -50,6 +50,26 @@ Deno.serve(async (req) => {
       throw new Error("This seller hasn't finished setting up payouts yet");
     }
 
+    // ── Buyer identity on the Stripe side ────────────────────────────────────
+    // Without this, Checkout collects an email itself and the payment shows up
+    // as a "Guest" customer with no link back to the DriveLink account that
+    // made it. That is fine until something goes wrong: on a refund, dispute,
+    // or chargeback the first question is who paid, and the answer was buried
+    // in session metadata rather than on the customer record. Prefilling the
+    // buyer's own email also spares them retyping it.
+    //
+    // Read server-side from the users table, never from the request body — the
+    // client could otherwise attach someone else's address to a payment.
+    const { data: buyer, error: buyerErr } = await supabase
+      .from("users")
+      .select("id, email, name")
+      .eq("id", buyerId)
+      .single();
+    if (buyerErr) console.error("buyer lookup failed:", buyerId, buyerErr);
+    const buyerEmail = typeof buyer?.email === "string" && buyer.email.includes("@")
+      ? buyer.email
+      : undefined;
+
     // ── Scout attribution ────────────────────────────────────────────────────
     // The client sends whatever share_code it stored when the buyer arrived via
     // a /s/:code link. That value is fully under the buyer's control, so it is
@@ -109,6 +129,12 @@ Deno.serve(async (req) => {
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
       payment_method_types: ["card"],
+      // Prefills Checkout and stamps the payment with a real address rather
+      // than leaving it as an anonymous guest.
+      ...(buyerEmail ? { customer_email: buyerEmail } : {}),
+      // Creates a persistent Stripe Customer from that email, so repeat
+      // purchases by the same person group together in the dashboard.
+      customer_creation: "always",
       line_items: [
         {
           price_data: {
@@ -128,6 +154,17 @@ Deno.serve(async (req) => {
         // Mirrored into Stripe so attribution is visible in the dashboard and
         // survives a webhook replay even if the listings row is later touched.
         referral_code: attributedCode ?? "",
+      },
+      // Copied onto the PaymentIntent as well as the session. Refunds and
+      // disputes surface from the payment, not the checkout session, so
+      // without this the buyer link is missing exactly where it's needed.
+      payment_intent_data: {
+        metadata: {
+          listing_id: String(listing.id),
+          buyer_id: buyerId,
+          seller_id: String(listing.seller_id),
+        },
+        description: `DriveLink — ${label}`,
       },
       success_url: `${origin}/?purchase=success&listing=${listing.id}`,
       cancel_url: `${origin}/?purchase=cancelled&listing=${listing.id}`,
