@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "./supabase.js";
 import Auth from "./Auth.jsx";
-import { useLang, LangToggle } from "./i18n.jsx";
+import { useLang, LangToggle, LangSwitchLink } from "./i18n.jsx";
 import Landing from "./Landing.jsx";
 import ImageUpload from "./ImageUpload.jsx";
 import Messages from "./Messages.jsx";
@@ -1426,6 +1426,7 @@ for (const l of allListings.filter(l => l.status === "active")) {
           <div style={styles.heroBadge}>{t("home.badge")}</div>
           <h1 style={styles.heroTitle} className="app-hero-title">{t("home.title")}<br /><span style={styles.heroAccent}>{t("home.titleAccent")}</span></h1>
           <p style={styles.heroSub}>{t("home.sub")}</p>
+          <LangSwitchLink />
           <div style={styles.heroStats} className="app-hero-stats">
             <div style={styles.heroStat}><span style={styles.heroStatNum}>{listings.length}</span><span style={styles.heroStatLabel}>{t("home.statListings")}</span></div>
             <div style={styles.heroStatDiv} />

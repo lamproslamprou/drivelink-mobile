@@ -34,6 +34,9 @@ const dict = {
   en: {
     // ── Language switcher ────────────────────────────────────────────────
     "lang.label": "Language",
+    // Shown to English readers, written in Spanish on purpose: someone who
+    // needs the Spanish site cannot read an English offer of it.
+    "lang.switchPrompt": "¿Prefieres español? Cambia el idioma →",
 
     // ── Auth ─────────────────────────────────────────────────────────────
     "auth.signin": "Sign In",
@@ -118,6 +121,7 @@ const dict = {
 
   es: {
     "lang.label": "Idioma",
+    "lang.switchPrompt": "Prefer English? Switch language →",
 
     "auth.signin": "Iniciar sesión",
     "auth.createAccount": "Crear cuenta",
@@ -254,6 +258,36 @@ export function Rich({ text }) {
           : <span key={i}>{p}</span>
       )}
     </>
+  );
+}
+
+// Prominent one-tap switch for the hero. The header pill is always present,
+// but a small EN/ES control in a busy nav is easy to miss — and the visitor
+// most likely to miss it is exactly the one who needs it. This states the
+// offer in the OTHER language, so it reads as an invitation rather than a
+// setting to go hunting for.
+export function LangSwitchLink({ style }) {
+  const { lang, setLang, t } = useLang();
+  const other = lang === "en" ? "es" : "en";
+  return (
+    <button
+      onClick={() => setLang(other)}
+      lang={other}
+      style={{
+        background: "rgba(255,255,255,.12)",
+        border: "1px solid rgba(255,255,255,.35)",
+        color: "#fff",
+        borderRadius: 999,
+        padding: "7px 16px",
+        fontSize: 13,
+        fontWeight: 600,
+        cursor: "pointer",
+        marginTop: 14,
+        ...style,
+      }}
+    >
+      {t("lang.switchPrompt")}
+    </button>
   );
 }
 
