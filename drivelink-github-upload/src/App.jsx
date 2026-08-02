@@ -2664,10 +2664,11 @@ function EditListingModal({ listing, onCancel, onSave }) {
           <MakeModelFields
             make={form.make}
             model={form.model}
+            year={form.year}
             onChangeMake={v => set("make", v)}
             onChangeModel={v => set("model", v)}
+            onChangeYear={v => set("year", v)}
           />
-          <YearField value={form.year} onChange={v => set("year", v)} />
           <Field label="Price ($)" value={form.price} onChange={v => set("price", v)} type="number" />
           <Field label="Mileage" value={form.mileage} onChange={v => set("mileage", v)} type="number" />
           <Field label="Color" value={form.color} onChange={v => set("color", v)} />
@@ -2753,10 +2754,11 @@ function PostListingView({ onPost }) {
           <MakeModelFields
             make={form.make}
             model={form.model}
+            year={form.year}
             onChangeMake={v => set("make", v)}
             onChangeModel={v => set("model", v)}
+            onChangeYear={v => set("year", v)}
           />
-          <YearField value={form.year} onChange={v => set("year", v)} />
           <Field label={t("sell.price")} value={form.price} onChange={v => set("price", v)} type="number" placeholder="e.g. 25000" />
           <Field label={t("sell.mileage")} value={form.mileage} onChange={v => set("mileage", v)} type="number" placeholder="e.g. 35000" />
           <Field label={t("sell.color")} value={form.color} onChange={v => set("color", v)} placeholder="e.g. Pearl White" />
@@ -3082,9 +3084,19 @@ const MAKES = [
   "Volvo",
 ];
 
-async function fetchModels(make) {
-  if (!make) return [];
-  const res = await fetch(`${VPIC}/GetModelsForMake/${encodeURIComponent(make)}?format=json`);
+// Year-scoped on purpose. GetModelsForMake returns everything a manufacturer
+// has ever registered with NHTSA — for Ford that is ~900 entries including
+// trailer part numbers ("A8513"), commercial chassis ("B-750"), and upfitter
+// SKUs ("Affordable Trailers"). Adding the model year cuts it to the ~30
+// vehicles actually sold that year, which is a list a person can read.
+//
+// This is why the fields cascade Make -> Year -> Model rather than the more
+// obvious Make -> Model -> Year.
+async function fetchModels(make, year) {
+  if (!make || !year) return [];
+  const res = await fetch(
+    `${VPIC}/GetModelsForMakeYear/make/${encodeURIComponent(make)}/modelyear/${encodeURIComponent(year)}?format=json`
+  );
   const json = await res.json();
   const seen = new Set();
   const out = [];
@@ -3097,25 +3109,25 @@ async function fetchModels(make) {
   return out;
 }
 
-function MakeModelFields({ make, model, onChangeMake, onChangeModel }) {
+function MakeModelFields({ make, model, year, onChangeMake, onChangeModel, onChangeYear }) {
   const { t } = useLang();
   const [models, setModels] = useState([]);
   const [loadingModels, setLoadingModels] = useState(false);
   const [modelsFailed, setModelsFailed] = useState(false);
 
   // An existing listing may hold a make or model the lists don't contain, and
-  // a dropdown that silently drops it would blank the field on save.
+  // a dropdown that silently dropped it would blank the field on save.
   const [customMake, setCustomMake] = useState(
     () => !!make && !MAKES.some(m => m.toLowerCase() === make.toLowerCase())
   );
   const [customModel, setCustomModel] = useState(false);
 
   useEffect(() => {
-    if (!make || customMake) { setModels([]); return; }
+    if (!make || !year || customMake) { setModels([]); return; }
     let alive = true;
     setLoadingModels(true);
     setModelsFailed(false);
-    fetchModels(make)
+    fetchModels(make, year)
       .then(list => {
         if (!alive) return;
         setModels(list);
@@ -3127,10 +3139,18 @@ function MakeModelFields({ make, model, onChangeMake, onChangeModel }) {
       .catch(() => alive && setModelsFailed(true))
       .finally(() => alive && setLoadingModels(false));
     return () => { alive = false; };
-  }, [make, customMake]);
+  }, [make, year, customMake]);
 
   const selectStyle = { ...styles.fieldInput, appearance: "none", WebkitAppearance: "none", background: "#fff" };
   const freeModel = customModel || modelsFailed || customMake;
+
+  const modelPlaceholder = !make
+    ? t("sell.pickMakeFirst")
+    : !year
+    ? t("sell.pickYearFirst")
+    : loadingModels
+    ? t("sell.loading")
+    : t("sell.modelSelect");
 
   return (
     <>
@@ -3163,6 +3183,18 @@ function MakeModelFields({ make, model, onChangeMake, onChangeModel }) {
       </div>
 
       <div style={{ marginBottom: 16 }}>
+        <label style={styles.fieldLabel}>{t("sell.year")}</label>
+        <select
+          style={selectStyle}
+          value={year ?? ""}
+          onChange={e => { onChangeYear(e.target.value); onChangeModel(""); setCustomModel(false); }}
+        >
+          <option value="">{t("sell.yearSelect")}</option>
+          {YEAR_OPTIONS.map(y => <option key={y} value={y}>{y}</option>)}
+        </select>
+      </div>
+
+      <div style={{ marginBottom: 16 }}>
         <label style={styles.fieldLabel}>{t("sell.model")}</label>
         {freeModel ? (
           <input
@@ -3175,16 +3207,14 @@ function MakeModelFields({ make, model, onChangeMake, onChangeModel }) {
           <select
             style={selectStyle}
             value={model || ""}
-            disabled={!make || loadingModels}
+            disabled={!make || !year || loadingModels}
             onChange={e => {
               const v = e.target.value;
               if (v === OTHER) { setCustomModel(true); onChangeModel(""); return; }
               onChangeModel(v);
             }}
           >
-            <option value="">
-              {!make ? t("sell.pickMakeFirst") : loadingModels ? t("sell.loading") : t("sell.modelSelect")}
-            </option>
+            <option value="">{modelPlaceholder}</option>
             {models.map(m => <option key={m} value={m}>{m}</option>)}
             <option value={OTHER}>{t("sell.other")}</option>
           </select>
