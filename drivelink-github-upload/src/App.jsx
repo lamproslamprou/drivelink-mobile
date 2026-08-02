@@ -2661,8 +2661,12 @@ function EditListingModal({ listing, onCancel, onSave }) {
         <h3 style={styles.modalTitle}>Edit Listing</h3>
         <ImageUpload images={images} onChange={setImages} />
         <div style={styles.formGrid} className="app-form-grid">
-          <Field label="Make" value={form.make} onChange={v => set("make", v)} />
-          <Field label="Model" value={form.model} onChange={v => set("model", v)} />
+          <MakeModelFields
+            make={form.make}
+            model={form.model}
+            onChangeMake={v => set("make", v)}
+            onChangeModel={v => set("model", v)}
+          />
           <YearField value={form.year} onChange={v => set("year", v)} />
           <Field label="Price ($)" value={form.price} onChange={v => set("price", v)} type="number" />
           <Field label="Mileage" value={form.mileage} onChange={v => set("mileage", v)} type="number" />
@@ -2746,8 +2750,12 @@ function PostListingView({ onPost }) {
       <div style={styles.formCard}>
         <ImageUpload images={images} onChange={setImages} />
         <div style={styles.formGrid} className="app-form-grid">
-          <Field label={t("sell.make")} value={form.make} onChange={v => set("make", v)} placeholder="e.g. Toyota" />
-          <Field label={t("sell.model")} value={form.model} onChange={v => set("model", v)} placeholder="e.g. Camry" />
+          <MakeModelFields
+            make={form.make}
+            model={form.model}
+            onChangeMake={v => set("make", v)}
+            onChangeModel={v => set("model", v)}
+          />
           <YearField value={form.year} onChange={v => set("year", v)} />
           <Field label={t("sell.price")} value={form.price} onChange={v => set("price", v)} type="number" placeholder="e.g. 25000" />
           <Field label={t("sell.mileage")} value={form.mileage} onChange={v => set("mileage", v)} type="number" placeholder="e.g. 35000" />
@@ -3027,6 +3035,199 @@ function SellerNetPreview({ price }) {
         {t("fee.scoutNote", { promoter: fmt(b.promoter), netWithPromoter: fmt(b.netWithPromoter) })}
       </div>
     </div>
+  );
+}
+
+// ── Make / model, driven by NHTSA vPIC ──────────────────────────────────────
+//
+// Free-text make and model is where the listings table got " Honda" with a
+// leading space and "avlon" as a model. A seller typing under a car in a
+// driveway will typo, and every typo is a listing that never matches a search.
+//
+// Source is the same keyless vPIC API the VIN decoder already uses, so there
+// is no bundled list to go stale. Three vehicle types are merged — passenger
+// cars, trucks, and MPVs — because vPIC files SUVs under MPV and a Highlander
+// would otherwise be unlistable.
+//
+// ESCAPE HATCH, and it matters: vPIC's model lists are imperfect and a seller
+// who cannot find their actual car will abandon the form rather than pick
+// something close. Both fields offer "Other" and fall back to a text input.
+// The API being unreachable does the same thing automatically — a network
+// blip must never make listing impossible.
+const VPIC = "https://vpic.nhtsa.dot.gov/api/vehicles";
+const VPIC_TYPES = ["car", "truck", "mpv"];
+const MAKES_CACHE_KEY = "drivelink_vpic_makes_v1";
+const MAKES_TTL_MS = 1000 * 60 * 60 * 24 * 30; // vPIC changes rarely; refetch monthly.
+const OTHER = "__other__";
+
+function titleCaseMake(s) {
+  // vPIC returns makes in ALL CAPS ("HONDA", "MERCEDES-BENZ"). Left as-is they
+  // shout in every listing title, so normalize while preserving the hyphens
+  // and interior capitals people expect (BMW stays BMW at two/three letters).
+  const raw = String(s || "").trim();
+  if (raw.length <= 3) return raw.toUpperCase();
+  return raw
+    .toLowerCase()
+    .replace(/(^|[\s\-/])([a-z])/g, (_, sep, ch) => sep + ch.toUpperCase());
+}
+
+async function fetchMakes() {
+  try {
+    const cached = JSON.parse(sessionStorage.getItem(MAKES_CACHE_KEY) || "null");
+    if (cached && Date.now() - cached.at < MAKES_TTL_MS && Array.isArray(cached.makes) && cached.makes.length) {
+      return cached.makes;
+    }
+  } catch { /* cache unreadable — just refetch */ }
+
+  const seen = new Set();
+  const out = [];
+  const responses = await Promise.allSettled(
+    VPIC_TYPES.map(type => fetch(`${VPIC}/GetMakesForVehicleType/${type}?format=json`).then(r => r.json()))
+  );
+  for (const r of responses) {
+    if (r.status !== "fulfilled") continue;
+    for (const row of r.value?.Results || []) {
+      const name = titleCaseMake(row.MakeName);
+      const key = name.toLowerCase();
+      if (name && !seen.has(key)) { seen.add(key); out.push(name); }
+    }
+  }
+  out.sort((a, b) => a.localeCompare(b));
+  if (out.length) {
+    try { sessionStorage.setItem(MAKES_CACHE_KEY, JSON.stringify({ at: Date.now(), makes: out })); } catch { /* ignore */ }
+  }
+  return out;
+}
+
+async function fetchModels(make) {
+  if (!make) return [];
+  const res = await fetch(`${VPIC}/GetModelsForMake/${encodeURIComponent(make)}?format=json`);
+  const json = await res.json();
+  const seen = new Set();
+  const out = [];
+  for (const row of json?.Results || []) {
+    const name = String(row.Model_Name || "").trim();
+    const key = name.toLowerCase();
+    if (name && !seen.has(key)) { seen.add(key); out.push(name); }
+  }
+  out.sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+  return out;
+}
+
+function MakeModelFields({ make, model, onChangeMake, onChangeModel }) {
+  const { t } = useLang();
+  const [makes, setMakes] = useState([]);
+  const [models, setModels] = useState([]);
+  const [loadingMakes, setLoadingMakes] = useState(true);
+  const [loadingModels, setLoadingModels] = useState(false);
+  const [makesFailed, setMakesFailed] = useState(false);
+  const [modelsFailed, setModelsFailed] = useState(false);
+
+  // An existing listing being edited may hold a make vPIC doesn't list, and a
+  // dropdown that silently drops it would blank the field on save.
+  const [customMake, setCustomMake] = useState(false);
+  const [customModel, setCustomModel] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    fetchMakes()
+      .then(list => {
+        if (!alive) return;
+        setMakes(list);
+        if (!list.length) setMakesFailed(true);
+        if (make && list.length && !list.some(m => m.toLowerCase() === make.toLowerCase())) {
+          setCustomMake(true);
+        }
+      })
+      .catch(() => alive && setMakesFailed(true))
+      .finally(() => alive && setLoadingMakes(false));
+    return () => { alive = false; };
+    // Runs once: the pre-existing `make` is only relevant on first mount.
+  }, []);
+
+  useEffect(() => {
+    if (!make || customMake) { setModels([]); return; }
+    let alive = true;
+    setLoadingModels(true);
+    setModelsFailed(false);
+    fetchModels(make)
+      .then(list => {
+        if (!alive) return;
+        setModels(list);
+        if (!list.length) setModelsFailed(true);
+        if (model && list.length && !list.some(m => m.toLowerCase() === model.toLowerCase())) {
+          setCustomModel(true);
+        }
+      })
+      .catch(() => alive && setModelsFailed(true))
+      .finally(() => alive && setLoadingModels(false));
+    return () => { alive = false; };
+  }, [make, customMake]);
+
+  const selectStyle = { ...styles.fieldInput, appearance: "none", WebkitAppearance: "none", background: "#fff" };
+  const freeMake = customMake || makesFailed;
+  const freeModel = customModel || modelsFailed || freeMake;
+
+  return (
+    <>
+      <div style={{ marginBottom: 16 }}>
+        <label style={styles.fieldLabel}>{t("sell.make")}</label>
+        {freeMake ? (
+          <input
+            style={styles.fieldInput}
+            value={make}
+            placeholder="e.g. Toyota"
+            onChange={e => onChangeMake(e.target.value)}
+          />
+        ) : (
+          <select
+            style={selectStyle}
+            value={make || ""}
+            disabled={loadingMakes}
+            onChange={e => {
+              const v = e.target.value;
+              if (v === OTHER) { setCustomMake(true); onChangeMake(""); onChangeModel(""); return; }
+              onChangeMake(v);
+              onChangeModel("");
+              setCustomModel(false);
+            }}
+          >
+            <option value="">{loadingMakes ? t("sell.loading") : t("sell.makeSelect")}</option>
+            {makes.map(m => <option key={m} value={m}>{m}</option>)}
+            <option value={OTHER}>{t("sell.other")}</option>
+          </select>
+        )}
+      </div>
+
+      <div style={{ marginBottom: 16 }}>
+        <label style={styles.fieldLabel}>{t("sell.model")}</label>
+        {freeModel ? (
+          <input
+            style={styles.fieldInput}
+            value={model}
+            placeholder="e.g. Camry"
+            onChange={e => onChangeModel(e.target.value)}
+          />
+        ) : (
+          <select
+            style={selectStyle}
+            value={model || ""}
+            disabled={!make || loadingModels}
+            onChange={e => {
+              const v = e.target.value;
+              if (v === OTHER) { setCustomModel(true); onChangeModel(""); return; }
+              onChangeModel(v);
+            }}
+          >
+            <option value="">
+              {!make ? t("sell.pickMakeFirst") : loadingModels ? t("sell.loading") : t("sell.modelSelect")}
+            </option>
+            {models.map(m => <option key={m} value={m}>{m}</option>)}
+            <option value={OTHER}>{t("sell.other")}</option>
+          </select>
+        )}
+      </div>
+    </>
   );
 }
 
