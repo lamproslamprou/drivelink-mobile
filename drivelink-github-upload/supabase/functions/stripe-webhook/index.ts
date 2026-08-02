@@ -3,6 +3,15 @@
 // makes the flow automatic — replaces manually clicking "Mark Sold" for any
 // sale that actually goes through real Stripe Checkout.
 //
+// NOTE ON DESTINATIONS: this function is the target of TWO Stripe event
+// destinations, and they are not interchangeable:
+//   - "Your account"       → checkout.session.completed, identity.*
+//   - "Connected accounts" → account.updated
+// checkout.session.completed is a PLATFORM event. Stripe's UI will happily let
+// you subscribe a connected-accounts destination to it and then never deliver
+// anything, because the sessions are created on the platform account. If sales
+// stop recording themselves, check "Events from" on the destination first.
+//
 // Handles:
 //  - checkout.session.completed: payment succeeded → listing goes to
 //    "pending_confirmation", mirrors the fields the old markSold() set
@@ -21,6 +30,40 @@
 // meaning sellers were shorted 1% with nobody receiving it. This version only
 // deducts the promoter fee when a pending referral actually exists for the
 // listing, computed once here and honored downstream by release-funds.
+//
+// ── SETTLEMENT ARITHMETIC (the reason for this revision) ────────────────────
+// The previous version computed seller_net from the GROSS sale price and
+// ignored Stripe's processing fee entirely:
+//
+//     seller_net = sale_price - platform_fee - promoter_fee
+//
+// But a $50.00 charge only puts $48.25 on the platform balance — Stripe keeps
+// ~2.9% + 30c. release-funds then tries to transfer a seller_net that exceeds
+// the money that actually exists, and Stripe rejects it with "You have
+// insufficient funds in your Stripe account." That failure scales: on a
+// $10,000 car the shortfall is ~$220. EVERY real sale would fail at release.
+//
+// So the real fee is now read off the charge's balance_transaction and
+// deducted. Two deliberate choices in how:
+//
+//  1. ROUNDED UP, not nearest. Money columns here are whole dollars. Rounding
+//     a $1.25 fee down to $1 makes seller_net exceed available funds by 25c
+//     and the transfer fails for a rounding error. Ceil means seller_net is
+//     always <= what's on the balance. The platform absorbs up to 99c per
+//     sale as a remainder, which is the correct direction to be wrong in.
+//
+//  2. FALLBACK IF UNAVAILABLE. balance_transaction is normally present the
+//     moment a card charge succeeds, but it is not contractually guaranteed
+//     to be (async payment methods, timing). Rather than throw — the buyer has
+//     already been charged by this point — fall back to a conservative
+//     estimate and flag it in the admin alert so it can be reconciled.
+//
+// The stored platform_fee remains the nominal 1% (that's the DriveLink fee the
+// seller was quoted). The processing fee is not stored as its own column: it's
+// already baked into seller_net and stays retrievable from the payment intent
+// in Stripe forever. If you later want it on the row for reconciliation, it
+// needs an ALTER TABLE *and* an entry in guard_listings_settlement_columns,
+// or sellers would be able to edit it from the browser.
 //
 // ALERT DELIVERY: these used to call sendEmail() without awaiting it, on the
 // reasoning that a slow email shouldn't hold up the webhook. Sound goal, wrong
@@ -41,6 +84,35 @@ import {
   PROMOTER_FEE,
   AUTO_RELEASE_DAYS,
 } from "../_shared/helpers.ts";
+
+// Stripe's standard US card pricing, used ONLY as a fallback when the real
+// balance_transaction can't be read. Intentionally not a source of truth.
+const FALLBACK_FEE_PERCENT = 0.029;
+const FALLBACK_FEE_FIXED_CENTS = 30;
+
+// Expanding payment_intent turns session.payment_intent from a string id into
+// an object. Anything that wants the id has to cope with both shapes — writing
+// the raw value into a text column when it's an object silently stores junk.
+function paymentIntentId(pi: unknown): string | null {
+  if (typeof pi === "string") return pi;
+  if (pi && typeof pi === "object" && typeof (pi as { id?: unknown }).id === "string") {
+    return (pi as { id: string }).id;
+  }
+  return null;
+}
+
+// Digs the actual Stripe processing fee (in cents) out of an expanded
+// payment_intent.latest_charge.balance_transaction. Returns null if any link
+// in that chain wasn't expanded or isn't there yet.
+function stripeFeeCentsFrom(pi: unknown): number | null {
+  if (!pi || typeof pi !== "object") return null;
+  const charge = (pi as { latest_charge?: unknown }).latest_charge;
+  if (!charge || typeof charge !== "object") return null;
+  const bt = (charge as { balance_transaction?: unknown }).balance_transaction;
+  if (!bt || typeof bt !== "object") return null;
+  const fee = (bt as { fee?: unknown }).fee;
+  return typeof fee === "number" ? fee : null;
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -87,9 +159,16 @@ Deno.serve(async (req) => {
       // webhook body directly — works whether Stripe sends a full ("snapshot")
       // or minimal ("thin") event payload, so we don't depend on which
       // payload style a given endpoint happens to be configured for.
+      //
+      // The expand chain is what makes the real processing fee available:
+      // session -> payment_intent -> latest_charge -> balance_transaction.fee
       const sessionId = (event.data.object as { id: string }).id;
-      const session = await stripe.checkout.sessions.retrieve(sessionId);
+      const session = await stripe.checkout.sessions.retrieve(sessionId, {
+        expand: ["payment_intent.latest_charge.balance_transaction"],
+      });
       const meta = session.metadata as Record<string, string>;
+      const paymentIntent = session.payment_intent;
+      const piId = paymentIntentId(paymentIntent);
 
       // Ad placement purchases use this same event but a completely
       // different downstream update — handle and exit early.
@@ -104,7 +183,9 @@ Deno.serve(async (req) => {
           .from("ad_placements")
           .update({
             status: "active",
-            stripe_payment_intent_id: session.payment_intent as string,
+            // piId, not `session.payment_intent as string` — that cast was
+            // silently wrong the moment payment_intent became expanded.
+            stripe_payment_intent_id: piId,
             start_date: startDate.toISOString().slice(0, 10),
             end_date: endDate.toISOString().slice(0, 10),
           })
@@ -143,8 +224,26 @@ Deno.serve(async (req) => {
 
       const { listing_id, buyer_id } = meta;
 
-      const salePrice = Math.round((session.amount_total ?? 0) / 100);
+      const amountTotalCents = session.amount_total ?? 0;
+      const salePrice = Math.round(amountTotalCents / 100);
       const platformFee = Math.round(salePrice * PLATFORM_FEE);
+
+      // ── Stripe's actual processing fee ────────────────────────────────────
+      const realFeeCents = stripeFeeCentsFrom(paymentIntent);
+      const feeWasEstimated = realFeeCents === null;
+      const effectiveFeeCents = realFeeCents ??
+        (Math.ceil(amountTotalCents * FALLBACK_FEE_PERCENT) + FALLBACK_FEE_FIXED_CENTS);
+      // Ceil, not round — see the header note. Never quote the seller more
+      // than the balance can actually pay out.
+      const stripeFee = Math.ceil(effectiveFeeCents / 100);
+
+      if (feeWasEstimated) {
+        console.warn(
+          "balance_transaction unavailable, estimating Stripe fee:",
+          listing_id,
+          effectiveFeeCents,
+        );
+      }
 
       // Only reserve a promoter cut if a pending referral actually exists —
       // this is the bug fix mentioned above.
@@ -156,7 +255,13 @@ Deno.serve(async (req) => {
         .maybeSingle();
 
       const promoterFeeReserved = pendingRef ? Math.round(salePrice * PROMOTER_FEE) : 0;
-      const sellerNet = salePrice - platformFee - promoterFeeReserved;
+
+      // Clamp at zero. On a sale small enough that fees exceed the price, a
+      // negative seller_net would become a negative transfer amount and throw
+      // inside release-funds. Record zero and let the alert flag it.
+      const rawSellerNet = salePrice - platformFee - promoterFeeReserved - stripeFee;
+      const sellerNet = Math.max(0, rawSellerNet);
+      const netWasClamped = rawSellerNet !== sellerNet;
 
       const releaseAt = new Date();
       releaseAt.setDate(releaseAt.getDate() + AUTO_RELEASE_DAYS);
@@ -169,7 +274,7 @@ Deno.serve(async (req) => {
           sale_price: salePrice,
           platform_fee: platformFee,
           seller_net: sellerNet,
-          stripe_payment_intent_id: session.payment_intent,
+          stripe_payment_intent_id: piId,
           sold_at: new Date().toISOString().slice(0, 10),
           auto_release_at: releaseAt.toISOString(),
         })
@@ -194,10 +299,27 @@ Deno.serve(async (req) => {
         ? `${soldListing.year} ${soldListing.make} ${soldListing.model}`
         : listing_id;
 
+      // Anything that needs a human eye goes in the subject line, in priority
+      // order — a failed row update outranks a clamped net outranks an
+      // estimated fee.
+      const subject = listingErr
+        ? `⚠️ Sale paid but listing NOT updated — ${listing_id}`
+        : netWasClamped
+        ? `⚠️ Sale recorded with $0 seller net — ${carLabel}`
+        : feeWasEstimated
+        ? `⚠️ Sale recorded with ESTIMATED processing fee — ${carLabel}`
+        : `New car sale — ${carLabel} (${dollars(salePrice)})`;
+
+      const footnote = listingErr
+        ? `Database error: ${listingErr.message}. The buyer has been charged — reconcile this manually.`
+        : netWasClamped
+        ? `Fees exceeded the sale price, so seller net was clamped to $0. Check this before releasing.`
+        : feeWasEstimated
+        ? `Stripe's balance_transaction wasn't readable, so the processing fee above is an ESTIMATE. Compare it to the real fee on the payment in Stripe and adjust seller_net before release if it's off.`
+        : `Funds auto-release in ${AUTO_RELEASE_DAYS} days unless the buyer confirms or disputes first.`;
+
       notifyAdmin({
-        subject: listingErr
-          ? `⚠️ Sale paid but listing NOT updated — ${listing_id}`
-          : `New car sale — ${carLabel} (${dollars(salePrice)})`,
+        subject,
         html: alertHtml(
           listingErr
             ? "Payment received but the listing did not update"
@@ -205,7 +327,11 @@ Deno.serve(async (req) => {
           [
             ["Vehicle", carLabel],
             ["Sale price", dollars(salePrice)],
-            ["Platform fee", dollars(platformFee)],
+            ["Platform fee (1%)", dollars(platformFee)],
+            [
+              feeWasEstimated ? "Stripe processing (ESTIMATED)" : "Stripe processing",
+              dollars(stripeFee),
+            ],
             ...(promoterFeeReserved
               ? [["Promoter reserved", dollars(promoterFeeReserved)] as [string, unknown]]
               : []),
@@ -215,9 +341,7 @@ Deno.serve(async (req) => {
             ["Auto-release", releaseAt.toISOString().slice(0, 10)],
             ["Listing ID", listing_id],
           ],
-          listingErr
-            ? `Database error: ${listingErr.message}. The buyer has been charged — reconcile this manually.`
-            : `Funds auto-release in ${AUTO_RELEASE_DAYS} days unless the buyer confirms or disputes first.`,
+          footnote,
         ),
       });
     }
