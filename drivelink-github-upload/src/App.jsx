@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "./supabase.js";
 import Auth from "./Auth.jsx";
+import { useLang, LangToggle } from "./i18n.jsx";
 import Landing from "./Landing.jsx";
 import ImageUpload from "./ImageUpload.jsx";
 import Messages from "./Messages.jsx";
@@ -11,6 +12,24 @@ import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, L
 
 const fmt = (n) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n);
 const STRIPE_LINK = "https://buy.stripe.com/4gM4gz0z05sNaa9afu4Vy00";
+// Calendar date for date-only columns (sold_at, paid_at).
+//
+// new Date().toISOString().slice(0,10) returns the UTC date, which is a day
+// ahead of Eastern from 8pm onward (7pm in winter). A car sold at 9pm on the
+// 1st was being recorded as sold on the 2nd — a date in the future to everyone
+// looking at it. DriveLink is a US business operating on Eastern time, so the
+// calendar date is resolved in that zone rather than UTC. en-CA formats as
+// YYYY-MM-DD, which is what a Postgres date column expects.
+//
+// Timestamp columns (confirmed_at, created_at) are unaffected — those store a
+// real instant and were always correct.
+function todayET() {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/New_York",
+    year: "numeric", month: "2-digit", day: "2-digit",
+  }).format(new Date());
+}
+
 const PLATFORM_FEE = 0.01; // 1% platform fee
 const PROMOTER_FEE = 0.01; // 1% promoter commission
 const HIGH_VALUE_LISTING_THRESHOLD = 20000; // above this price, nudge buyers if the seller isn't ID-verified
@@ -121,6 +140,7 @@ async function decodeVin(vin) {
 }
 
 export default function App() {
+  const { t } = useLang();
   const [currentUser, setCurrentUser] = useState(null);
   const [dbUser, setDbUser] = useState(null);
   const [listings, setListings] = useState([]);
@@ -435,7 +455,7 @@ export default function App() {
     await supabase.from("listings").update({ 
       status: "pending_confirmation", 
       sale_price: salePrice, 
-      sold_at: new Date().toISOString().slice(0, 10),
+      sold_at: todayET(),
       platform_fee: platformFee,
       seller_net: sellerNet,
       buyer_id: buyer?.id || null,
@@ -522,7 +542,7 @@ const approveFlaggedReferral = async (refId) => {
   const ref = referrals.find(r => r.id === refId);
   if (!ref) return;
   const commission = ref.commission_amount || 0;
-  await supabase.from("referrals").update({ status: "paid", paid_at: new Date().toISOString().slice(0, 10) }).eq("id", refId);
+  await supabase.from("referrals").update({ status: "paid", paid_at: todayET() }).eq("id", refId);
   const promoter = users.find(u => u.id === ref.promoter_id);
   await supabase.from("users").update({ balance: (promoter?.balance || 0) + commission }).eq("id", ref.promoter_id);
   await loadData();
@@ -1105,8 +1125,9 @@ const denyFlaggedReferral = async (refId) => {
                 <button style={styles.logoutBtn} onClick={logout}>Sign out</button>
               </div>
             ) : (
-              <button style={styles.signInBtn} onClick={() => setView("auth")}>Sign In</button>
+              <button style={styles.signInBtn} onClick={() => setView("auth")}>{t("auth.signin")}</button>
             )}
+            <LangToggle style={{ marginLeft: 8 }} />
           </div>
         </div>
       </nav>
@@ -1351,6 +1372,7 @@ function SuccessView({ onHome }) {
 }
 
 function HomeView({ listings, allListings, currentUser, users, onShare, onBuy, referrals, onSignIn, onMessageSeller, onReport, onSaveSearch, favorites, onToggleFavorite, onToggleBlock, onReportUser, blocks, reviews, offers, onMakeOffer, onOpenListing }) {
+  const { t } = useLang();
   const [search, setSearch] = useState("");
   const [make, setMake] = useState("all");
   const [maxPrice, setMaxPrice] = useState(200000);
@@ -1401,24 +1423,24 @@ for (const l of allListings.filter(l => l.status === "active")) {
     <div>
       <div style={styles.hero} className="app-hero">
         <div style={styles.heroInner}>
-          <div style={styles.heroBadge}>Peer-to-peer • Commission-backed</div>
-          <h1 style={styles.heroTitle} className="app-hero-title">Find your next car.<br /><span style={styles.heroAccent}>Share and earn 1%.</span></h1>
-          <p style={styles.heroSub}>Buy directly from owners. Promote listings to your network and earn 1% of every sale you unlock.</p>
+          <div style={styles.heroBadge}>{t("home.badge")}</div>
+          <h1 style={styles.heroTitle} className="app-hero-title">{t("home.title")}<br /><span style={styles.heroAccent}>{t("home.titleAccent")}</span></h1>
+          <p style={styles.heroSub}>{t("home.sub")}</p>
           <div style={styles.heroStats} className="app-hero-stats">
-            <div style={styles.heroStat}><span style={styles.heroStatNum}>{listings.length}</span><span style={styles.heroStatLabel}>Active listings</span></div>
+            <div style={styles.heroStat}><span style={styles.heroStatNum}>{listings.length}</span><span style={styles.heroStatLabel}>{t("home.statListings")}</span></div>
             <div style={styles.heroStatDiv} />
             {soldCount > 0 && (
               <>
-                <div style={styles.heroStat}><span style={styles.heroStatNum}>{soldCount}</span><span style={styles.heroStatLabel}>Cars sold</span></div>
+                <div style={styles.heroStat}><span style={styles.heroStatNum}>{soldCount}</span><span style={styles.heroStatLabel}>{t("home.statSold")}</span></div>
                 <div style={styles.heroStatDiv} />
               </>
             )}
-            <div style={styles.heroStat}><span style={styles.heroStatNum}>1%</span><span style={styles.heroStatLabel}>Promoter cut</span></div>
+            <div style={styles.heroStat}><span style={styles.heroStatNum}>1%</span><span style={styles.heroStatLabel}>{t("home.statPromoter")}</span></div>
           </div>
         </div>
       </div>
       <div style={styles.filterBar}>
-        <input style={styles.searchInput} placeholder="Search make, model, year…" value={search} onChange={e => setSearch(e.target.value)} />
+        <input style={styles.searchInput} placeholder={t("home.searchPlaceholder")} value={search} onChange={e => setSearch(e.target.value)} />
         <select style={styles.selectInput} value={make} onChange={e => setMake(e.target.value)}>
           <option value="all">All makes</option>
           {makes.map(m => <option key={m} value={m}>{m}</option>)}
@@ -1548,6 +1570,7 @@ for (const l of allListings.filter(l => l.status === "active")) {
 }
 
 function CarCard({ listing, seller, avgPrice, similarCount, onSeeSimilar, currentUser, onShare, onBuy, myRef, onSignIn, onMessageSeller, onReport, isFavorited, onToggleFavorite, isBlocked, onToggleBlock, onReportUser, sellerRating, sellerReviewCount, myOffer, onMakeOffer, onOpenListing, isComparing, onToggleCompare, compareDisabled }) {
+  const { t } = useLang();
   const [copied, setCopied] = useState(false);
   const [reporting, setReporting] = useState(false);
   const [reportingUser, setReportingUser] = useState(false);
@@ -1635,7 +1658,7 @@ function CarCard({ listing, seller, avgPrice, similarCount, onSeeSimilar, curren
         {myRef && <div style={styles.refTag}>{myRef.status === "paid" ? `✅ Commission paid: ${fmt(myRef.commission_amount)}` : "🔗 Your Scout link is live — you'll earn 1% if this sells through it"}</div>}
         <div style={styles.cardActions}>
           {currentUser && !isOwnListing && (
-            <button style={styles.buyBtn} onClick={() => onBuy(listing)}>💳 Buy Now</button>
+            <button style={styles.buyBtn} onClick={() => onBuy(listing)}>💳 {t("action.buyNow")}</button>
           )}
           {currentUser && !isOwnListing && (
             <button style={{ ...styles.shareBtn, background: copied ? "#16a34a" : "#1d4ed8" }} onClick={handleShare}>
@@ -1643,7 +1666,7 @@ function CarCard({ listing, seller, avgPrice, similarCount, onSeeSimilar, curren
             </button>
           )}
           {!currentUser && (
-            <button style={styles.buyBtn} onClick={onSignIn}>Sign in to buy or share →</button>
+            <button style={styles.buyBtn} onClick={onSignIn}>{t("action.signInToBuy")}</button>
           )}
         </div>
         {currentUser && !isOwnListing && onMakeOffer && (
@@ -1772,6 +1795,7 @@ function CompareRow({ label, values, rankBy, lowerIsBetter, wrap }) {
 }
 
 function ListingDetailModal({ data, currentUser, isFavorited, isBlocked, onClose, onBuy, onShare, onMessageSeller, onReport, onReportUser, onToggleFavorite, onToggleBlock, onMakeOffer, onSignIn, onCheckDeal }) {
+  const { t } = useLang();
   const { listing, seller, myRef, sellerRating, sellerReviewCount, myOffer } = data;
   const [activeImg, setActiveImg] = useState(0);
   const [copied, setCopied] = useState(false);
@@ -1840,16 +1864,14 @@ function ListingDetailModal({ data, currentUser, isFavorited, isBlocked, onClose
               are off — an unknown seller record behaves as before. */}
           {payoutsReady ? (
             <div style={styles.escrowBox}>
-              <div style={styles.escrowBoxTitle}>🔒 Escrow protected</div>
+              <div style={styles.escrowBoxTitle}>{t("escrow.title")}</div>
               <div style={styles.escrowBoxText}>
-                Your payment is held securely — it isn't released to the seller until you confirm you
-                have the car and the signed title. Both sides are ID verified, and we generate the
-                bill of sale for you.
+                {t("escrow.body")}
               </div>
             </div>
           ) : (
             <div style={styles.escrowBoxPending}>
-              <div style={styles.escrowBoxTitle}>⏳ Checkout not available yet</div>
+              <div style={styles.escrowBoxTitle}>{t("escrow.notReady.title")}</div>
               <div style={styles.escrowBoxText}>
                 This seller hasn't finished payout setup with our payments partner. You can still
                 message them and make an offer — checkout opens once they're set up.
@@ -1875,13 +1897,13 @@ function ListingDetailModal({ data, currentUser, isFavorited, isBlocked, onClose
           {myRef && <div style={styles.refTag}>{myRef.status === "paid" ? `✅ Commission paid: ${fmt(myRef.commission_amount)}` : "🔗 Your Scout link is live — you'll earn 1% if this sells through it"}</div>}
 
           <div style={styles.cardActions}>
-            {currentUser && !isOwnListing && payoutsReady && <button style={styles.buyBtn} onClick={() => onBuy(listing)}>💳 Buy Now</button>}
+            {currentUser && !isOwnListing && payoutsReady && <button style={styles.buyBtn} onClick={() => onBuy(listing)}>💳 {t("action.buyNow")}</button>}
             {currentUser && !isOwnListing && (
               <button style={{ ...styles.shareBtn, background: copied ? "#16a34a" : "#1d4ed8" }} onClick={handleShare}>
                 {copied ? "✓ Link copied!" : myRef ? "Share Again" : "Share & Earn 1%"}
               </button>
             )}
-            {!currentUser && <button style={styles.buyBtn} onClick={onSignIn}>Sign in to buy or share →</button>}
+            {!currentUser && <button style={styles.buyBtn} onClick={onSignIn}>{t("action.signInToBuy")}</button>}
             {/* Plain link to this car, no commission attached. Only shown when
                 the Scout button isn't available — sellers on their own listing,
                 and signed-out visitors — so there's never more than one share
@@ -2677,6 +2699,7 @@ function EditListingModal({ listing, onCancel, onSave }) {
 }
 
 function PostListingView({ onPost }) {
+  const { t } = useLang();
   const [form, setForm] = useState({ make: "", model: "", year: new Date().getFullYear(), price: "", mileage: "", color: "", description: "", vin: "", location_text: "" });
   const [images, setImages] = useState([]);
   const [submitting, setSubmitting] = useState(false);
@@ -2718,17 +2741,17 @@ function PostListingView({ onPost }) {
   );
   return (
     <div style={styles.pageWrap}>
-      <h2 style={styles.pageTitle}>Post a Car for Sale</h2>
+      <h2 style={styles.pageTitle}>{t("sell.pageTitle")}</h2>
       <div style={styles.formCard}>
         <ImageUpload images={images} onChange={setImages} />
         <div style={styles.formGrid} className="app-form-grid">
-          <Field label="Make" value={form.make} onChange={v => set("make", v)} placeholder="e.g. Toyota" />
-          <Field label="Model" value={form.model} onChange={v => set("model", v)} placeholder="e.g. Camry" />
+          <Field label={t("sell.make")} value={form.make} onChange={v => set("make", v)} placeholder="e.g. Toyota" />
+          <Field label={t("sell.model")} value={form.model} onChange={v => set("model", v)} placeholder="e.g. Camry" />
           <YearField value={form.year} onChange={v => set("year", v)} />
-          <Field label="Price ($)" value={form.price} onChange={v => set("price", v)} type="number" placeholder="e.g. 25000" />
-          <Field label="Mileage" value={form.mileage} onChange={v => set("mileage", v)} type="number" placeholder="e.g. 35000" />
-          <Field label="Color" value={form.color} onChange={v => set("color", v)} placeholder="e.g. Pearl White" />
-          <Field label="Location (city or ZIP)" value={form.location_text} onChange={v => set("location_text", v)} placeholder="e.g. Austin, TX" />
+          <Field label={t("sell.price")} value={form.price} onChange={v => set("price", v)} type="number" placeholder="e.g. 25000" />
+          <Field label={t("sell.mileage")} value={form.mileage} onChange={v => set("mileage", v)} type="number" placeholder="e.g. 35000" />
+          <Field label={t("sell.color")} value={form.color} onChange={v => set("color", v)} placeholder="e.g. Pearl White" />
+          <Field label={t("sell.location")} value={form.location_text} onChange={v => set("location_text", v)} placeholder="e.g. Austin, TX" />
         </div>
         <SellerNetPreview price={form.price} />
         <div style={{ marginTop: 12 }}>
@@ -2990,16 +3013,17 @@ function sellerNetBreakdown(price) {
 }
 
 function SellerNetPreview({ price }) {
+  const { t } = useLang();
   const b = sellerNetBreakdown(price);
   if (!b) return null;
   return (
     <div style={{ ...styles.infoBox, marginTop: 12 }}>
-      <div style={{ fontWeight: 700, marginBottom: 6 }}>You'll receive about {fmt(b.net)}</div>
+      <div style={{ fontWeight: 700, marginBottom: 6 }}>{t("fee.youReceive", { amount: fmt(b.net) })}</div>
       <div style={{ fontSize: 13, lineHeight: 1.6 }}>
-        Sale price {fmt(b.price)} − DriveLink fee 1% ({fmt(b.platformFee)}) − card processing ({fmt(b.processing)})
+        {t("fee.breakdown", { price: fmt(b.price), platform: fmt(b.platformFee), processing: fmt(b.processing) })}
       </div>
       <div style={{ fontSize: 12, color: "#6b7280", marginTop: 6 }}>
-        If the buyer arrives through a Scout's shared link, a further 1% ({fmt(b.promoter)}) goes to that Scout and you'd receive about {fmt(b.netWithPromoter)}. Processing is charged by our payment provider, not by DriveLink, and is an estimate until the sale completes.
+        {t("fee.scoutNote", { promoter: fmt(b.promoter), netWithPromoter: fmt(b.netWithPromoter) })}
       </div>
     </div>
   );
@@ -3018,15 +3042,16 @@ const YEAR_OPTIONS = (() => {
 })();
 
 function YearField({ value, onChange }) {
+  const { t } = useLang();
   return (
     <div style={{ marginBottom: 16 }}>
-      <label style={styles.fieldLabel}>Year</label>
+      <label style={styles.fieldLabel}>{t("sell.year")}</label>
       <select
         style={{ ...styles.fieldInput, appearance: "none", WebkitAppearance: "none", background: "#fff" }}
         value={value ?? ""}
         onChange={e => onChange(e.target.value)}
       >
-        <option value="">Select year…</option>
+        <option value="">{t("sell.yearSelect")}</option>
         {YEAR_OPTIONS.map(y => <option key={y} value={y}>{y}</option>)}
       </select>
     </div>
