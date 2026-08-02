@@ -64,6 +64,18 @@ export function validateDisplayName(raw) {
   return null;
 }
 
+// GA4 events. Guarded because gtag is loaded from an external script that ad
+// blockers routinely strip — a missing analytics tag must never break signup.
+function track(event, params) {
+  try {
+    if (typeof window !== "undefined" && typeof window.gtag === "function") {
+      window.gtag("event", event, params);
+    }
+  } catch {
+    // Analytics is never worth throwing over.
+  }
+}
+
 export default function Auth({ onAuth }) {
   const { t } = useLang();
   const [tab, setTab] = useState("signin");
@@ -104,6 +116,10 @@ export default function Auth({ onAuth }) {
       options: { data: { name: cleanName, role: "member" }, emailRedirectTo: window.location.origin }
     });
     if (error) { setError(error.message); setLoading(false); return; }
+    // Fired before the session branch so both outcomes count as one signup:
+    // an immediate session, and the confirm-your-email path. The account row
+    // exists either way, which is what the conversion is measuring.
+    track("sign_up", { method: "email" });
     setLoading(false);
     if (data.session) {
       // Email confirmations are turned off in this Supabase project — the user is already signed in.
