@@ -468,7 +468,7 @@ export default function App() {
     } else if (data?.referral === "flagged_self_referral") {
       showToast("Sale confirmed. The referral looks like a self-purchase and has been flagged for review.", "info");
     } else if (listing.stripe_payment_intent_id) {
-      showToast("Receipt confirmed — seller paid out and commission released.");
+      showToast("Receipt confirmed — funds released to the seller. It takes a few business days to reach their bank.");
     } else {
       showToast("Receipt confirmed — sale finalized and commission released.");
     }
@@ -2243,7 +2243,19 @@ function MyListingsView({ listings, referrals, users, offers, onMarkSold, onSetS
                   <div style={styles.rowTitle}>{l.year} {l.make} {l.model}</div>
                   <div style={styles.rowMeta}>{fmt(l.price)} • {l.mileage?.toLocaleString()} mi</div>
                   {l.status === "sold" && <div style={styles.soldBadge}>SOLD for {fmt(l.sale_price)} on {l.sold_at}</div>}
-                  {l.status === "pending_confirmation" && <div style={styles.awaitingBadge}>💳 Payment received for {fmt(l.sale_price)} — awaiting buyer confirmation before payout</div>}
+                  {l.status === "sold" && l.funds_released && (
+                    <div style={{ fontSize: 12, color: "#6b7280", marginTop: 4, lineHeight: 1.5 }}>
+                      💸 {fmt(l.seller_net)} released to your Stripe account. Card payments take a few business days to settle before Stripe pays out to your bank — expect it within about 5–7 business days of the sale. New accounts can take longer on the first payout.
+                    </div>
+                  )}
+                  {l.status === "pending_confirmation" && (
+                    <>
+                      <div style={styles.awaitingBadge}>💳 Payment received for {fmt(l.sale_price)} — awaiting buyer confirmation before payout</div>
+                      <div style={{ fontSize: 12, color: "#6b7280", marginTop: 4, lineHeight: 1.5 }}>
+                        The buyer's payment is held safely. Once they confirm they've received the car, {fmt(l.seller_net)} is released to you — or automatically after 7 days if they don't. Bank arrival typically takes another few business days after that.
+                      </div>
+                    </>
+                  )}
                   {l.status === "disputed" && <div style={{ ...styles.awaitingBadge, background: "#fee2e2", color: "#b91c1c" }}>⚠️ Buyer disputed this sale — our team is reviewing it</div>}
                   {listingOffers.length > 0 && <div style={styles.awaitingBadge}>💰 {listingOffers.length} offer{listingOffers.length === 1 ? "" : "s"} waiting on your response</div>}
                   {acceptedOffer && l.status === "active" && (
