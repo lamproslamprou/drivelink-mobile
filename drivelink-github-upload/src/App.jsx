@@ -3055,49 +3055,32 @@ function SellerNetPreview({ price }) {
 // The API being unreachable does the same thing automatically — a network
 // blip must never make listing impossible.
 const VPIC = "https://vpic.nhtsa.dot.gov/api/vehicles";
-const VPIC_TYPES = ["car", "truck", "mpv"];
-const MAKES_CACHE_KEY = "drivelink_vpic_makes_v1";
-const MAKES_TTL_MS = 1000 * 60 * 60 * 24 * 30; // vPIC changes rarely; refetch monthly.
 const OTHER = "__other__";
 
-function titleCaseMake(s) {
-  // vPIC returns makes in ALL CAPS ("HONDA", "MERCEDES-BENZ"). Left as-is they
-  // shout in every listing title, so normalize while preserving the hyphens
-  // and interior capitals people expect (BMW stays BMW at two/three letters).
-  const raw = String(s || "").trim();
-  if (raw.length <= 3) return raw.toUpperCase();
-  return raw
-    .toLowerCase()
-    .replace(/(^|[\s\-/])([a-z])/g, (_, sep, ch) => sep + ch.toUpperCase());
-}
-
-async function fetchMakes() {
-  try {
-    const cached = JSON.parse(sessionStorage.getItem(MAKES_CACHE_KEY) || "null");
-    if (cached && Date.now() - cached.at < MAKES_TTL_MS && Array.isArray(cached.makes) && cached.makes.length) {
-      return cached.makes;
-    }
-  } catch { /* cache unreadable — just refetch */ }
-
-  const seen = new Set();
-  const out = [];
-  const responses = await Promise.allSettled(
-    VPIC_TYPES.map(type => fetch(`${VPIC}/GetMakesForVehicleType/${type}?format=json`).then(r => r.json()))
-  );
-  for (const r of responses) {
-    if (r.status !== "fulfilled") continue;
-    for (const row of r.value?.Results || []) {
-      const name = titleCaseMake(row.MakeName);
-      const key = name.toLowerCase();
-      if (name && !seen.has(key)) { seen.add(key); out.push(name); }
-    }
-  }
-  out.sort((a, b) => a.localeCompare(b));
-  if (out.length) {
-    try { sessionStorage.setItem(MAKES_CACHE_KEY, JSON.stringify({ at: Date.now(), makes: out })); } catch { /* ignore */ }
-  }
-  return out;
-}
+// vPIC's GetMakesForVehicleType returns every registered manufacturer — over a
+// thousand entries including trailer builders, upfitters, and one-off kit car
+// shops ("Badger Equipment", "Brain Unlimited", "Blackwater"). A seller had to
+// scroll past hundreds of them to reach Honda, which is worse than the free
+// text field it replaced.
+//
+// So makes are a curated list of marques actually sold to US consumers, and
+// the API is kept only for models, where it earns its place: nobody wants to
+// maintain every Toyota trim by hand, and vPIC is authoritative there.
+//
+// Discontinued marques are included on purpose — a 2004 Pontiac GTO is a
+// perfectly normal used listing, and leaving them out would force those
+// sellers into the "Other" path for no reason.
+const MAKES = [
+  "Acura", "Alfa Romeo", "Aston Martin", "Audi", "Bentley", "BMW", "Buick",
+  "Cadillac", "Chevrolet", "Chrysler", "Dodge", "Ferrari", "Fiat", "Ford",
+  "Genesis", "GMC", "Honda", "Hummer", "Hyundai", "Infiniti", "Isuzu",
+  "Jaguar", "Jeep", "Kia", "Lamborghini", "Land Rover", "Lexus", "Lincoln",
+  "Lotus", "Lucid", "Maserati", "Mazda", "McLaren", "Mercedes-Benz", "Mercury",
+  "MINI", "Mitsubishi", "Nissan", "Oldsmobile", "Plymouth", "Polestar",
+  "Pontiac", "Porsche", "RAM", "Rivian", "Rolls-Royce", "Saab", "Saturn",
+  "Scion", "Smart", "Subaru", "Suzuki", "Tesla", "Toyota", "Volkswagen",
+  "Volvo",
+];
 
 async function fetchModels(make) {
   if (!make) return [];
@@ -3116,34 +3099,16 @@ async function fetchModels(make) {
 
 function MakeModelFields({ make, model, onChangeMake, onChangeModel }) {
   const { t } = useLang();
-  const [makes, setMakes] = useState([]);
   const [models, setModels] = useState([]);
-  const [loadingMakes, setLoadingMakes] = useState(true);
   const [loadingModels, setLoadingModels] = useState(false);
-  const [makesFailed, setMakesFailed] = useState(false);
   const [modelsFailed, setModelsFailed] = useState(false);
 
-  // An existing listing being edited may hold a make vPIC doesn't list, and a
-  // dropdown that silently drops it would blank the field on save.
-  const [customMake, setCustomMake] = useState(false);
+  // An existing listing may hold a make or model the lists don't contain, and
+  // a dropdown that silently drops it would blank the field on save.
+  const [customMake, setCustomMake] = useState(
+    () => !!make && !MAKES.some(m => m.toLowerCase() === make.toLowerCase())
+  );
   const [customModel, setCustomModel] = useState(false);
-
-  useEffect(() => {
-    let alive = true;
-    fetchMakes()
-      .then(list => {
-        if (!alive) return;
-        setMakes(list);
-        if (!list.length) setMakesFailed(true);
-        if (make && list.length && !list.some(m => m.toLowerCase() === make.toLowerCase())) {
-          setCustomMake(true);
-        }
-      })
-      .catch(() => alive && setMakesFailed(true))
-      .finally(() => alive && setLoadingMakes(false));
-    return () => { alive = false; };
-    // Runs once: the pre-existing `make` is only relevant on first mount.
-  }, []);
 
   useEffect(() => {
     if (!make || customMake) { setModels([]); return; }
@@ -3165,14 +3130,13 @@ function MakeModelFields({ make, model, onChangeMake, onChangeModel }) {
   }, [make, customMake]);
 
   const selectStyle = { ...styles.fieldInput, appearance: "none", WebkitAppearance: "none", background: "#fff" };
-  const freeMake = customMake || makesFailed;
-  const freeModel = customModel || modelsFailed || freeMake;
+  const freeModel = customModel || modelsFailed || customMake;
 
   return (
     <>
       <div style={{ marginBottom: 16 }}>
         <label style={styles.fieldLabel}>{t("sell.make")}</label>
-        {freeMake ? (
+        {customMake ? (
           <input
             style={styles.fieldInput}
             value={make}
@@ -3183,7 +3147,6 @@ function MakeModelFields({ make, model, onChangeMake, onChangeModel }) {
           <select
             style={selectStyle}
             value={make || ""}
-            disabled={loadingMakes}
             onChange={e => {
               const v = e.target.value;
               if (v === OTHER) { setCustomMake(true); onChangeMake(""); onChangeModel(""); return; }
@@ -3192,8 +3155,8 @@ function MakeModelFields({ make, model, onChangeMake, onChangeModel }) {
               setCustomModel(false);
             }}
           >
-            <option value="">{loadingMakes ? t("sell.loading") : t("sell.makeSelect")}</option>
-            {makes.map(m => <option key={m} value={m}>{m}</option>)}
+            <option value="">{t("sell.makeSelect")}</option>
+            {MAKES.map(m => <option key={m} value={m}>{m}</option>)}
             <option value={OTHER}>{t("sell.other")}</option>
           </select>
         )}
