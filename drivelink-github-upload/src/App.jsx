@@ -1211,7 +1211,7 @@ function LegalPageView({ type, onBack }) {
             <p>Sellers agree that listing information (price, mileage, condition, photos, VIN) is accurate to the best of their knowledge. DriveLink may remove any listing that is misleading, fraudulent, or violates these terms, at our discretion, with or without notice.</p>
 
             <h2>4. Fees</h2>
-            <p>Listing a car is free. When a listing sells, DriveLink charges a 1% platform fee on the final sale price. If a buyer arrived through a promoter's shared link, an additional 1% commission is paid to that promoter. Both fees are deducted from the seller's proceeds.</p>
+            <p>Listing a car is free. When a listing sells, DriveLink charges a 1% platform fee on the final sale price. Card processing is charged separately by our payment provider at approximately 2.9% + $0.30 per transaction and is also deducted from the seller's proceeds. If a buyer arrived through a promoter's shared link, an additional 1% commission is paid to that promoter. The exact amount you'll receive is shown before you publish a listing.</p>
 
             <h2>5. Payments</h2>
             <p>Checkout is processed through Stripe. DriveLink does not store your payment card details. Once a buyer completes checkout, the transaction between buyer and seller — including vehicle handoff, title transfer, and any related paperwork — is the responsibility of the two parties.</p>
@@ -2634,6 +2634,7 @@ function EditListingModal({ listing, onCancel, onSave }) {
           <Field label="Color" value={form.color} onChange={v => set("color", v)} />
           <Field label="Location (city or ZIP)" value={form.location_text} onChange={v => set("location_text", v)} />
         </div>
+        <SellerNetPreview price={form.price} />
         <div style={{ marginTop: 12 }}>
           <label style={styles.fieldLabel}>VIN (optional)</label>
           <div style={{ display: "flex", gap: 8 }}>
@@ -2717,6 +2718,7 @@ function PostListingView({ onPost }) {
           <Field label="Color" value={form.color} onChange={v => set("color", v)} placeholder="e.g. Pearl White" />
           <Field label="Location (city or ZIP)" value={form.location_text} onChange={v => set("location_text", v)} placeholder="e.g. Austin, TX" />
         </div>
+        <SellerNetPreview price={form.price} />
         <div style={{ marginTop: 12 }}>
           <label style={styles.fieldLabel}>VIN (optional)</label>
           <div style={{ display: "flex", gap: 8 }}>
@@ -2945,6 +2947,48 @@ function Field({ label, value, onChange, placeholder, type = "text" }) {
     <div style={{ marginBottom: 16 }}>
       <label style={styles.fieldLabel}>{label}</label>
       <input style={styles.fieldInput} type={type} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} />
+    </div>
+  );
+}
+
+// What the seller actually receives, shown while they type the price.
+//
+// The headline fee is 1%, but that is not what lands in their account: card
+// processing is deducted too, and on a $50 sale the difference between "1%"
+// and reality was $49.50 vs $47.00. Quoting a percentage and paying out a
+// different number is the kind of surprise that costs trust on a platform
+// whose whole proposition is escrow, so the real figure is shown up front.
+//
+// Mirrors the arithmetic in stripe-webhook: the processing fee is rounded UP
+// to whole dollars there so seller_net can never exceed the funds actually on
+// the balance. This estimate does the same, which means the seller may receive
+// a few cents more than shown but never less.
+const STRIPE_PCT = 0.029;
+const STRIPE_FIXED = 0.30;
+
+function sellerNetBreakdown(price) {
+  const p = Number(price);
+  if (!Number.isFinite(p) || p <= 0) return null;
+  const platformFee = Math.round(p * PLATFORM_FEE);
+  const processing = Math.ceil(p * STRIPE_PCT + STRIPE_FIXED);
+  const promoter = Math.round(p * PROMOTER_FEE);
+  const net = Math.max(0, p - platformFee - processing);
+  const netWithPromoter = Math.max(0, net - promoter);
+  return { price: p, platformFee, processing, promoter, net, netWithPromoter };
+}
+
+function SellerNetPreview({ price }) {
+  const b = sellerNetBreakdown(price);
+  if (!b) return null;
+  return (
+    <div style={{ ...styles.infoBox, marginTop: 12 }}>
+      <div style={{ fontWeight: 700, marginBottom: 6 }}>You'll receive about {fmt(b.net)}</div>
+      <div style={{ fontSize: 13, lineHeight: 1.6 }}>
+        Sale price {fmt(b.price)} − DriveLink fee 1% ({fmt(b.platformFee)}) − card processing ({fmt(b.processing)})
+      </div>
+      <div style={{ fontSize: 12, color: "#6b7280", marginTop: 6 }}>
+        If the buyer arrives through a Scout's shared link, a further 1% ({fmt(b.promoter)}) goes to that Scout and you'd receive about {fmt(b.netWithPromoter)}. Processing is charged by our payment provider, not by DriveLink, and is an estimate until the sale completes.
+      </div>
     </div>
   );
 }
