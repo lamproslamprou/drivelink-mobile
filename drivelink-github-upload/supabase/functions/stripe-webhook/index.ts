@@ -31,32 +31,42 @@
 // deducts the promoter fee when a pending referral actually exists for the
 // listing, computed once here and honored downstream by release-funds.
 //
-// ── SETTLEMENT ARITHMETIC (the reason for this revision) ────────────────────
-// The previous version computed seller_net from the GROSS sale price and
-// ignored Stripe's processing fee entirely:
+// ── SETTLEMENT ARITHMETIC ───────────────────────────────────────────────────
+// EVERY money column in the database is CENTS as of migration
+// 20260803_05_money_to_cents. price, sale_price, platform_fee, seller_net,
+// offers.amount, offers.counter_amount, payouts.amount,
+// referrals.commission_amount, users.balance, deal_invites.price,
+// saved_searches.max_price. Stripe is also cents. There is no conversion
+// anywhere in this file and there should never be one again — if you find
+// yourself writing / 100 or * 100 against a database column, something is
+// wrong.
 //
-//     seller_net = sale_price - platform_fee - promoter_fee
+// This removed a whole class of bug rather than moving it. The previous
+// version stored whole dollars, so it had to divide Stripe's cents down and
+// then round the processing fee UP to avoid quoting the seller more than the
+// platform balance could actually pay out. That ceil absorbed up to 99c per
+// sale as platform remainder and left platform_fee unable to represent its
+// own true value — the $50 test charged $1.25 in fees and stored 1.
 //
-// But a $50.00 charge only puts $48.25 on the platform balance — Stripe keeps
-// ~2.9% + 30c. release-funds then tries to transfer a seller_net that exceeds
-// the money that actually exists, and Stripe rejects it with "You have
-// insufficient funds in your Stripe account." That failure scales: on a
-// $10,000 car the shortfall is ~$220. EVERY real sale would fail at release.
+// Now the arithmetic is exact:
 //
-// So the real fee is now read off the charge's balance_transaction and
-// deducted. Two deliberate choices in how:
+//     seller_net = sale_price - platform_fee - promoter_fee - stripe_fee
 //
-//  1. ROUNDED UP, not nearest. Money columns here are whole dollars. Rounding
-//     a $1.25 fee down to $1 makes seller_net exceed available funds by 25c
-//     and the transfer fails for a rounding error. Ceil means seller_net is
-//     always <= what's on the balance. The platform absorbs up to 99c per
-//     sale as a remainder, which is the correct direction to be wrong in.
+// all in cents, all integers, no rounding anywhere except the two percentage
+// calculations, which round to the nearest cent.
 //
-//  2. FALLBACK IF UNAVAILABLE. balance_transaction is normally present the
-//     moment a card charge succeeds, but it is not contractually guaranteed
-//     to be (async payment methods, timing). Rather than throw — the buyer has
-//     already been charged by this point — fall back to a conservative
-//     estimate and flag it in the admin alert so it can be reconciled.
+// Why the Stripe fee is deducted at all: a $50.00 charge only puts $48.25 on
+// the platform balance — Stripe keeps ~2.9% + 30c. release-funds transfers
+// seller_net, so if seller_net ignored the processing fee it would exceed the
+// money that exists and Stripe would reject the transfer for insufficient
+// funds. On a $10,000 car the shortfall would be ~$220 and EVERY real sale
+// would fail at release.
+//
+// FALLBACK IF UNAVAILABLE: balance_transaction is normally present the moment
+// a card charge succeeds, but it is not contractually guaranteed to be (async
+// payment methods, timing). Rather than throw — the buyer has already been
+// charged by this point — fall back to a conservative estimate and flag it in
+// the admin alert so it can be reconciled.
 //
 // The stored platform_fee remains the nominal 1% (that's the DriveLink fee the
 // seller was quoted). The processing fee is not stored as its own column: it's
@@ -64,6 +74,13 @@
 // in Stripe forever. If you later want it on the row for reconciliation, it
 // needs an ALTER TABLE *and* an entry in guard_listings_settlement_columns,
 // or sellers would be able to edit it from the browser.
+//
+// ── paid_at ─────────────────────────────────────────────────────────────────
+// sold_at is a DATE, too coarse to tell "buyer confirmed four minutes after
+// paying" from "confirmed four hours later" — which is the sharpest signal the
+// risk engine has for card cash-out fraud. paid_at is the precise timestamp
+// and is set here, at the only moment the platform knows payment succeeded.
+// evaluate_listing_risk() reads it for INSTANT_CONFIRM and FAST_CLOSE.
 //
 // ALERT DELIVERY: these used to call sendEmail() without awaiting it, on the
 // reasoning that a slow email shouldn't hold up the webhook. Sound goal, wrong
@@ -76,7 +93,6 @@ import {
   jsonResponse,
   notifyAdmin,
   alertHtml,
-  dollars,
   money,
   stripeClient,
   supabaseAdmin,
@@ -225,18 +241,20 @@ Deno.serve(async (req) => {
 
       const { listing_id, buyer_id } = meta;
 
-      const amountTotalCents = session.amount_total ?? 0;
-      const salePrice = Math.round(amountTotalCents / 100);
+      // Cents throughout. Stripe's amount_total IS the sale_price now — no
+      // conversion, no rounding, no lost precision.
+      const salePrice = session.amount_total ?? 0;
       const platformFee = Math.round(salePrice * PLATFORM_FEE);
 
       // ── Stripe's actual processing fee ────────────────────────────────────
       const realFeeCents = stripeFeeCentsFrom(paymentIntent);
       const feeWasEstimated = realFeeCents === null;
-      const effectiveFeeCents = realFeeCents ??
-        (Math.ceil(amountTotalCents * FALLBACK_FEE_PERCENT) + FALLBACK_FEE_FIXED_CENTS);
-      // Ceil, not round — see the header note. Never quote the seller more
-      // than the balance can actually pay out.
-      const stripeFee = Math.ceil(effectiveFeeCents / 100);
+      // The fallback still rounds UP: overestimating the fee we don't control
+      // keeps seller_net at or below the real balance. The old ceil-to-dollars
+      // is gone — this is the exact cent figure Stripe reports.
+      const stripeFee = realFeeCents ??
+        (Math.ceil(salePrice * FALLBACK_FEE_PERCENT) + FALLBACK_FEE_FIXED_CENTS);
+      const effectiveFeeCents = stripeFee;
 
       if (feeWasEstimated) {
         console.warn(
@@ -277,6 +295,9 @@ Deno.serve(async (req) => {
           seller_net: sellerNet,
           stripe_payment_intent_id: piId,
           sold_at: todayET(),
+          // Precise payment instant. sold_at is a date and cannot carry this.
+          // Read by evaluate_listing_risk() for INSTANT_CONFIRM / FAST_CLOSE.
+          paid_at: new Date().toISOString(),
           auto_release_at: releaseAt.toISOString(),
         })
         .eq("id", listing_id)
@@ -309,7 +330,7 @@ Deno.serve(async (req) => {
         ? `⚠️ Sale recorded with $0 seller net — ${carLabel}`
         : feeWasEstimated
         ? `⚠️ Sale recorded with ESTIMATED processing fee — ${carLabel}`
-        : `New car sale — ${carLabel} (${dollars(salePrice)})`;
+        : `New car sale — ${carLabel} (${money(salePrice)})`;
 
       const footnote = listingErr
         ? `Database error: ${listingErr.message}. The buyer has been charged — reconcile this manually.`
@@ -327,16 +348,16 @@ Deno.serve(async (req) => {
             : "New sale — payment received, awaiting buyer confirmation",
           [
             ["Vehicle", carLabel],
-            ["Sale price", dollars(salePrice)],
-            ["Platform fee (1%)", dollars(platformFee)],
+            ["Sale price", money(salePrice)],
+            ["Platform fee (1%)", money(platformFee)],
             [
               feeWasEstimated ? "Stripe processing (ESTIMATED)" : "Stripe processing",
-              dollars(stripeFee),
+              money(stripeFee),
             ],
             ...(promoterFeeReserved
-              ? [["Promoter reserved", dollars(promoterFeeReserved)] as [string, unknown]]
+              ? [["Promoter reserved", money(promoterFeeReserved)] as [string, unknown]]
               : []),
-            ["Seller net", dollars(sellerNet)],
+            ["Seller net", money(sellerNet)],
             ["Buyer", `${buyerRow?.name ?? "—"} (${buyerRow?.email ?? "—"})`],
             ["Seller", `${sellerRow?.name ?? "—"} (${sellerRow?.email ?? "—"})`],
             ["Auto-release", todayET(releaseAt)],

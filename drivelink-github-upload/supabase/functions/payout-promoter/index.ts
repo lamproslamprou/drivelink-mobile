@@ -16,6 +16,14 @@
 // so they could be paid again. Debiting first inverts the failure mode:
 // the worst case is a debit with no transfer, which is visible in the
 // balance and correctable, rather than silent money loss.
+//
+// MONEY IS CENTS. As of migration 20260803_05_money_to_cents, users.balance
+// and payouts.amount are CENTS, the frontend sends `amount` in CENTS, and
+// Stripe transfers are cents. There is no conversion anywhere in this file.
+// The debit RPC and the payouts insert were already unit-agnostic and stayed
+// correct through the conversion; only the Stripe transfer had a `* 100`, and
+// leaving it would have sent a promoter one hundred times their payout with
+// nothing downstream to reject it.
 import { corsHeaders, jsonResponse, requireUser, stripeClient, supabaseAdmin } from "../_shared/helpers.ts";
 
 Deno.serve(async (req) => {
@@ -94,7 +102,8 @@ Deno.serve(async (req) => {
       `promoter_payout_${promoter.id}_${amount}_${note ?? ""}`;
 
     const transfer = await stripe.transfers.create({
-      amount: Math.round(Number(amount) * 100),
+      // Already cents. No conversion — see the note at the top of this file.
+      amount: Math.round(Number(amount)),
       currency: "usd",
       destination: promoter.stripe_account_id,
       transfer_group: `promoter_payout_${promoter.id}`,

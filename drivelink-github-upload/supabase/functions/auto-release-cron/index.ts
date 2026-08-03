@@ -1,12 +1,13 @@
 // POST /auto-release-cron
 // Not called by users — scheduled via pg_cron, currently every 6 hours. Finds
-// every listing whose 7-day window has passed with no buyer confirmation, and
-// releases funds to the seller automatically, same math as release-funds.
+// every listing whose release window has passed with no buyer confirmation,
+// and releases funds to the seller automatically, same math as release-funds.
 //
 // Note: no separate "dispute_status" check is needed here. fileDispute() flips
 // listings.status to "disputed" the moment a buyer files one, which takes it
 // out of this query's status="pending_confirmation" filter automatically — so
-// a disputed sale is naturally skipped.
+// a disputed sale is naturally skipped. is_release_blocked() checks the
+// disputes table as well, belt and braces.
 //
 // Referral settlement is delegated to settleReferral() in _shared/helpers.ts.
 // This function previously carried its own copy, which had drifted from the
@@ -14,6 +15,21 @@
 // Scouts shared a listing, silently paying nobody), ignored listings.referral_code
 // attribution entirely, and had no self-referral check. A sale must settle the
 // same way whether the buyer clicked confirm or the clock ran out.
+//
+// ── MONEY IS CENTS ──────────────────────────────────────────────────────────
+// As of migration 20260803_05_money_to_cents, listings.seller_net and every
+// other money column are CENTS, and Stripe transfers are cents. seller_net
+// goes to Stripe unchanged. The previous `* 100` would transfer one hundred
+// times the seller's proceeds out of the platform balance, and unlike an
+// overcharged card nothing rejects that on the way out.
+//
+// ── RISK GATE ───────────────────────────────────────────────────────────────
+// is_release_blocked() runs per listing before each transfer. It recomputes
+// the flags at release time rather than trusting what was written at payment,
+// because conditions change in between. A blocked listing is left exactly as
+// it is — not marked sold, not released — and re-evaluated on the next run, so
+// clearing the flags in the admin dashboard is all that's needed to complete
+// the payout. Fail closed: an unreadable risk check holds the money.
 //
 // TRANSFERS ARE CHARGE-SOURCED. Every transfer names the originating charge via
 // source_transaction. Without it the transfer draws on the platform's available
@@ -33,7 +49,7 @@ import {
   jsonResponse,
   notifyAdminSync,
   alertHtml,
-  dollars,
+  money,
   settleReferral,
   stripeClient,
   supabaseAdmin,
@@ -59,6 +75,46 @@ Deno.serve(async (req) => {
     for (const listing of dueListings ?? []) {
       const carLabel = [listing.year, listing.make, listing.model].filter(Boolean).join(" ") || listing.id;
 
+      // ── Risk gate, before anything else costs money ─────────────────────
+      const { data: blocked, error: riskErr } = await supabase.rpc("is_release_blocked", {
+        p_listing_id: listing.id,
+      });
+
+      if (riskErr || blocked === true) {
+        results.push({
+          listing_id: listing.id,
+          status: riskErr ? "held_risk_check_failed" : "held_for_review",
+        });
+
+        const { data: flags } = await supabase
+          .from("v_listing_risk")
+          .select("risk_score, open_flags")
+          .eq("listing_id", listing.id)
+          .maybeSingle();
+
+        await notifyAdminSync({
+          subject: riskErr
+            ? `⚠️ Auto-release HELD — risk check errored on ${carLabel}`
+            : `⚠️ Auto-release HELD for review — ${carLabel} (${money(Number(listing.sale_price))})`,
+          html: alertHtml(
+            riskErr
+              ? "Automatic release skipped because the risk check could not run"
+              : "Automatic release held pending review",
+            [
+              ["Vehicle", carLabel],
+              ["Sale price", money(Number(listing.sale_price))],
+              ["Would pay seller", money(Number(listing.seller_net))],
+              ["Risk score", flags?.risk_score ?? "—"],
+              ["Flags", Array.isArray(flags?.open_flags) ? flags.open_flags.join(", ") : "—"],
+              ...(riskErr ? [["Risk check error", riskErr.message] as [string, unknown]] : []),
+              ["Listing ID", listing.id],
+            ],
+            "No money moved and the listing is unchanged. Resolve the flags in the admin dashboard and this will release on the next run — no manual transfer needed.",
+          ),
+        });
+        continue;
+      }
+
       const { data: seller } = await supabase
         .from("users")
         .select("stripe_account_id, name, email")
@@ -75,14 +131,15 @@ Deno.serve(async (req) => {
           html: alertHtml("Seller cannot be paid", [
             ["Vehicle", carLabel],
             ["Seller", `${seller?.name ?? "—"} (${seller?.email ?? "—"})`],
-            ["Amount owed", dollars(Number(listing.seller_net))],
+            ["Amount owed", money(Number(listing.seller_net))],
             ["Listing ID", listing.id],
-          ], "The 7-day window has passed but the seller has not completed Stripe Connect onboarding. Funds remain on the platform balance."),
+          ], "The release window has passed but the seller has not completed Stripe Connect onboarding. Funds remain on the platform balance."),
         });
         continue;
       }
 
-      const sellerNetCents = Math.round(Number(listing.seller_net) * 100);
+      // Already cents. No conversion.
+      const sellerNetCents = Number(listing.seller_net);
 
       try {
         if (!Number.isFinite(sellerNetCents) || sellerNetCents <= 0) {
@@ -127,17 +184,17 @@ Deno.serve(async (req) => {
         results.push({ listing_id: listing.id, status: "released", detail: referral.outcome });
 
         await notifyAdminSync({
-          subject: `Funds auto-released — ${carLabel} (${dollars(Number(listing.seller_net))})`,
-          html: alertHtml("7-day window elapsed, seller paid automatically", [
+          subject: `Funds auto-released — ${carLabel} (${money(Number(listing.seller_net))})`,
+          html: alertHtml("Release window elapsed, seller paid automatically", [
             ["Vehicle", carLabel],
-            ["Sale price", dollars(Number(listing.sale_price))],
-            ["Paid to seller", dollars(Number(listing.seller_net))],
+            ["Sale price", money(Number(listing.sale_price))],
+            ["Paid to seller", money(Number(listing.seller_net))],
             ["Seller", `${seller.name ?? "—"} (${seller.email ?? "—"})`],
             ["Transfer ID", transfer.id],
             ["Sourced from charge", chargeId],
             ["Referral", referral.outcome],
             ...(referral.commission
-              ? [["Commission", dollars(referral.commission)] as [string, unknown]]
+              ? [["Commission", money(referral.commission)] as [string, unknown]]
               : []),
             ["Listing ID", listing.id],
           ], referral.outcome.startsWith("flagged")
@@ -153,7 +210,7 @@ Deno.serve(async (req) => {
           subject: `⚠️ Auto-release TRANSFER FAILED — ${carLabel}`,
           html: alertHtml("Stripe transfer failed", [
             ["Vehicle", carLabel],
-            ["Amount", dollars(Number(listing.seller_net))],
+            ["Amount", money(Number(listing.seller_net))],
             ["Seller", `${seller.name ?? "—"} (${seller.email ?? "—"})`],
             ["Stripe error", msg],
             ["Listing ID", listing.id],
@@ -176,7 +233,7 @@ Deno.serve(async (req) => {
       html: alertHtml("Automatic fund release job errored", [
         ["Error", msg],
         ["Time", new Date().toISOString()],
-      ], "No funds were released on this run. Sales past their 7-day window are still waiting."),
+      ], "No funds were released on this run. Sales past their release window are still waiting."),
     });
 
     return jsonResponse({ error: msg }, 500);

@@ -121,8 +121,16 @@ Deno.serve(async (req) => {
       .eq("status", "accepted")
       .maybeSingle();
 
-    const finalPrice = acceptedOffer ? Number(acceptedOffer.amount) : Number(listing.price);
-    const priceCents = Math.round(finalPrice * 100);
+    // Both listings.price and offers.amount are CENTS as of migration
+    // 20260803_05_money_to_cents, and Stripe wants cents, so this is a
+    // straight pass-through. The previous `* 100` here would now send Stripe
+    // one hundred times the asking price on a real card.
+    const priceCents = acceptedOffer ? Number(acceptedOffer.amount) : Number(listing.price);
+    if (!Number.isFinite(priceCents) || priceCents < 50) {
+      // Stripe's minimum charge is 50 cents. A listing priced below that is
+      // either mispriced or a units bug — fail loudly rather than charge.
+      throw new Error("This listing's price is not valid for checkout");
+    }
     const origin = req.headers.get("origin") ?? "https://drivelink.deals";
     const label = [listing.year, listing.make, listing.model].filter(Boolean).join(" ") || "DriveLink vehicle purchase";
 

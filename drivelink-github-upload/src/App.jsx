@@ -10,7 +10,44 @@ import logoIcon from "./assets/logo-icon.png";
 import { StartDealView, JoinDealView } from "./DealViews.jsx";
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 
-const fmt = (n) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n);
+// ── MONEY IS CENTS ──────────────────────────────────────────────────────────
+// Every money column in the database is CENTS as of migration
+// 20260803_05_money_to_cents: listings.price/sale_price/platform_fee/
+// seller_net, offers.amount/counter_amount, payouts.amount,
+// referrals.commission_amount, users.balance, saved_searches.max_price.
+//
+// fmt() therefore takes CENTS. Pass it a database value directly. Anything a
+// user typed into a dollar field goes through toCents() first; anything being
+// loaded back INTO a dollar field goes through fromCents().
+//
+// Whole dollars render without decimals (a $10,000 car reads "$10,000"), but
+// anything with cents shows them — which is the point, since a $1.25 platform
+// fee used to be unrepresentable and displayed as $1.
+const fmt = (cents) => {
+  const c = Number(cents);
+  if (!Number.isFinite(c)) return "—";
+  const whole = c % 100 === 0;
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: whole ? 0 : 2,
+    maximumFractionDigits: whole ? 0 : 2,
+  }).format(c / 100);
+};
+
+// Dollars typed by a person -> integer cents for the database.
+const toCents = (dollars) => {
+  const d = Number(dollars);
+  if (!Number.isFinite(d)) return 0;
+  return Math.round(d * 100);
+};
+
+// Cents from the database -> a dollar number for a form input's value.
+const fromCents = (cents) => {
+  const c = Number(cents);
+  if (!Number.isFinite(c)) return "";
+  return c / 100;
+};
 const STRIPE_LINK = "https://buy.stripe.com/4gM4gz0z05sNaa9afu4Vy00";
 // Calendar date for date-only columns (sold_at, paid_at).
 //
@@ -1408,7 +1445,8 @@ function HomeView({ listings, allListings, currentUser, users, onShare, onBuy, r
   const { t } = useLang();
   const [search, setSearch] = useState("");
   const [make, setMake] = useState("all");
-  const [maxPrice, setMaxPrice] = useState(200000);
+  // Cents, so it compares directly against listings.price and saves as cents.
+  const [maxPrice, setMaxPrice] = useState(20000000);
   const [maxMileage, setMaxMileage] = useState(300000);
   const [location, setLocation] = useState("");
   const [sort, setSort] = useState("newest");
@@ -1481,7 +1519,7 @@ for (const l of allListings.filter(l => l.status === "active")) {
         </select>
         <div style={styles.filterGroup}>
           <label style={styles.filterLabel}>Max price: {fmt(maxPrice)}</label>
-          <input type="range" min={5000} max={200000} step={1000} value={maxPrice} onChange={e => setMaxPrice(+e.target.value)} style={styles.rangeInput} />
+          <input type="range" min={500000} max={20000000} step={100000} value={maxPrice} onChange={e => setMaxPrice(+e.target.value)} style={styles.rangeInput} />
         </div>
         <div style={styles.filterGroup}>
           <label style={styles.filterLabel}>Max mileage: {maxMileage.toLocaleString()} mi</label>
@@ -2370,7 +2408,7 @@ function MyListingsView({ listings, referrals, users, offers, onMarkSold, onSetS
 
 function SellerOfferRow({ offer, buyer, onRespond }) {
   const [countering, setCountering] = useState(false);
-  const [counterAmount, setCounterAmount] = useState(offer.amount);
+  const [counterAmount, setCounterAmount] = useState(fromCents(offer.amount));
   const [counterMessage, setCounterMessage] = useState("");
   return (
     <div style={styles.offerRow}>
@@ -2390,7 +2428,7 @@ function SellerOfferRow({ offer, buyer, onRespond }) {
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
           <input style={{ ...styles.fieldInput, width: 110 }} type="number" value={counterAmount} onChange={e => setCounterAmount(e.target.value)} />
           <input style={{ ...styles.fieldInput, width: 160 }} placeholder="Message (optional)" value={counterMessage} onChange={e => setCounterMessage(e.target.value)} />
-          <button style={styles.soldBtn} onClick={() => { onRespond(offer.id, "countered", +counterAmount, counterMessage); setCountering(false); }}>Send Counter</button>
+          <button style={styles.soldBtn} onClick={() => { onRespond(offer.id, "countered", toCents(counterAmount), counterMessage); setCountering(false); }}>Send Counter</button>
           <button style={styles.cancelBtn} onClick={() => setCountering(false)}>Cancel</button>
         </div>
       )}
@@ -2579,7 +2617,7 @@ function OfferModal({ listing, onCancel, onSubmit }) {
         <div style={{ fontSize: 12, color: "#6b7280", marginTop: 6 }}>If accepted, you and the seller coordinate the sale directly — checkout still runs at the listed price, so the seller records the agreed amount when they mark it sold.</div>
         <div style={styles.modalActions}>
           <button style={styles.cancelBtn} onClick={onCancel}>Cancel</button>
-          <button style={styles.confirmBtn} onClick={() => onSubmit(+amount, message)} disabled={!amount || +amount <= 0}>Send Offer</button>
+          <button style={styles.confirmBtn} onClick={() => onSubmit(toCents(amount), message)} disabled={!amount || +amount <= 0}>Send Offer</button>
         </div>
       </div>
     </div>
@@ -2587,7 +2625,7 @@ function OfferModal({ listing, onCancel, onSubmit }) {
 }
 
 function MarkSoldModal({ listing, onCancel, onConfirm }) {
-  const [price, setPrice] = useState(listing.price);
+  const [price, setPrice] = useState(fromCents(listing.price));
   const [buyerEmail, setBuyerEmail] = useState("");
   return (
     <div style={styles.overlay} onClick={onCancel}>
@@ -2600,7 +2638,7 @@ function MarkSoldModal({ listing, onCancel, onConfirm }) {
         <div style={{ fontSize: 12, color: "#6b7280", marginTop: 6 }}>If the buyer has a DriveLink account, adding their email links the sale so they can leave a review.</div>
         <div style={styles.modalActions}>
           <button style={styles.cancelBtn} onClick={onCancel}>Cancel</button>
-          <button style={styles.confirmBtn} onClick={() => onConfirm(+price, buyerEmail)}>Confirm Sale</button>
+          <button style={styles.confirmBtn} onClick={() => onConfirm(toCents(price), buyerEmail)}>Confirm Sale</button>
         </div>
       </div>
     </div>
@@ -2608,7 +2646,7 @@ function MarkSoldModal({ listing, onCancel, onConfirm }) {
 }
 
 function PayoutModal({ user, onCancel, onConfirm, onPayViaStripe }) {
-  const [amount, setAmount] = useState(user.balance || 0);
+  const [amount, setAmount] = useState(fromCents(user.balance || 0));
   const [method, setMethod] = useState("Bank transfer");
   const [note, setNote] = useState("");
   return (
@@ -2626,8 +2664,8 @@ function PayoutModal({ user, onCancel, onConfirm, onPayViaStripe }) {
         <label style={styles.fieldLabel}>Note (optional)</label>
         <input style={{ ...styles.fieldInput, marginBottom: 12 }} value={note} onChange={e => setNote(e.target.value)} placeholder="Reference number, etc." />
         {user.stripe_payouts_enabled && (
-          <button style={{ ...styles.confirmBtn, width: "100%", marginBottom: 12 }} onClick={() => onPayViaStripe(+amount, note)}>
-            💳 Send {fmt(+amount || 0)} via Stripe
+          <button style={{ ...styles.confirmBtn, width: "100%", marginBottom: 12 }} onClick={() => onPayViaStripe(toCents(amount), note)}>
+            💳 Send {fmt(toCents(amount))} via Stripe
           </button>
         )}
         <div style={{ borderTop: "1px solid #e5e7eb", paddingTop: 12 }}>
@@ -2643,7 +2681,7 @@ function PayoutModal({ user, onCancel, onConfirm, onPayViaStripe }) {
           <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 12 }}>This records that you paid {user.name} outside of DriveLink and reduces their tracked balance to match — it doesn't move any real money.</div>
           <div style={styles.modalActions}>
             <button style={styles.cancelBtn} onClick={onCancel}>Cancel</button>
-            <button style={styles.confirmBtn} onClick={() => onConfirm(+amount, method, note)}>Record Payout</button>
+            <button style={styles.confirmBtn} onClick={() => onConfirm(toCents(amount), method, note)}>Record Payout</button>
           </div>
         </div>
       </div>
@@ -2654,7 +2692,7 @@ function PayoutModal({ user, onCancel, onConfirm, onPayViaStripe }) {
 function EditListingModal({ listing, onCancel, onSave }) {
   const [form, setForm] = useState({
     make: listing.make || "", model: listing.model || "", year: listing.year || new Date().getFullYear(),
-    price: listing.price || "", mileage: listing.mileage || "", color: listing.color || "",
+    price: listing.price != null ? fromCents(listing.price) : "", mileage: listing.mileage || "", color: listing.color || "",
     description: listing.description || "", vin: listing.vin || "", location_text: listing.location_text || "",
   });
   const [images, setImages] = useState(listing.images && listing.images.length ? listing.images : (listing.image ? [listing.image] : []));
@@ -2678,7 +2716,7 @@ function EditListingModal({ listing, onCancel, onSave }) {
     setSaving(true);
     await onSave({
       ...form,
-      price: +form.price,
+      price: toCents(form.price),
       mileage: +form.mileage,
       year: +form.year,
       images,
@@ -2707,7 +2745,7 @@ function EditListingModal({ listing, onCancel, onSave }) {
           <Field label="Color" value={form.color} onChange={v => set("color", v)} />
           <Field label="Location (city or ZIP)" value={form.location_text} onChange={v => set("location_text", v)} />
         </div>
-        <SellerNetPreview price={form.price} />
+        <SellerNetPreview price={toCents(form.price)} />
         <div style={{ marginTop: 12 }}>
           <label style={styles.fieldLabel}>VIN (optional)</label>
           <div style={{ display: "flex", gap: 8 }}>
@@ -2766,7 +2804,7 @@ function PostListingView({ onPost }) {
     setSubmitting(true);
     await onPost({
       ...form,
-      price: +form.price,
+      price: toCents(form.price),
       mileage: +form.mileage,
       year: +form.year,
       images,
@@ -2797,7 +2835,7 @@ function PostListingView({ onPost }) {
           <Field label={t("sell.color")} value={form.color} onChange={v => set("color", v)} placeholder="e.g. Pearl White" />
           <Field label={t("sell.location")} value={form.location_text} onChange={v => set("location_text", v)} placeholder="e.g. Austin, TX" />
         </div>
-        <SellerNetPreview price={form.price} />
+        <SellerNetPreview price={toCents(form.price)} />
         <div style={{ marginTop: 12 }}>
           <label style={styles.fieldLabel}>VIN (optional)</label>
           <div style={{ display: "flex", gap: 8 }}>
@@ -2831,9 +2869,11 @@ function PostListingView({ onPost }) {
 }
 
 const AD_PLANS = [
-  { id: "3mo", label: "3 Months", monthly: 150, total: 450, blurb: "" },
-  { id: "6mo", label: "6 Months", monthly: 125, total: 750, blurb: "Save ~17%" },
-  { id: "12mo", label: "12 Months", monthly: 100, total: 1200, blurb: "Save ~33%" },
+  // Cents, to match fmt(). Display only — create-ad-checkout-session prices the
+  // plan server-side from the plan id, so these are never sent anywhere.
+  { id: "3mo", label: "3 Months", monthly: 15000, total: 45000, blurb: "" },
+  { id: "6mo", label: "6 Months", monthly: 12500, total: 75000, blurb: "Save ~17%" },
+  { id: "12mo", label: "12 Months", monthly: 10000, total: 120000, blurb: "Save ~33%" },
 ];
 
 function AdvertiseView({ currentUser, onSubmit, onSignIn }) {
@@ -3038,12 +3078,13 @@ function Field({ label, value, onChange, placeholder, type = "text" }) {
 // different number is the kind of surprise that costs trust on a platform
 // whose whole proposition is escrow, so the real figure is shown up front.
 //
-// Mirrors the arithmetic in stripe-webhook: the processing fee is rounded UP
-// to whole dollars there so seller_net can never exceed the funds actually on
-// the balance. This estimate does the same, which means the seller may receive
-// a few cents more than shown but never less.
+// Mirrors the arithmetic in stripe-webhook, in CENTS. The webhook no longer
+// rounds the processing fee up to whole dollars — it deducts Stripe's exact
+// reported fee — so this estimate is now accurate to the cent rather than
+// deliberately pessimistic. It is still an estimate: the real fee comes off
+// the charge's balance_transaction at settlement time.
 const STRIPE_PCT = 0.029;
-const STRIPE_FIXED = 0.30;
+const STRIPE_FIXED = 30; // cents
 
 function sellerNetBreakdown(price) {
   const p = Number(price);
@@ -3861,7 +3902,7 @@ function AnalyticsView({ listings, referrals, users }) {
             <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
             <XAxis dataKey="label" tick={{ fontSize: 11 }} />
             <YAxis yAxisId="count" allowDecimals={false} tick={{ fontSize: 12 }} />
-            <YAxis yAxisId="gmv" orientation="right" tick={{ fontSize: 12 }} tickFormatter={(v) => `$${Math.round(v / 1000)}k`} />
+            <YAxis yAxisId="gmv" orientation="right" tick={{ fontSize: 12 }} tickFormatter={(v) => `$${Math.round(v / 100000)}k`} />
             <Tooltip formatter={(value, name) => name === "GMV" ? fmt(value) : value} />
             <Legend wrapperStyle={{ fontSize: 12 }} />
             <Line yAxisId="count" type="monotone" dataKey="newListings" name="New listings" stroke="#93c5fd" strokeWidth={2} dot={false} />
