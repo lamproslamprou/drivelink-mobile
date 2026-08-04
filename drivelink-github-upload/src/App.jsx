@@ -856,10 +856,19 @@ const denyFlaggedReferral = async (refId) => {
     if (error || data?.error) {
       // The function returns 409 with an `events` list when a purge would
       // destroy moderation evidence. Surface that rather than swallowing it.
-      let detail = data?.error || error?.message;
-      if (!detail && error?.context) {
-        try { detail = (await error.context.json())?.reason; } catch { /* ignore */ }
+      // Read `error`, not `reason` — the function has no `reason` field, so
+      // the previous version silently discarded every message it returned.
+      // The 409 evidence guard ("this account has hard moderation violations
+      // on record") was surfacing to the admin as "try again", which is why a
+      // purge could appear to fail for no reason at all.
+      let detail = data?.error || null;
+      if (!detail && error?.context && typeof error.context.json === "function") {
+        try {
+          const body = await error.context.json();
+          detail = body?.error || null;
+        } catch { /* body wasn't JSON — fall through */ }
       }
+      if (!detail) detail = error?.message || null;
       showToast(detail || "Couldn't delete user — try again.", "error");
       return;
     }
@@ -919,7 +928,21 @@ const denyFlaggedReferral = async (refId) => {
     const { data, error } = await supabase.functions.invoke("create-identity-verification");
     if (error || !data?.url) {
       if (data?.alreadyVerified) { showToast("You're already verified.", "info"); return; }
-      showToast(data?.error || error?.message || "Couldn't start verification — try again.", "error");
+      // On a non-2xx response supabase-js leaves `data` null and sets a
+      // generic error.message ("non-2xx status code" / "Failed to send a
+      // request"). The function's actual message is in error.context, an
+      // unread Response. Without this, a clear server-side explanation —
+      // "Your account is not set up to use Identity", say — is discarded and
+      // shown to the user as a transport failure, which sends you debugging
+      // the wrong layer entirely.
+      let detail = null;
+      try {
+        if (error?.context && typeof error.context.json === "function") {
+          const body = await error.context.json();
+          detail = body?.error || null;
+        }
+      } catch { /* body wasn't JSON — fall through to the generic message */ }
+      showToast(detail || data?.error || error?.message || "Couldn't start verification — try again.", "error");
       return;
     }
     window.location.href = data.url;
