@@ -150,9 +150,24 @@ Deno.serve(async (req) => {
     // row with no matching Supabase Auth account (their id isn't a real auth
     // UUID). Only attempt the auth deletion if the id is UUID-shaped.
     const hadAuthAccount = UUID_RE.test(user_id);
+    let authAlreadyGone = false;
     if (hadAuthAccount) {
       const { error: authErr } = await supabase.auth.admin.deleteUser(user_id);
-      if (authErr) {
+
+      // "User not found" is success, not failure. It happens whenever an
+      // account is purged after having already been anonymized — the first
+      // pass deleted the auth record, so the second finds nothing to delete.
+      // Treating it as an error returned a 500, reported "the auth record
+      // could not be deleted", and then tried to ban a user that does not
+      // exist. The branch below exists to stop a LOGIN being left usable; a
+      // missing auth record is not a usable login.
+      const notFound = authErr &&
+        (/not\s*found/i.test(authErr.message ?? "") ||
+         (authErr as { status?: number }).status === 404);
+
+      if (notFound) {
+        authAlreadyGone = true;
+      } else if (authErr) {
         // Steps 1 and 2 are already done, so failing here would strand the
         // account in a usable state. Ban it so it cannot be logged into
         // while you work out what is still holding the reference.
@@ -178,6 +193,9 @@ Deno.serve(async (req) => {
       name: target.name,
       email: target.email,
       hadAuthAccount,
+      // True when the auth record was already gone — normal for an account
+      // being purged after a previous anonymize.
+      authAlreadyGone,
       mode,
       storage,
       database: dbResult,

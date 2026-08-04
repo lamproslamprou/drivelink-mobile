@@ -3554,6 +3554,9 @@ function StatBox({ label, value, color }) {
 
 function AdminView({ listings, users, referrals, reports, feedback, userReports, reviews, payouts, disputes, onArchive, onMarkSold, onConfirmReceipt, onResolveReport, onResolveUserReport, onToggleVerified, onResetData, onRecordPayout, onPayoutViaStripe, onResolveDispute, onDeleteUser, onApproveFlaggedReferral, onDenyFlaggedReferral }) {
   const [tab, setTab] = useState("listings");
+  const [showDeletedUsers, setShowDeletedUsers] = useState(false);
+  const deletedUserCount = (users || []).filter(u => u.deleted_at).length;
+  const visibleUsers = showDeletedUsers ? users : (users || []).filter(u => !u.deleted_at);
   const [markingSold, setMarkingSold] = useState(null);
   const [payingOut, setPayingOut] = useState(null);
   const activeAndSold = listings.filter(l => l.status !== "archived");
@@ -3628,8 +3631,26 @@ function AdminView({ listings, users, referrals, reports, feedback, userReports,
       )}
       {tab === "users" && (
         <div style={styles.tableWrap}>
-          <div style={{ fontSize: 13, color: "#6b7280", marginBottom: 12, fontWeight: 600 }}>{users.length} total user{users.length === 1 ? "" : "s"}</div>
-          {users.map((u, i) => {
+          {/* Deleted accounts are anonymized tombstones kept so past
+              transactions still resolve to a name. They are real rows, but
+              they are not people you can act on — and they accumulate
+              forever. Hidden by default so the list stays usable, with a
+              toggle for when you actually need to purge them. */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+            <div style={{ fontSize: 13, color: "#6b7280", fontWeight: 600 }}>
+              {visibleUsers.length} user{visibleUsers.length === 1 ? "" : "s"}
+              {deletedUserCount > 0 && !showDeletedUsers ? ` · ${deletedUserCount} deleted hidden` : ""}
+            </div>
+            {deletedUserCount > 0 && (
+              <button
+                style={{ ...styles.pendingBtn, fontSize: 12 }}
+                onClick={() => setShowDeletedUsers(v => !v)}
+              >
+                {showDeletedUsers ? "Hide deleted" : `Show deleted (${deletedUserCount})`}
+              </button>
+            )}
+          </div>
+          {visibleUsers.map((u, i) => {
             const uReviews = (reviews || []).filter(r => r.seller_id === u.id);
             const uRating = uReviews.length ? uReviews.reduce((s, r) => s + r.rating, 0) / uReviews.length : null;
             return (
