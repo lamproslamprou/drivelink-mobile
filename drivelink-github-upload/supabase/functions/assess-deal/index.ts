@@ -6,6 +6,20 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// ── MONEY IS CENTS ──────────────────────────────────────────────────────────
+// listings.price and every other money column are CENTS as of migration
+// 20260803_05_money_to_cents. Interpolating a raw cent value into an AI prompt
+// as "$12345" asks the model to appraise a $12,345 car as a $1.2M one, so
+// every price that reaches a prompt goes through usd() first.
+//
+// The stored assessment carries market_value_cents, an explicit machine
+// figure, alongside estimated_market_range, which stays a human display
+// string. extract_market_value() in Postgres reads the former — parsing the
+// display string was always fragile, and Path A never produced one at all,
+// which meant internal assessments could never trigger PRICE_OVER_MARKET.
+const usd = (cents: number) =>
+  `$${Math.round(Number(cents) / 100).toLocaleString("en-US")}`;
+
 const CACHE_DAYS = 14;
 const MIN_COMPARABLES_FOR_INTERNAL = 3; // below this, fall back to real web search
 const WEB_SEARCH_MAX_USES = 3; // caps cost per assessment (~$0.03 in search fees)
@@ -99,8 +113,8 @@ async function runInternalAssessment(listing: any, prices: number[]) {
   const prompt = `You are a pricing assistant for DriveLink, a peer-to-peer car marketplace. Given the stats below, return ONLY a JSON object (no markdown, no commentary) shaped exactly like:
 {"rating": "great_deal" | "fair_price" | "above_market", "summary": "one or two plain-language sentences"}
 
-Listing: ${listing.year} ${listing.make} ${listing.model}, priced at $${listing.price}, ${listing.mileage} miles.
-Comparable active DriveLink listings: ${prices.length} other ${listing.make} ${listing.model} listings, averaging $${avgPrice} (range $${minPrice}-$${maxPrice}).
+Listing: ${listing.year} ${listing.make} ${listing.model}, priced at ${usd(listing.price)}, ${listing.mileage} miles.
+Comparable active DriveLink listings: ${prices.length} other ${listing.make} ${listing.model} listings, averaging ${usd(avgPrice)} (range ${usd(minPrice)}-${usd(maxPrice)}).
 This listing is ${priceDiffPct > 0 ? `${priceDiffPct}% above` : `${Math.abs(priceDiffPct)}% below`} that average.
 
 Be factual and measured — this is based only on DriveLink's current listings, not a full market appraisal. Don't claim more certainty than that.`;
@@ -134,8 +148,13 @@ Be factual and measured — this is based only on DriveLink's current listings, 
     summary: parsed.summary || "",
     source: "internal",
     comparable_count: prices.length,
-    avg_price: avgPrice,
+    avg_price: avgPrice, // cents
     price_diff_pct: priceDiffPct,
+    // Display string for the listing page, and the machine figure the risk
+    // engine reads. Path A previously emitted neither, so PRICE_OVER_MARKET
+    // could never fire on an internally-assessed listing.
+    estimated_market_range: `${usd(minPrice)}-${usd(maxPrice)}`,
+    market_value_cents: maxPrice,
   };
 }
 
@@ -146,7 +165,7 @@ Be factual and measured — this is based only on DriveLink's current listings, 
 async function runWebSearchAssessment(listing: any, internalComparableCount: number) {
   const prompt = `You are a pricing assistant for DriveLink, a peer-to-peer car marketplace. DriveLink doesn't have enough of its own listings to compare this car against, so research current market pricing for it using web search.
 
-Car: ${listing.year} ${listing.make} ${listing.model}, ${listing.mileage} miles, listed at $${listing.price}.
+Car: ${listing.year} ${listing.make} ${listing.model}, ${listing.mileage} miles, listed at ${usd(listing.price)}.
 
 Search for typical asking prices for comparable used ${listing.year} (or nearby model years) ${listing.make} ${listing.model} with similar mileage, from listing sites and pricing guides. Then respond with ONLY a JSON object as your final message (no markdown, no commentary, no citations or quoted text) shaped exactly like:
 {"rating": "great_deal" | "fair_price" | "above_market", "summary": "one or two plain-language sentences describing how this price compares to what you found", "estimated_market_range": "e.g. $18,000-$21,000"}
@@ -186,11 +205,37 @@ Be factual and measured. Do not quote or closely paraphrase any single source �
     throw new Error("Web search assessment did not return parseable JSON");
   }
 
+  const range = parseRangeToCents(parsed.estimated_market_range);
+
   return {
     rating: parsed.rating || "fair_price",
     summary: parsed.summary || "",
     estimated_market_range: parsed.estimated_market_range || null,
     source: "web_search",
     comparable_count: internalComparableCount,
+    // Top of the model's stated range, in cents. Null when the model returned
+    // no range or an unparseable one — the risk engine treats null as "no
+    // comps" rather than guessing.
+    market_value_cents: range ? range.high : null,
   };
+}
+
+// Turns a model-written range like "$18,000-$21,000" into cents. Mirrors
+// parse_market_range() in Postgres; kept here so the stored value is already
+// machine-readable and the SQL side never has to parse prose.
+function parseRangeToCents(text: unknown): { low: number; high: number } | null {
+  if (typeof text !== "string" || !text.trim()) return null;
+  const s = text.replace(/,/g, "");
+  const two = s.match(/\$?\s*([0-9]+(?:\.[0-9]+)?)\s*(?:-|–|—|to)\s*\$?\s*([0-9]+(?:\.[0-9]+)?)/);
+  if (two) {
+    const a = Math.round(Number(two[1]) * 100);
+    const b = Math.round(Number(two[2]) * 100);
+    return { low: Math.min(a, b), high: Math.max(a, b) };
+  }
+  const one = s.match(/\$?\s*([0-9]+(?:\.[0-9]+)?)/);
+  if (one) {
+    const v = Math.round(Number(one[1]) * 100);
+    return { low: v, high: v };
+  }
+  return null;
 }

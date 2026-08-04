@@ -500,6 +500,13 @@ export default function App() {
     const { error } = await supabase.from("listings").insert(newListing);
     if (error) { showToast("Error posting listing", "error"); return; }
 
+    // VIN verification runs server-side against NHTSA and cross-checks the
+    // decode against the make/model/year on the listing. Failure is non-fatal:
+    // the listing is live either way, it just doesn't carry the badge.
+    if (newListing.vin && String(newListing.vin).trim().length === 17) {
+      await supabase.functions.invoke("verify-vin", { body: { listing_id: newListing.id } });
+    }
+
     // Listing inserts with moderation_status = 'pending', which the
     // listings_hide_unapproved RLS policy keeps hidden from buyers until this
     // returns. The seller sees it in My Listings the whole time.
@@ -713,6 +720,12 @@ const denyFlaggedReferral = async (refId) => {
     if (coords) { patch.lat = coords.lat; patch.lng = coords.lng; }
     const { error } = await supabase.from("listings").update(patch).eq("id", listingId);
     if (error) { showToast("Error updating listing", "error"); return; }
+
+    // Re-verify after an edit: changing make, model, year or VIN can turn a
+    // matching VIN into a mismatched one, and the badge must follow.
+    if (patch.vin && String(patch.vin).trim().length === 17) {
+      await supabase.functions.invoke("verify-vin", { body: { listing_id: listingId } });
+    }
 
     // A database trigger resets moderation_status to 'pending' whenever a
     // moderated field changes, so an edited listing is hidden until this
@@ -1939,6 +1952,11 @@ function ListingDetailModal({ data, currentUser, isFavorited, isBlocked, onClose
               <div style={styles.escrowBoxTitle}>{t("escrow.title")}</div>
               <div style={styles.escrowBoxText}>
                 {t("escrow.body")}
+                {/* Only asserted when the seller actually completed Stripe
+                    Identity. Note this is NOT payoutsReady — that is Connect
+                    onboarding, a different Stripe product. A seller can take
+                    payment without ever having verified an ID document. */}
+                {seller?.verified ? ` ${t("escrow.idVerified")}` : ""}
               </div>
             </div>
           ) : (
@@ -2721,7 +2739,9 @@ function EditListingModal({ listing, onCancel, onSave }) {
       year: +form.year,
       images,
       image: images[0] || listing.image,
-      vin_verified: vinVerified,
+      // vin_verified is deliberately NOT sent. It is a platform attestation
+      // written only by the verify-vin Edge Function — a browser that can set
+      // it can forge it.
     });
     setSaving(false);
   };
@@ -2809,7 +2829,7 @@ function PostListingView({ onPost }) {
       year: +form.year,
       images,
       image: images[0] || "https://images.unsplash.com/photo-1494976388531-d1058494cdd8?w=600&q=80",
-      vin_verified: vinVerified,
+      // See note in EditListingModal — the platform sets vin_verified, not us.
     });
     setSubmitting(false);
   };
