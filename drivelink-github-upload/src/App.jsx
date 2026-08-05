@@ -1089,6 +1089,40 @@ const denyFlaggedReferral = async (refId) => {
   };
 
   // ── Navigation ──────────────────────────────────────────────────────────────
+  //
+  // ── ROUTE TABLE ─────────────────────────────────────────────────────────────
+  // Every top-level view gets a real URL. Before this, the whole app lived at
+  // "/" apart from /listing/:id and /s/:code, which meant three things:
+  //
+  //   1. GA4 recorded one page_view per session, always "/", so every funnel
+  //      question ("where do sellers drop off?") was unanswerable.
+  //   2. Nothing but the home page could be linked, shared, or bookmarked.
+  //   3. Google had one URL to index, so sitelinks were impossible.
+  //
+  // "/" is the marketing landing page and "/browse" is the listing grid. They
+  // are genuinely different pages with different intent, and collapsing both
+  // into "/" was part of why the ads landed everyone on the same screen.
+  const VIEW_PATHS = {
+    landing:     "/",
+    home:        "/browse",
+    auth:        "/signin",
+    myListings:  "/my-listings",
+    postListing: "/sell",
+    messages:    "/messages",
+    admin:       "/admin",
+    advertise:   "/advertise",
+    startDeal:   "/start-deal",
+    terms:       "/terms",
+    privacy:     "/privacy",
+    safety:      "/safety",
+  };
+  const PATH_TO_VIEW = Object.fromEntries(
+    Object.entries(VIEW_PATHS).map(([v, p]) => [p, v]),
+  );
+  // Trailing slashes and the empty string all mean "/". Without this,
+  // "/browse/" fails the lookup and the sync effect below bounces the user.
+  const normalizePath = (p) => (p || "/").replace(/[?#].*$/, "").replace(/\/+$/, "") || "/";
+
   const navigate = (to, { replace = false } = {}) => {
     if (window.location.pathname === to && !replace) return;
     window.history[replace ? "replaceState" : "pushState"](null, "", to);
@@ -1116,7 +1150,8 @@ const denyFlaggedReferral = async (refId) => {
 
   const closeListing = () => {
     setViewingListing(null);
-    if (window.location.pathname.startsWith("/listing/")) navigate("/");
+    // Back to the grid, not the marketing page — "/" is the landing view now.
+    if (window.location.pathname.startsWith("/listing/")) navigate(VIEW_PATHS.home);
   };
 
   // ── Route resolution ────────────────────────────────────────────────────────
@@ -1137,7 +1172,7 @@ const denyFlaggedReferral = async (refId) => {
       } else {
         showToast("That share link is no longer valid — showing all listings instead.", "info");
         setView("home");
-        navigate("/", { replace: true });
+        navigate(VIEW_PATHS.home, { replace: true });
       }
       return;
     }
@@ -1151,7 +1186,7 @@ const denyFlaggedReferral = async (refId) => {
         if (listings.length) {
           showToast("That listing isn't available anymore.", "info");
           setView("home");
-          navigate("/", { replace: true });
+          navigate(VIEW_PATHS.home, { replace: true });
         }
         return;
       }
@@ -1161,8 +1196,58 @@ const denyFlaggedReferral = async (refId) => {
     }
 
     if (viewingListing) setViewingListing(null);
+
+    // ── URL → view ────────────────────────────────────────────────────────────
+    // Makes the back button, refresh, and pasted links all work. Without this,
+    // navigating back from /terms to /browse left `view` on "terms" and the
+    // view→URL effect below immediately pushed /terms again — the back button
+    // would appear frozen.
+    const mapped = PATH_TO_VIEW[normalizePath(path)];
+    if (mapped && mapped !== view) {
+      // /admin is a real URL but not a real permission. Anyone can type it, so
+      // it is checked here rather than trusted from the address bar. The admin
+      // components are also gated on dbUser?.role separately — this only stops
+      // the view from being entered at all.
+      if (mapped === "admin" && dbUser?.role !== "admin") {
+        navigate(currentUser ? VIEW_PATHS.home : VIEW_PATHS.landing, { replace: true });
+      } else {
+        setView(mapped);
+      }
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [path, loading, listings, referrals, users, reviews, offers, currentUser]);
+
+  // ── view → URL ──────────────────────────────────────────────────────────────
+  // The other half of the sync. 39 setView() call sites throughout the app stay
+  // exactly as they are; this effect gives each of them a URL as a side effect,
+  // which is why this is not a react-router migration.
+  //
+  // Deep-link paths own the address bar while they are active: an open listing
+  // modal sets view to "home", and without this guard that would rewrite
+  // /listing/abc to /browse and break sharing the link you are looking at.
+  useEffect(() => {
+    if (loading) return;
+    const target = VIEW_PATHS[view];
+    if (!target) return;
+    const current = normalizePath(window.location.pathname);
+    if (viewingListing || /^\/(listing|s|d)\//.test(current)) return;
+    if (current !== target) navigate(target);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, loading, viewingListing]);
+
+  // ── GA4 ─────────────────────────────────────────────────────────────────────
+  // A single-page app fires exactly one automatic page_view, on first load.
+  // Every navigation after that was invisible, which is why analytics showed
+  // one "/" hit per session no matter how far someone got. gtag is loaded in
+  // index.html; the typeof check keeps an ad blocker from throwing here.
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof window.gtag !== "function") return;
+    window.gtag("event", "page_view", {
+      page_path: path,
+      page_location: window.location.href,
+      page_title: document.title,
+    });
+  }, [path]);
 
   useEffect(() => {
     const m = path.match(/^\/d\/([^/?#]+)\/?$/);
