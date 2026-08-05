@@ -1809,6 +1809,7 @@ function HomeView({ listings, allListings, currentUser, users, onShare, onBuy, r
   const { t } = useLang();
   const [search, setSearch] = useState("");
   const [make, setMake] = useState("all");
+  const [vehicleType, setVehicleType] = useState("all");
   // Cents, so it compares directly against listings.price and saves as cents.
   const [maxPrice, setMaxPrice] = useState(20000000);
   const [maxMileage, setMaxMileage] = useState(300000);
@@ -1827,7 +1828,19 @@ function HomeView({ listings, allListings, currentUser, users, onShare, onBuy, r
     });
   };
 
-  const makes = [...new Set(listings.map(l => l.make).filter(Boolean))].sort();
+  // Only makes present in the current type's listings — selecting Motorcycle
+  // then seeing Chevrolet in the make list would be nonsense.
+  const makes = [...new Set(
+    listings
+      .filter(l => vehicleType === "all" || (l.vehicle_type || "car") === vehicleType)
+      .map(l => l.make)
+      .filter(Boolean)
+  )].sort();
+
+  // Types that actually have listings, so the filter never offers an empty set.
+  const availableTypes = VEHICLE_TYPES.filter(vt =>
+    listings.some(l => (l.vehicle_type || "car") === vt.value)
+  );
 
   const seeSimilar = (l) => {
     setMake(l.make);
@@ -1839,6 +1852,7 @@ function HomeView({ listings, allListings, currentUser, users, onShare, onBuy, r
   const filtered = listings
     .filter(l => `${l.year} ${l.make} ${l.model}`.toLowerCase().includes(search.toLowerCase()))
     .filter(l => make === "all" || l.make === make)
+    .filter(l => vehicleType === "all" || (l.vehicle_type || "car") === vehicleType)
     .filter(l => l.price <= maxPrice)
     .filter(l => (l.mileage || 0) <= maxMileage)
     .filter(l => !location.trim() || (l.location_text || "").toLowerCase().includes(location.toLowerCase()))
@@ -1877,6 +1891,20 @@ for (const l of allListings.filter(l => l.status === "active")) {
       </div>
       <div style={styles.filterBar}>
         <input style={styles.searchInput} placeholder={t("home.searchPlaceholder")} value={search} onChange={e => setSearch(e.target.value)} />
+        {/* Only shown once there is more than one type on the platform —
+            a lone "All types" dropdown is a control that does nothing. */}
+        {availableTypes.length > 1 && (
+          <select
+            style={styles.selectInput}
+            value={vehicleType}
+            onChange={e => { setVehicleType(e.target.value); setMake("all"); }}
+          >
+            <option value="all">All types</option>
+            {availableTypes.map(vt => (
+              <option key={vt.value} value={vt.value}>{vt.emoji} {vt.label}</option>
+            ))}
+          </select>
+        )}
         <select style={styles.selectInput} value={make} onChange={e => setMake(e.target.value)}>
           <option value="all">All makes</option>
           {makes.map(m => <option key={m} value={m}>{m}</option>)}
@@ -2425,6 +2453,13 @@ function DealCheckButton({ listing, onCheckDeal }) {
   const [loading, setLoading] = useState(false);
   const [assessment, setAssessment] = useState(listing.deal_assessment || null);
 
+  // Cars only, deliberately. assess-deal compares against Auto.dev comparables,
+  // which is car data — on a motorcycle it returns nothing useful or, worse,
+  // something confidently wrong. A price verdict that is wrong is more damaging
+  // than no verdict on a platform whose entire pitch is trust, so powersports
+  // listings get no button rather than a bad number.
+  if ((listing.vehicle_type || "car") !== "car") return null;
+
   const run = async () => {
     setLoading(true);
     const result = await onCheckDeal(listing.id);
@@ -2703,7 +2738,7 @@ function MyListingsView({ listings, referrals, users, offers, stats, onMarkSold,
               <div style={styles.listingRow} className="app-listing-row">
                 <img src={cover} alt="" style={styles.rowImg} onError={e => { e.target.src = "https://images.unsplash.com/photo-1494976388531-d1058494cdd8?w=300&q=60"; }} />
                 <div style={styles.rowInfo} className="app-row-info">
-                  <div style={styles.rowTitle}>{l.year} {l.make} {l.model}</div>
+                  <div style={styles.rowTitle}>{l.year} {l.make} {l.model}<VehicleTypeBadge vehicleType={l.vehicle_type} /></div>
                   <div style={styles.rowMeta}>{fmt(l.price)} • {l.mileage?.toLocaleString()} mi</div>
                   {/* Interest, for active listings only. On a sold car the
                       numbers are history and just add noise. */}
@@ -3104,6 +3139,7 @@ function EditListingModal({ listing, onCancel, onSave }) {
     price: listing.price != null ? fromCents(listing.price) : "", mileage: listing.mileage || "", color: listing.color || "",
     description: listing.description || "", vin: listing.vin || "", location_text: listing.location_text || "",
     handover_date: listing.handover_date || "",
+    vehicle_type: listing.vehicle_type || "car",
   });
   const [images, setImages] = useState(listing.images && listing.images.length ? listing.images : (listing.image ? [listing.image] : []));
   const [saving, setSaving] = useState(false);
@@ -3146,11 +3182,20 @@ function EditListingModal({ listing, onCancel, onSave }) {
       <div style={{ ...styles.modalBox, maxWidth: 640, maxHeight: "88vh", overflowY: "auto" }} onClick={e => e.stopPropagation()}>
         <h3 style={styles.modalTitle}>Edit Listing</h3>
         <ImageUpload images={images} onChange={setImages} />
+        <VehicleTypePicker
+          value={form.vehicle_type}
+          onChange={v => {
+            // Make and model belong to the old type's list — a Ford model on a
+            // motorcycle listing is worse than an empty field.
+            setForm(f => ({ ...f, vehicle_type: v, make: "", model: "" }));
+          }}
+        />
         <div style={styles.formGrid} className="app-form-grid">
           <MakeModelFields
             make={form.make}
             model={form.model}
             year={form.year}
+            vehicleType={form.vehicle_type}
             onChangeMake={v => set("make", v)}
             onChangeModel={v => set("model", v)}
             onChangeYear={v => set("year", v)}
@@ -3193,7 +3238,7 @@ function EditListingModal({ listing, onCancel, onSave }) {
 
 function PostListingView({ onPost }) {
   const { t } = useLang();
-  const [form, setForm] = useState({ make: "", model: "", year: new Date().getFullYear(), price: "", mileage: "", color: "", description: "", vin: "", location_text: "", handover_date: "" });
+  const [form, setForm] = useState({ make: "", model: "", year: new Date().getFullYear(), price: "", mileage: "", color: "", description: "", vin: "", location_text: "", handover_date: "", vehicle_type: "car" });
   const [images, setImages] = useState([]);
   const [submitting, setSubmitting] = useState(false);
   const [vinChecking, setVinChecking] = useState(false);
@@ -3239,11 +3284,16 @@ function PostListingView({ onPost }) {
       <h2 style={styles.pageTitle}>{t("sell.pageTitle")}</h2>
       <div style={styles.formCard}>
         <ImageUpload images={images} onChange={setImages} />
+        <VehicleTypePicker
+          value={form.vehicle_type}
+          onChange={v => setForm(f => ({ ...f, vehicle_type: v, make: "", model: "" }))}
+        />
         <div style={styles.formGrid} className="app-form-grid">
           <MakeModelFields
             make={form.make}
             model={form.model}
             year={form.year}
+            vehicleType={form.vehicle_type}
             onChangeMake={v => set("make", v)}
             onChangeModel={v => set("model", v)}
             onChangeYear={v => set("year", v)}
@@ -3557,7 +3607,7 @@ function AboutView({ onBack, onBrowse, onSafety }) {
 function InstallPrompt() {
   const [deferred, setDeferred] = useState(null);
   const [show, setShow] = useState(false);
-  const [iosHelp, setIosHelp] = useState(false);
+  const [platform, setPlatform] = useState("generic"); // ios | android | generic
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -3574,25 +3624,28 @@ function InstallPrompt() {
 
     const ua = window.navigator.userAgent || "";
     const isIOS = /iphone|ipad|ipod/i.test(ua);
-    // Chrome and Firefox on iOS cannot install PWAs — Apple only allows it from
-    // Safari — so showing them instructions would send them down a dead end.
-    const isIosSafari = isIOS && !/crios|fxios|edgios/i.test(ua);
-    const isSmallScreen = window.innerWidth <= 820;
+    const isAndroid = /android/i.test(ua);
+    if (window.innerWidth > 820) return;
 
-    if (isIosSafari && isSmallScreen) {
-      setShow(true);
-      setIosHelp(true);
-      return;
-    }
+    // Show unconditionally on phones. The earlier version waited for Chrome's
+    // beforeinstallprompt event before showing anything, which meant the banner
+    // was invisible whenever Chrome chose not to fire it — private windows,
+    // low engagement scores, or no reason at all. Instructions always work;
+    // the one-tap button is an upgrade when the event happens to arrive.
+    setPlatform(isIOS ? "ios" : isAndroid ? "android" : "generic");
+    setShow(true);
 
     const onPrompt = (e) => {
       e.preventDefault();
       setDeferred(e);
-      if (isSmallScreen) setShow(true);
     };
+    const onInstalled = () => setShow(false);
     window.addEventListener("beforeinstallprompt", onPrompt);
-    window.addEventListener("appinstalled", () => setShow(false));
-    return () => window.removeEventListener("beforeinstallprompt", onPrompt);
+    window.addEventListener("appinstalled", onInstalled);
+    return () => {
+      window.removeEventListener("beforeinstallprompt", onPrompt);
+      window.removeEventListener("appinstalled", onInstalled);
+    };
   }, []);
 
   const dismiss = () => {
@@ -3606,11 +3659,19 @@ function InstallPrompt() {
     const { outcome } = await deferred.userChoice;
     setDeferred(null);
     setShow(false);
-    // A decline is a dismissal — don't ask again next visit.
     if (outcome !== "accepted") dismiss();
   };
 
   if (!show) return null;
+
+  // iOS never gets a button — Apple has no install API and never will, so the
+  // only honest thing to show is where the control actually lives.
+  const instructions =
+    platform === "ios"
+      ? <>Tap <strong>Share</strong> then <strong>Add to Home Screen</strong>.</>
+      : deferred
+      ? <>Add it to your home screen — no app store needed.</>
+      : <>Open your browser menu and tap <strong>Install app</strong>.</>;
 
   return (
     <div
@@ -3643,12 +3704,10 @@ function InstallPrompt() {
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontWeight: 700, fontSize: 15 }}>Get DriveLink on your phone</div>
         <div style={{ fontSize: 13, color: "#cbd5e1", marginTop: 2, lineHeight: 1.4 }}>
-          {iosHelp
-            ? <>Tap <strong>Share</strong> then <strong>Add to Home Screen</strong>.</>
-            : <>Add it to your home screen — no app store needed.</>}
+          {instructions}
         </div>
       </div>
-      {!iosHelp && (
+      {deferred && (
         <button
           onClick={install}
           style={{
@@ -3936,6 +3995,45 @@ const OTHER = "__other__";
 // Discontinued marques are included on purpose — a 2004 Pontiac GTO is a
 // perfectly normal used listing, and leaving them out would force those
 // sellers into the "Other" path for no reason.
+// ── Vehicle types ───────────────────────────────────────────────────────────
+// Everything here carries a 17-character NHTSA VIN, which is what lets the
+// existing VIN decoder and vin_verified badge work unchanged. Boats (HINs) and
+// towable RVs (frequently no VIN) are deliberately absent — they need a
+// separate identity path, not a new entry in this list.
+const VEHICLE_TYPES = [
+  { value: "car",        label: "Car / Truck / SUV", emoji: "🚗", vpic: null },
+  { value: "motorcycle", label: "Motorcycle",        emoji: "🏍️", vpic: "motorcycle" },
+  { value: "scooter",    label: "Scooter / Moped",   emoji: "🛵", vpic: "motorcycle" },
+  { value: "atv",        label: "ATV / Quad",        emoji: "🏞️", vpic: "motorcycle" },
+  { value: "utv",        label: "UTV / Side-by-side", emoji: "🚙", vpic: "motorcycle" },
+  { value: "snowmobile", label: "Snowmobile",        emoji: "🛷", vpic: "motorcycle" },
+];
+
+const vehicleTypeLabel = (v) =>
+  VEHICLE_TYPES.find(t => t.value === v)?.label || "Car / Truck / SUV";
+const vehicleTypeEmoji = (v) =>
+  VEHICLE_TYPES.find(t => t.value === v)?.emoji || "🚗";
+
+// Powersports marques actually sold to US consumers. Same reasoning as the car
+// list: vPIC's own make list runs to thousands of entries including one-off
+// trailer builders, and a seller should not scroll past 400 of them to reach
+// Harley-Davidson.
+//
+// The ATV/UTV/snowmobile brands are folded in together because the
+// manufacturers overlap almost entirely — Polaris makes sleds and side-by-sides,
+// Yamaha makes all four — and splitting them would mean a seller hunting for a
+// brand that is right there under a different heading.
+const POWERSPORTS_MAKES = [
+  "Aprilia", "Arctic Cat", "Bennche", "Beta", "BMW", "Bombardier", "BRP",
+  "Can-Am", "CFMOTO", "Ducati", "Gas Gas", "Harley-Davidson", "Honda", "Husqvarna",
+  "Indian", "Kawasaki", "KTM", "Kymco", "Lance", "Moto Guzzi", "MV Agusta",
+  "Piaggio", "Polaris", "Royal Enfield", "Ski-Doo", "Suzuki", "SYM", "Triumph",
+  "Vespa", "Victory", "Yamaha", "Zero",
+];
+
+const makesForType = (vehicleType) =>
+  vehicleType && vehicleType !== "car" ? POWERSPORTS_MAKES : MAKES;
+
 const MAKES = [
   "Acura", "Alfa Romeo", "Aston Martin", "Audi", "Bentley", "BMW", "Buick",
   "Cadillac", "Chevrolet", "Chrysler", "Dodge", "Ferrari", "Fiat", "Ford",
@@ -3956,11 +4054,19 @@ const MAKES = [
 //
 // This is why the fields cascade Make -> Year -> Model rather than the more
 // obvious Make -> Model -> Year.
-async function fetchModels(make, year) {
+async function fetchModels(make, year, vehicleType) {
   if (!make || !year) return [];
-  const res = await fetch(
-    `${VPIC}/GetModelsForMakeYear/make/${encodeURIComponent(make)}/modelyear/${encodeURIComponent(year)}?format=json`
-  );
+
+  // vPIC can scope results by vehicle type. Without it, "Honda 2020" returns
+  // Accords and CB500s in one list, and a seller listing a bike has to pick
+  // their model out of a hundred cars. With it, a motorcycle seller sees
+  // motorcycles.
+  const vpicType = VEHICLE_TYPES.find(t => t.value === vehicleType)?.vpic;
+  const url = vpicType
+    ? `${VPIC}/GetModelsForMakeYear/make/${encodeURIComponent(make)}/modelYear/${encodeURIComponent(year)}/vehicleType/${encodeURIComponent(vpicType)}?format=json`
+    : `${VPIC}/GetModelsForMakeYear/make/${encodeURIComponent(make)}/modelyear/${encodeURIComponent(year)}?format=json`;
+
+  const res = await fetch(url);
   const json = await res.json();
   const seen = new Set();
   const out = [];
@@ -3973,16 +4079,63 @@ async function fetchModels(make, year) {
   return out;
 }
 
-function MakeModelFields({ make, model, year, onChangeMake, onChangeModel, onChangeYear }) {
+// Sits above make/model because it changes what those fields offer. Chips
+// rather than a dropdown: six options is few enough to show at once, and a
+// seller listing a motorcycle should see immediately that this is a place that
+// takes motorcycles rather than having to open a menu to find out.
+function VehicleTypePicker({ value, onChange }) {
+  return (
+    <div style={{ marginBottom: 16 }}>
+      <label style={styles.fieldLabel}>What are you selling?</label>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+        {VEHICLE_TYPES.map(vt => {
+          const active = (value || "car") === vt.value;
+          return (
+            <button
+              key={vt.value}
+              type="button"
+              onClick={() => onChange(vt.value)}
+              style={{
+                padding: "9px 14px",
+                borderRadius: 10,
+                border: active ? "2px solid #1d4ed8" : "1px solid #e5e7eb",
+                background: active ? "#eff6ff" : "#fff",
+                color: active ? "#1d4ed8" : "#374151",
+                fontWeight: active ? 700 : 500,
+                fontSize: 14,
+                cursor: "pointer",
+              }}
+            >
+              {vt.emoji} {vt.label}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function VehicleTypeBadge({ vehicleType }) {
+  if (!vehicleType || vehicleType === "car") return null;
+  return (
+    <span style={{ fontSize: 12, fontWeight: 700, color: "#1d4ed8", background: "#eff6ff", padding: "2px 8px", borderRadius: 999, marginLeft: 8 }}>
+      {vehicleTypeEmoji(vehicleType)} {vehicleTypeLabel(vehicleType)}
+    </span>
+  );
+}
+
+function MakeModelFields({ make, model, year, vehicleType, onChangeMake, onChangeModel, onChangeYear }) {
   const { t } = useLang();
   const [models, setModels] = useState([]);
   const [loadingModels, setLoadingModels] = useState(false);
   const [modelsFailed, setModelsFailed] = useState(false);
 
+  const makeList = makesForType(vehicleType);
+
   // An existing listing may hold a make or model the lists don't contain, and
   // a dropdown that silently dropped it would blank the field on save.
   const [customMake, setCustomMake] = useState(
-    () => !!make && !MAKES.some(m => m.toLowerCase() === make.toLowerCase())
+    () => !!make && !makeList.some(m => m.toLowerCase() === make.toLowerCase())
   );
   const [customModel, setCustomModel] = useState(false);
 
@@ -3991,7 +4144,7 @@ function MakeModelFields({ make, model, year, onChangeMake, onChangeModel, onCha
     let alive = true;
     setLoadingModels(true);
     setModelsFailed(false);
-    fetchModels(make, year)
+    fetchModels(make, year, vehicleType)
       .then(list => {
         if (!alive) return;
         setModels(list);
@@ -4003,7 +4156,7 @@ function MakeModelFields({ make, model, year, onChangeMake, onChangeModel, onCha
       .catch(() => alive && setModelsFailed(true))
       .finally(() => alive && setLoadingModels(false));
     return () => { alive = false; };
-  }, [make, year, customMake]);
+  }, [make, year, customMake, vehicleType]);
 
   const selectStyle = { ...styles.fieldInput, appearance: "none", WebkitAppearance: "none", background: "#fff" };
   const freeModel = customModel || modelsFailed || customMake;
@@ -4040,7 +4193,7 @@ function MakeModelFields({ make, model, year, onChangeMake, onChangeModel, onCha
             }}
           >
             <option value="">{t("sell.makeSelect")}</option>
-            {MAKES.map(m => <option key={m} value={m}>{m}</option>)}
+            {makeList.map(m => <option key={m} value={m}>{m}</option>)}
             <option value={OTHER}>{t("sell.other")}</option>
           </select>
         )}
