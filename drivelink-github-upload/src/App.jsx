@@ -4251,11 +4251,14 @@ const styles = {
   modalActions: { display: "flex", gap: 12, marginTop: 24 },
   cancelBtn: { flex: 1, background: "#f1f5f9", border: "none", padding: "12px 0", borderRadius: 10, cursor: "pointer", fontSize: 14, fontWeight: 600, color: "#374151" },
   confirmBtn: { background: "#0f172a", color: "#fff", border: "none", padding: "12px 32px", borderRadius: 10, cursor: "pointer", fontSize: 14, fontWeight: 600 },
-  pageWrap: { width: "100%", maxWidth: 1200, margin: "0 auto", padding: "36px 16px 0", boxSizing: "border-box" },
+  pageWrap: { width: "100%", maxWidth: 1200, margin: "0 auto", minWidth: 0, paddingTop: 36, boxSizing: "border-box" },
   pageTitle: { fontSize: 28, fontWeight: 800, color: "#0f172a", marginBottom: 24, letterSpacing: "-0.02em" },
   tableWrap: { display: "flex", flexDirection: "column", gap: 12 },
-  listingRow: { background: "#fff", borderRadius: 14, padding: "16px 20px", display: "flex", alignItems: "center", gap: 16, boxShadow: "0 1px 4px rgba(0,0,0,.06)" },
-  offerRow: { background: "#f8fafc", borderRadius: 12, padding: "12px 20px", display: "flex", alignItems: "center", gap: 10, marginTop: 6, marginLeft: 16, border: "1px dashed #e5e7eb" },
+  // Image + info + status pill + up to three buttons cannot fit on a 360px
+  // phone in one line. Without wrap the row sets the document's min-width and
+  // the whole page scrolls sideways.
+  listingRow: { background: "#fff", borderRadius: 14, padding: "16px 20px", display: "flex", alignItems: "center", gap: 16, rowGap: 10, flexWrap: "wrap", boxShadow: "0 1px 4px rgba(0,0,0,.06)", boxSizing: "border-box", maxWidth: "100%" },
+  offerRow: { background: "#f8fafc", borderRadius: 12, padding: "12px 20px", display: "flex", alignItems: "center", gap: 10, rowGap: 8, flexWrap: "wrap", marginTop: 6, marginLeft: 16, border: "1px dashed #e5e7eb", boxSizing: "border-box", maxWidth: "100%" },
   rowImg: { width: 80, height: 60, borderRadius: 8, objectFit: "cover", flexShrink: 0 },
   rowInfo: { flex: 1, minWidth: 0 },
   rowTitle: { fontSize: 15, fontWeight: 700, color: "#0f172a" },
@@ -4326,6 +4329,13 @@ const css = `
     align-items: stretch;
     gap: 20px;
   }
+  /* A flex child defaults to min-width:auto, which refuses to shrink below its
+     own content. One wide row — the 11-tab admin bar — therefore pushed this
+     whole column wider than the screen, and justify-content:center spilled the
+     excess out BOTH sides while body{overflow-x:hidden} removed any way to
+     scroll to it. That is the "clipped at both edges" admin bug. */
+  .app-content-row > * { min-width: 0; }
+  .app-main { min-width: 0; max-width: 100%; }
   .app-ad-rail {
     display: none;
     flex: 1 1 0;
