@@ -71,6 +71,7 @@ const PLATFORM_FEE = 0.01; // 1% platform fee
 const PROMOTER_FEE = 0.01; // 1% promoter commission
 const HIGH_VALUE_LISTING_THRESHOLD = 20000; // above this price, nudge buyers if the seller isn't ID-verified
 const STALE_WARN_DAYS_MS = 30 * 24 * 60 * 60 * 1000; // show "seller inactive" badge after 30 days
+const ACCEPTANCE_WINDOW_MS = 48 * 60 * 60 * 1000;    // buyer has 48h to close before an acceptance expires
 // Auto-archive at 60 days is enforced by the archive-stale-listings pg_cron job,
 // not from the client — see auto-archive-cron.sql. Change the threshold there.
 
@@ -646,15 +647,57 @@ const denyFlaggedReferral = async (refId) => {
 
   // ── Seller accepts, declines, or counters an offer.
   const respondToOffer = async (offerId, action, counterAmount, counterMessage) => {
-    const patch = { status: action, responded_at: new Date().toISOString() };
+    const now = new Date();
+    const patch = { status: action, responded_at: now.toISOString() };
     if (action === "countered") { patch.counter_amount = counterAmount; patch.counter_message = counterMessage; }
+    // An acceptance without an expiry strands the listing forever when the buyer
+    // goes quiet. 48 hours, stamped at acceptance so the cron and the UI agree.
+    if (action === "accepted") {
+      patch.payment_deadline = new Date(now.getTime() + ACCEPTANCE_WINDOW_MS).toISOString();
+    }
     await supabase.from("offers").update(patch).eq("id", offerId);
     await loadData();
     showToast(
-      action === "accepted" ? "Offer accepted — coordinate with the buyer and mark the listing sold at this price when the deal closes."
+      action === "accepted" ? "Offer accepted — you have 48 hours to close with the buyer, or the acceptance expires."
       : action === "declined" ? "Offer declined."
       : "Counter-offer sent."
     );
+  };
+
+  // ── Seller cancels an acceptance the buyer never acted on ───────────────────
+  // Soft state change, never a delete: the row stays for dispute evidence with
+  // rescinded_by recording who pulled out. Blocked once a sale is in flight —
+  // hiding an acceptance mid-transaction would leave a dispute unarbitrable.
+  // The .eq() chain scopes the write to your own still-accepted offer so a stale
+  // client can't clobber a row that changed underneath it.
+  const rescindOffer = async (offerId) => {
+    const offer = offers.find(o => o.id === offerId);
+    if (!offer) return;
+    if (offer.status !== "accepted") {
+      showToast("Only an accepted offer can be cancelled.", "error");
+      return;
+    }
+    const listing = listings.find(l => l.id === offer.listing_id);
+    if (listing && listing.status !== "active") {
+      showToast("This car already has a sale in progress — the acceptance can't be cancelled now.", "error");
+      return;
+    }
+    const { error } = await supabase
+      .from("offers")
+      .update({
+        status: "rescinded",
+        rescinded_at: new Date().toISOString(),
+        rescinded_by: currentUser.id,
+      })
+      .eq("id", offerId)
+      .eq("seller_id", currentUser.id)
+      .eq("status", "accepted");
+    if (error) {
+      showToast("Couldn't cancel that acceptance — try again.", "error");
+      return;
+    }
+    await loadData();
+    showToast("Acceptance cancelled — the listing is open to other offers again.");
   };
 
   // ── Buyer accepts a seller's counter-offer, or withdraws their offer entirely.
@@ -1256,7 +1299,7 @@ const denyFlaggedReferral = async (refId) => {
       <main style={styles.main} className="app-main">
         {view === "advertise" && <AdvertiseView currentUser={dbUser} onSubmit={createAdCheckout} onSignIn={() => { setReturnToAdvertise(true); setView("auth"); }} />}
         {view === "home" && <HomeView key={homeResetKey} listings={activeListings} allListings={listings} currentUser={dbUser} users={users} onShare={generateShare} onBuy={handleBuyNow} referrals={referrals} onSignIn={() => setView("auth")} onMessageSeller={messageSeller} onReport={fileReport} onSaveSearch={saveSearch} favorites={favorites} onToggleFavorite={toggleFavorite} onToggleBlock={toggleBlock} onReportUser={reportUserAction} blocks={blocks} reviews={reviews} offers={offers} onMakeOffer={makeOffer} onOpenListing={openListing} />}
-        {view === "myListings" && <MyListingsView listings={listings.filter(l => l.seller_id === currentUser?.id)} referrals={referrals} users={users} offers={offers} onMarkSold={markSold} onSetStatus={setListingStatus} onUpdate={updateListing} onRespondToOffer={respondToOffer} onOpenSafety={() => setView("safety")} currentUser={dbUser} onSetupPayouts={setupPayouts} />}
+        {view === "myListings" && <MyListingsView listings={listings.filter(l => l.seller_id === currentUser?.id)} referrals={referrals} users={users} offers={offers} onMarkSold={markSold} onSetStatus={setListingStatus} onUpdate={updateListing} onRespondToOffer={respondToOffer} onRescindOffer={rescindOffer} onOpenSafety={() => setView("safety")} currentUser={dbUser} onSetupPayouts={setupPayouts} />}
         {view === "myPurchases" && <MyPurchasesView listings={listings.filter(l => l.buyer_id === currentUser?.id)} users={users} reviews={reviews} currentUser={currentUser} onSubmitReview={submitReview} onConfirmReceipt={confirmReceipt} onFileDispute={fileDispute} onBrowse={() => setView("home")} onOpenSafety={() => setView("safety")} />}
         {view === "myOffers" && <MyOffersView offers={offers.filter(o => o.buyer_id === currentUser?.id)} listings={listings} onRespondToCounter={respondToCounter} onBuy={handleBuyNow} onBrowse={() => setView("home")} />}
         {view === "postListing" && <PostListingView onPost={postListing} />}
@@ -2340,7 +2383,7 @@ function BlockedUsersView({ blocks, users, onToggleBlock, onBrowse }) {
   );
 }
 
-function MyListingsView({ listings, referrals, users, offers, onMarkSold, onSetStatus, onUpdate, onRespondToOffer, onOpenSafety, currentUser, onSetupPayouts }) {
+function MyListingsView({ listings, referrals, users, offers, onMarkSold, onSetStatus, onUpdate, onRespondToOffer, onRescindOffer, onOpenSafety, currentUser, onSetupPayouts }) {
   const [editing, setEditing] = useState(null);
   const [markingSold, setMarkingSold] = useState(null);
   const hasHandoffPending = listings.some(l => l.status === "pending_confirmation");
@@ -2393,11 +2436,34 @@ function MyListingsView({ listings, referrals, users, offers, onMarkSold, onSetS
                   )}
                   {l.status === "disputed" && <div style={{ ...styles.awaitingBadge, background: "#fee2e2", color: "#b91c1c" }}>⚠️ Buyer disputed this sale — our team is reviewing it</div>}
                   {listingOffers.length > 0 && <div style={styles.awaitingBadge}>💰 {listingOffers.length} offer{listingOffers.length === 1 ? "" : "s"} waiting on your response</div>}
-                  {acceptedOffer && l.status === "active" && (
-                    <div style={{ ...styles.awaitingBadge, background: "#dcfce7", color: "#15803d" }}>
-                      ✅ Accepted {fmt(acceptedOffer.amount)} from {acceptedOfferBuyer?.name || "buyer"} — waiting for them to complete purchase
-                    </div>
-                  )}
+                  {acceptedOffer && l.status === "active" && (() => {
+                    const deadline = acceptedOffer.payment_deadline ? new Date(acceptedOffer.payment_deadline) : null;
+                    const msLeft = deadline ? deadline.getTime() - Date.now() : null;
+                    const expired = msLeft !== null && msLeft <= 0;
+                    const hoursLeft = msLeft !== null ? Math.max(0, Math.ceil(msLeft / 3600000)) : null;
+                    return (
+                      <div style={{ ...styles.awaitingBadge, background: expired ? "#fef9c3" : "#dcfce7", color: expired ? "#854d0e" : "#15803d" }}>
+                        <div>
+                          {expired ? "⏰" : "✅"} Accepted {fmt(acceptedOffer.amount)} from {acceptedOfferBuyer?.name || "buyer"}
+                          {expired
+                            ? " — they never completed the purchase"
+                            : hoursLeft !== null
+                              ? ` — ${hoursLeft}h left for them to complete purchase`
+                              : " — waiting for them to complete purchase"}
+                        </div>
+                        <button
+                          style={{ ...styles.cancelBtn, marginTop: 8 }}
+                          onClick={() => {
+                            if (window.confirm(`Cancel your acceptance of ${fmt(acceptedOffer.amount)}? The buyer will be notified and your listing reopens to other offers.`)) {
+                              onRescindOffer(acceptedOffer.id);
+                            }
+                          }}
+                        >
+                          Cancel acceptance
+                        </button>
+                      </div>
+                    );
+                  })()}
                   {promoter && <div style={styles.promoterTag}>Promoted by {promoter.name} {ref.status === "paid" ? `• Commission ${fmt(ref.commission_amount)} paid` : "• Pending"}</div>}
                   {l.status === "active" && l.last_active_at && (Date.now() - new Date(l.last_active_at).getTime()) > STALE_WARN_DAYS_MS && (
                     <div style={{ fontSize: 12, color: "#b45309", fontWeight: 600, marginTop: 4 }}>
