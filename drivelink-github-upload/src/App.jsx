@@ -177,6 +177,47 @@ async function decodeVin(vin) {
   }
 }
 
+// ── ROUTE TABLE ───────────────────────────────────────────────────────────────
+// Module scope, not component scope, because the initial `view` is derived from
+// the URL at mount (see useState below). Defined inside the component, it would
+// not exist yet when that initializer runs.
+//
+// "/" is the marketing landing page and "/browse" is the listing grid — two
+// different pages with different intent that used to share one URL.
+const VIEW_PATHS = {
+  landing:     "/",
+  home:        "/browse",
+  auth:        "/signin",
+  myListings:  "/my-listings",
+  postListing: "/sell",
+  messages:    "/messages",
+  admin:       "/admin",
+  advertise:   "/advertise",
+  startDeal:   "/start-deal",
+  terms:       "/terms",
+  privacy:     "/privacy",
+  safety:      "/safety",
+};
+const PATH_TO_VIEW = Object.fromEntries(
+  Object.entries(VIEW_PATHS).map(([v, p]) => [p, v]),
+);
+// Trailing slashes, query strings and hashes all resolve to the bare path.
+const normalizePath = (p) => (p || "/").replace(/[?#].*$/, "").replace(/\/+$/, "") || "/";
+
+// The view to paint on first render, read from the address bar.
+//
+// This is what stops the flash. `view` used to initialize to "landing"
+// unconditionally, so loading /sell painted the marketing page, then an effect
+// read the URL and repainted the sell form — a visible flicker on every load
+// and every refresh. Deep links (/listing/:id, /s/:code, /d/:token) resolve to
+// "home" because their own effects open the right modal on top of the grid.
+function initialViewFromPath() {
+  if (typeof window === "undefined") return "landing";
+  const p = normalizePath(window.location.pathname);
+  if (/^\/(listing|s|d)\//.test(p)) return "home";
+  return PATH_TO_VIEW[p] || "landing";
+}
+
 export default function App() {
   const { t } = useLang();
   const [currentUser, setCurrentUser] = useState(null);
@@ -195,7 +236,7 @@ export default function App() {
   const [disputes, setDisputes] = useState([]);
   const [offers, setOffers] = useState([]);
   const [openThread, setOpenThread] = useState(null);
-  const [view, setView] = useState("landing");
+  const [view, setView] = useState(initialViewFromPath);
   const [homeResetKey, setHomeResetKey] = useState(0);
   const [toast, setToast] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -1089,40 +1130,8 @@ const denyFlaggedReferral = async (refId) => {
   };
 
   // ── Navigation ──────────────────────────────────────────────────────────────
-  //
-  // ── ROUTE TABLE ─────────────────────────────────────────────────────────────
-  // Every top-level view gets a real URL. Before this, the whole app lived at
-  // "/" apart from /listing/:id and /s/:code, which meant three things:
-  //
-  //   1. GA4 recorded one page_view per session, always "/", so every funnel
-  //      question ("where do sellers drop off?") was unanswerable.
-  //   2. Nothing but the home page could be linked, shared, or bookmarked.
-  //   3. Google had one URL to index, so sitelinks were impossible.
-  //
-  // "/" is the marketing landing page and "/browse" is the listing grid. They
-  // are genuinely different pages with different intent, and collapsing both
-  // into "/" was part of why the ads landed everyone on the same screen.
-  const VIEW_PATHS = {
-    landing:     "/",
-    home:        "/browse",
-    auth:        "/signin",
-    myListings:  "/my-listings",
-    postListing: "/sell",
-    messages:    "/messages",
-    admin:       "/admin",
-    advertise:   "/advertise",
-    startDeal:   "/start-deal",
-    terms:       "/terms",
-    privacy:     "/privacy",
-    safety:      "/safety",
-  };
-  const PATH_TO_VIEW = Object.fromEntries(
-    Object.entries(VIEW_PATHS).map(([v, p]) => [p, v]),
-  );
-  // Trailing slashes and the empty string all mean "/". Without this,
-  // "/browse/" fails the lookup and the sync effect below bounces the user.
-  const normalizePath = (p) => (p || "/").replace(/[?#].*$/, "").replace(/\/+$/, "") || "/";
-
+  // VIEW_PATHS / PATH_TO_VIEW / normalizePath live at module scope above, so
+  // the initial view can be derived from the URL before the first paint.
   const navigate = (to, { replace = false } = {}) => {
     if (window.location.pathname === to && !replace) return;
     window.history[replace ? "replaceState" : "pushState"](null, "", to);
