@@ -210,6 +210,35 @@ export default function App() {
   // it must render for a signed-out stranger before any listings arrive.
   const [dealToken, setDealToken] = useState(null);
 
+  // ── Unread message count for the nav badge ──────────────────────────────────
+  // Lives here rather than in Messages.jsx because that component only mounts
+  // once you're already on the Messages view — a badge you can only see after
+  // clicking through is no badge at all. Uses a head-count query so it stays
+  // cheap, and listens on the same realtime table so it updates without a
+  // reload. INSERT alone isn't enough: messages arrive with
+  // moderation_status='pending' and only become visible to the recipient on the
+  // UPDATE that approves them.
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useEffect(() => {
+    if (!currentUser) { setUnreadCount(0); return; }
+    let cancelled = false;
+    const refresh = async () => {
+      const { count } = await supabase
+        .from("messages")
+        .select("id", { count: "exact", head: true })
+        .eq("recipient_id", currentUser.id)
+        .eq("read", false);
+      if (!cancelled) setUnreadCount(count || 0);
+    };
+    refresh();
+    const channel = supabase
+      .channel("unread-" + currentUser.id)
+      .on("postgres_changes", { event: "*", schema: "public", table: "messages" }, refresh)
+      .subscribe();
+    return () => { cancelled = true; supabase.removeChannel(channel); };
+  }, [currentUser?.id, view]);
+
   // ── Account dropdown. The nav used to carry 13 destinations in one scrolling
   // row; everything account-scoped now lives behind the avatar instead.
   const accountMenuRef = useRef(null);
@@ -1241,10 +1270,13 @@ const denyFlaggedReferral = async (refId) => {
             {currentUser ? (
               <div style={styles.userChip} className="app-user-chip">
                 <button
-                  style={{ ...styles.navBtn, ...(view === "messages" ? styles.navBtnActive : {}) }}
+                  style={{ ...styles.navBtn, ...(view === "messages" ? styles.navBtnActive : {}), position: "relative", display: "flex", alignItems: "center", gap: 6 }}
                   onClick={() => setView("messages")}
                 >
                   Messages
+                  {unreadCount > 0 && (
+                    <span style={styles.navUnread}>{unreadCount > 9 ? "9+" : unreadCount}</span>
+                  )}
                 </button>
                 {dbUser?.balance > 0 && <span style={styles.balanceBadge}>{fmt(dbUser.balance)}</span>}
                 <div style={{ position: "relative" }} ref={accountMenuRef}>
@@ -4188,8 +4220,9 @@ const styles = {
   logoText: { fontWeight: 800, fontSize: 20, color: "#0f172a", letterSpacing: "-0.03em" },
   // Five items fit at 360px, so this no longer needs to scroll or be dragged.
   navLinks: { display: "flex", gap: 4, flex: 1, minWidth: 0, overflowX: "auto", flexWrap: "nowrap", WebkitOverflowScrolling: "touch", scrollbarWidth: "none" },
-  avatarBtn: { display: "flex", alignItems: "center", gap: 4, background: "none", border: "none", cursor: "pointer", padding: 2, borderRadius: 999 },
-  caret: { fontSize: 11, color: "#6b7280" },
+  avatarBtn: { display: "flex", alignItems: "center", gap: 2, background: "none", border: "none", cursor: "pointer", padding: 2, borderRadius: 999 },
+  navUnread: { background: "#dc2626", color: "#fff", fontSize: 11, fontWeight: 700, borderRadius: 999, minWidth: 18, height: 18, display: "inline-flex", alignItems: "center", justifyContent: "center", padding: "0 5px", lineHeight: 1 },
+  caret: { fontSize: 10, color: "#9ca3af", marginLeft: -1 },
   menu: { position: "absolute", right: 0, top: "calc(100% + 10px)", background: "#fff", border: "1px solid #e5e7eb", borderRadius: 12, boxShadow: "0 8px 28px rgba(0,0,0,.14)", minWidth: 220, padding: 6, zIndex: 200 },
   menuHeader: { padding: "8px 12px 10px", borderBottom: "1px solid #f1f5f9", marginBottom: 4 },
   menuItem: { display: "block", width: "100%", textAlign: "left", background: "none", border: "none", padding: "9px 12px", borderRadius: 8, fontSize: 14, fontWeight: 500, color: "#374151", cursor: "pointer" },
