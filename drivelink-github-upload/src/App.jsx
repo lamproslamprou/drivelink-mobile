@@ -1262,9 +1262,9 @@ const denyFlaggedReferral = async (refId) => {
           <div style={styles.navLinks} className="app-nav-links">
             <NavBtn active={view === "home"} onClick={() => { setView("home"); setHomeResetKey(k => k + 1); }}>Browse</NavBtn>
             {currentUser && <NavBtn active={view === "myListings"} onClick={() => setView("myListings")}>My Listings</NavBtn>}
-            {currentUser && <NavBtn active={view === "postListing"} onClick={() => setView("postListing")}>+ Post Car</NavBtn>}
-            <NavBtn active={view === "startDeal"} onClick={() => setView("startDeal")}>🔒 Secure a Deal</NavBtn>
-            <NavBtn active={view === "advertise"} onClick={() => setView("advertise")}>📢 Advertise</NavBtn>
+            {currentUser && <NavBtn active={view === "postListing"} onClick={() => setView("postListing")}>Post a Car</NavBtn>}
+            <NavBtn active={view === "startDeal"} onClick={() => setView("startDeal")}>Secure a Deal</NavBtn>
+            <NavBtn active={view === "advertise"} onClick={() => setView("advertise")}>Advertise</NavBtn>
           </div>
           <div style={styles.navRight} className="app-nav-right">
             {currentUser ? (
@@ -4219,10 +4219,12 @@ const styles = {
   logoIcon: { fontSize: 22 },
   logoText: { fontWeight: 800, fontSize: 20, color: "#0f172a", letterSpacing: "-0.03em" },
   // Five items fit at 360px, so this no longer needs to scroll or be dragged.
-  navLinks: { display: "flex", gap: 4, flex: 1, minWidth: 0, overflowX: "auto", flexWrap: "nowrap", WebkitOverflowScrolling: "touch", scrollbarWidth: "none" },
-  avatarBtn: { display: "flex", alignItems: "center", gap: 2, background: "none", border: "none", cursor: "pointer", padding: 2, borderRadius: 999 },
+  // Centred rather than flex-start: left-aligned links left a dead gap between
+  // the last item and the account controls on wide screens.
+  navLinks: { display: "flex", gap: 2, flex: 1, minWidth: 0, justifyContent: "center", overflowX: "auto", flexWrap: "nowrap", WebkitOverflowScrolling: "touch", scrollbarWidth: "none" },
+  avatarBtn: { display: "flex", alignItems: "center", gap: 3, background: "none", border: "none", cursor: "pointer", padding: "3px 6px 3px 3px", borderRadius: 999 },
+  caret: { fontSize: 11, color: "#6b7280", lineHeight: 1 },
   navUnread: { background: "#dc2626", color: "#fff", fontSize: 11, fontWeight: 700, borderRadius: 999, minWidth: 18, height: 18, display: "inline-flex", alignItems: "center", justifyContent: "center", padding: "0 5px", lineHeight: 1 },
-  caret: { fontSize: 10, color: "#9ca3af", marginLeft: -1 },
   menu: { position: "absolute", right: 0, top: "calc(100% + 10px)", background: "#fff", border: "1px solid #e5e7eb", borderRadius: 12, boxShadow: "0 8px 28px rgba(0,0,0,.14)", minWidth: 220, padding: 6, zIndex: 200 },
   menuHeader: { padding: "8px 12px 10px", borderBottom: "1px solid #f1f5f9", marginBottom: 4 },
   menuItem: { display: "block", width: "100%", textAlign: "left", background: "none", border: "none", padding: "9px 12px", borderRadius: 8, fontSize: 14, fontWeight: 500, color: "#374151", cursor: "pointer" },
