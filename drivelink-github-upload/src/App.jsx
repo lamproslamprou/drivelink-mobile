@@ -269,6 +269,9 @@ export default function App() {
   // Live ads for the sidebar rail (public view), and the full placement rows
   // for the admin tab (empty for non-admins under RLS).
   const [publicAds, setPublicAds] = useState([]);
+  // Per-listing view and favourite counts, keyed by listing id. Own listings
+  // only — the database view enforces that, not the frontend.
+  const [listingStats, setListingStats] = useState({});
   const [adPlacements, setAdPlacements] = useState([]);
   const [viewingListing, setViewingListing] = useState(null); // { listing, seller, myRef, sellerRating, sellerReviewCount, myOffer }
   const [path, setPath] = usePath();
@@ -353,6 +356,9 @@ export default function App() {
     // RLS returns only to admins — everyone else gets an empty array and the
     // admin tab simply has nothing to show.
     const { data: publicAdsData } = await supabase.from("public_ads").select("*");
+    // Returns only your own listings (or all, for an admin) — the view filters
+    // on auth.uid() since views can't carry RLS.
+    const { data: statsData } = await supabase.from("listing_stats").select("*");
     // admin_ads is admin-only at the database level and returns zero rows for
     // everyone else. Reading ad_placements directly here showed an admin only
     // the ads they had bought themselves, which made the Ads tab report zero
@@ -372,6 +378,7 @@ export default function App() {
     }
     if (reportsData) setReports(reportsData);
     if (publicAdsData) setPublicAds(publicAdsData);
+    if (statsData) setListingStats(Object.fromEntries(statsData.map(s => [s.listing_id, s])));
     if (adPlacementsData) setAdPlacements(adPlacementsData);
     if (feedbackData) setFeedback(feedbackData);
     if (userReportsData) setUserReports(userReportsData);
@@ -1221,6 +1228,22 @@ const denyFlaggedReferral = async (refId) => {
     if (!payload?.listing) return;
     setViewingListing(payload);
     navigate(`/listing/${payload.listing.id}`);
+
+    // Fire and forget. A failed view count must never interfere with actually
+    // showing someone the car — the whole feature is decoration compared to
+    // that. Dedupe (one per viewer per listing per day, seller's own views
+    // excluded) happens in record_listing_view, not here.
+    try {
+      let key = localStorage.getItem("dl_viewer_key");
+      if (!key) {
+        key = (crypto?.randomUUID?.() || `k${Date.now()}${Math.random()}`);
+        localStorage.setItem("dl_viewer_key", key);
+      }
+      supabase.rpc("record_listing_view", {
+        p_listing_id: payload.listing.id,
+        p_viewer_key: key,
+      }).then(({ error }) => { if (error) console.warn("view not recorded:", error.message); });
+    } catch { /* private browsing blocks localStorage; skip the count */ }
   };
 
   const closeListing = () => {
@@ -1564,7 +1587,7 @@ const denyFlaggedReferral = async (refId) => {
       <main style={styles.main} className="app-main">
         {view === "advertise" && <AdvertiseView currentUser={dbUser} onSubmit={createAdCheckout} onSignIn={() => { setPendingView("advertise"); setView("auth"); }} />}
         {view === "home" && <HomeView key={homeResetKey} listings={activeListings} allListings={listings} currentUser={dbUser} users={users} onShare={generateShare} onBuy={handleBuyNow} referrals={referrals} onSignIn={() => setView("auth")} onMessageSeller={messageSeller} onReport={fileReport} onSaveSearch={saveSearch} favorites={favorites} onToggleFavorite={toggleFavorite} onToggleBlock={toggleBlock} onReportUser={reportUserAction} blocks={blocks} reviews={reviews} offers={offers} onMakeOffer={makeOffer} onOpenListing={openListing} />}
-        {view === "myListings" && <MyListingsView listings={listings.filter(l => l.seller_id === currentUser?.id)} referrals={referrals} users={users} offers={offers} onMarkSold={markSold} onSetStatus={setListingStatus} onUpdate={updateListing} onRespondToOffer={respondToOffer} onRescindOffer={rescindOffer} onOpenSafety={() => setView("safety")} currentUser={dbUser} onSetupPayouts={setupPayouts} />}
+        {view === "myListings" && <MyListingsView listings={listings.filter(l => l.seller_id === currentUser?.id)} referrals={referrals} users={users} offers={offers} stats={listingStats} onMarkSold={markSold} onSetStatus={setListingStatus} onUpdate={updateListing} onRespondToOffer={respondToOffer} onRescindOffer={rescindOffer} onOpenSafety={() => setView("safety")} currentUser={dbUser} onSetupPayouts={setupPayouts} />}
         {view === "myPurchases" && <MyPurchasesView listings={listings.filter(l => l.buyer_id === currentUser?.id)} users={users} reviews={reviews} currentUser={currentUser} onSubmitReview={submitReview} onConfirmReceipt={confirmReceipt} onFileDispute={fileDispute} onBrowse={() => setView("home")} onOpenSafety={() => setView("safety")} />}
         {view === "myOffers" && <MyOffersView offers={offers.filter(o => o.buyer_id === currentUser?.id)} listings={listings} onRespondToCounter={respondToCounter} onBuy={handleBuyNow} onBrowse={() => setView("home")} />}
         {view === "postListing" && <PostListingView onPost={postListing} />}
@@ -2645,7 +2668,7 @@ function BlockedUsersView({ blocks, users, onToggleBlock, onBrowse }) {
   );
 }
 
-function MyListingsView({ listings, referrals, users, offers, onMarkSold, onSetStatus, onUpdate, onRespondToOffer, onRescindOffer, onOpenSafety, currentUser, onSetupPayouts }) {
+function MyListingsView({ listings, referrals, users, offers, stats, onMarkSold, onSetStatus, onUpdate, onRespondToOffer, onRescindOffer, onOpenSafety, currentUser, onSetupPayouts }) {
   const [editing, setEditing] = useState(null);
   const [markingSold, setMarkingSold] = useState(null);
   const hasHandoffPending = listings.some(l => l.status === "pending_confirmation");
@@ -2682,6 +2705,23 @@ function MyListingsView({ listings, referrals, users, offers, onMarkSold, onSetS
                 <div style={styles.rowInfo} className="app-row-info">
                   <div style={styles.rowTitle}>{l.year} {l.make} {l.model}</div>
                   <div style={styles.rowMeta}>{fmt(l.price)} • {l.mileage?.toLocaleString()} mi</div>
+                  {/* Interest, for active listings only. On a sold car the
+                      numbers are history and just add noise. */}
+                  {l.status === "active" && (() => {
+                    const s = stats?.[l.id];
+                    const views = s?.view_count ?? 0;
+                    const saves = s?.favorite_count ?? 0;
+                    const recent = s?.views_7d ?? 0;
+                    return (
+                      <div style={{ fontSize: 13, color: "#6b7280", marginTop: 4, display: "flex", gap: 14, flexWrap: "wrap" }}>
+                        <span>👁 {views} view{views === 1 ? "" : "s"}{recent > 0 && views !== recent ? ` (${recent} this week)` : ""}</span>
+                        <span>❤️ {saves} save{saves === 1 ? "" : "s"}</span>
+                        {views === 0 && (
+                          <span style={{ color: "#b45309" }}>Not seen yet — share the link to get eyes on it</span>
+                        )}
+                      </div>
+                    );
+                  })()}
                   {l.status === "sold" && <div style={styles.soldBadge}>SOLD for {fmt(l.sale_price)} on {l.sold_at}</div>}
                   {l.status === "sold" && l.funds_released && (
                     <div style={{ fontSize: 12, color: "#6b7280", marginTop: 4, lineHeight: 1.5 }}>
