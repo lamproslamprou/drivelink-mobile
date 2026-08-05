@@ -204,6 +204,13 @@ const PATH_TO_VIEW = Object.fromEntries(
 // Trailing slashes, query strings and hashes all resolve to the bare path.
 const normalizePath = (p) => (p || "/").replace(/[?#].*$/, "").replace(/\/+$/, "") || "/";
 
+// Views a signed-out visitor may use. Everything else routes through sign-in
+// and resumes afterwards. Browsing without an account is deliberate — asking
+// someone to register before they have seen a single car loses them.
+const PUBLIC_VIEWS = new Set([
+  "landing", "auth", "home", "advertise", "terms", "privacy", "safety",
+]);
+
 // The view to paint on first render, read from the address bar.
 //
 // This is what stops the flash. `view` used to initialize to "landing"
@@ -242,7 +249,14 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [authChecked, setAuthChecked] = useState(false);
   const [confirmResult, setConfirmResult] = useState(null); // { status: 'success' | 'error', message? }
-  const [returnToAdvertise, setReturnToAdvertise] = useState(false);
+  // Where to send someone once they finish signing in. Set when a signed-out
+  // visitor lands on a view that needs an account — typically from a shared
+  // link like /sell — so they continue to what they came for instead of being
+  // dumped on the home grid.
+  //
+  // Replaces returnToAdvertise, which was read in Auth's onAuth but never set
+  // anywhere, so it was permanently false and the redirect never happened.
+  const [pendingView, setPendingView] = useState(null);
   const [viewingListing, setViewingListing] = useState(null); // { listing, seller, myRef, sellerRating, sellerReviewCount, myOffer }
   const [path, setPath] = usePath();
   // Bring-your-own-deal invite links: /d/:token. Kept separate from the main
@@ -1244,6 +1258,21 @@ const denyFlaggedReferral = async (refId) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view, loading, viewingListing]);
 
+  // ── Auth gate for deep links ────────────────────────────────────────────────
+  // A signed-out visitor opening /sell used to get the marketing page with the
+  // URL still reading /sell and no way forward — a dead end on exactly the link
+  // you would send a prospective seller. Now they get the sign-in screen, and
+  // pendingView carries them to the sell form once they are in.
+  //
+  // "auth" and "landing" are excluded or this would re-enter itself. Public
+  // views stay reachable signed out: browsing without an account is the point.
+  useEffect(() => {
+    if (loading || currentUser) return;
+    if (PUBLIC_VIEWS.has(view)) return;
+    setPendingView(view);
+    setView("auth");
+  }, [currentUser, view, loading]);
+
   // ── GA4 ─────────────────────────────────────────────────────────────────────
   // A single-page app fires exactly one automatic page_view, on first load.
   // Every navigation after that was invisible, which is why analytics showed
@@ -1331,14 +1360,26 @@ const denyFlaggedReferral = async (refId) => {
   );
 
   if (!currentUser && view === "auth") return (
-    <Auth onAuth={(user) => { setCurrentUser(user); loadDbUser(user); loadData(); setView(returnToAdvertise ? "advertise" : "home"); setReturnToAdvertise(false); }} />
+    <Auth onAuth={(user) => {
+      setCurrentUser(user);
+      loadDbUser(user);
+      loadData();
+      // Continue to whatever they were trying to reach, else the grid.
+      setView(pendingView && pendingView !== "auth" ? pendingView : "home");
+      setPendingView(null);
+    }} />
   );
 
-  if (!currentUser && view !== "home" && view !== "advertise") return (
-    <Landing
-      onSignIn={() => setView("auth")}
-      onBrowse={() => setView("home")}
-    />
+  if (!currentUser && !PUBLIC_VIEWS.has(view)) return (
+    // Belt and braces: the effect above normally converts this case to the
+    // sign-in screen before render. This catches the frame in between.
+    <Auth onAuth={(user) => {
+      setCurrentUser(user);
+      loadDbUser(user);
+      loadData();
+      setView(pendingView && pendingView !== "auth" ? pendingView : "home");
+      setPendingView(null);
+    }} />
   );
 
   return (
