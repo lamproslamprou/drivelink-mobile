@@ -352,7 +352,11 @@ export default function App() {
     // RLS returns only to admins — everyone else gets an empty array and the
     // admin tab simply has nothing to show.
     const { data: publicAdsData } = await supabase.from("public_ads").select("*");
-    const { data: adPlacementsData } = await supabase.from("ad_placements").select("*").order("created_at", { ascending: false });
+    // admin_ads is admin-only at the database level and returns zero rows for
+    // everyone else. Reading ad_placements directly here showed an admin only
+    // the ads they had bought themselves, which made the Ads tab report zero
+    // running while one was live in the rail.
+    const { data: adPlacementsData } = await supabase.from("admin_ads").select("*").order("created_at", { ascending: false });
     let finalListings = listingsData || [];
     // Stale-listing auto-archive runs server-side in the archive-stale-listings
     // pg_cron job, not here. It used to run opportunistically from whichever
@@ -3401,24 +3405,29 @@ function ProfileView({ dbUser, authEmail, onUpdateProfile, onChangeEmail, onChan
 // falls back to the promo that used to be hardcoded here — which meant a
 // business that had paid up to $1,200 saw an advert asking them to advertise.
 //
-// Multiple advertisers rotate rather than compete for the slot: whoever loaded
-// first should not get every impression for the session. Rotation is
-// deliberately slow, since an ad that swaps while someone is reading it is
-// worse than one that sits still.
+// Ads are stacked as compact cards rather than one filling the column. A single
+// full-height ad wastes the slot and looks broken; it also means a second
+// advertiser has nowhere to go. Beyond PAGE_SIZE the rail pages through them on
+// a slow timer, so every advertiser gets impressions instead of whoever sorted
+// first taking the session.
+const AD_PAGE_SIZE = 4;
+
 function AdRail({ ads, onPromoClick }) {
-  const [idx, setIdx] = useState(0);
   const live = ads || [];
+  const pages = Math.max(1, Math.ceil(live.length / AD_PAGE_SIZE));
+  const [page, setPage] = useState(0);
 
   useEffect(() => {
-    if (live.length <= 1) return;
-    const id = setInterval(() => setIdx(i => (i + 1) % live.length), 15000);
+    if (pages <= 1) return;
+    const id = setInterval(() => setPage(p => (p + 1) % pages), 20000);
     return () => clearInterval(id);
-  }, [live.length]);
+  }, [pages]);
 
-  // A placement removed between renders must not leave a blank rail.
-  const ad = live[idx % live.length];
+  // Guards against a page index left over from a larger set.
+  const start = (page % pages) * AD_PAGE_SIZE;
+  const visible = live.slice(start, start + AD_PAGE_SIZE);
 
-  if (!ad) {
+  if (live.length === 0) {
     return (
       <div style={styles.adRailInner} onClick={onPromoClick} role="button" tabIndex={0}>
         <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 8 }}>📢 Advertise Here</div>
@@ -3429,36 +3438,56 @@ function AdRail({ ads, onPromoClick }) {
   }
 
   return (
-    <div style={styles.adRailInner}>
-      <a
-        href={ad.link_url}
-        target="_blank"
-        // noopener: the advertiser's page must not get a handle on this window.
-        // nofollow + sponsored: paid links, and telling Google otherwise is how
-        // a site earns a manual action.
-        rel="noopener noreferrer nofollow sponsored"
-        onClick={(e) => e.stopPropagation()}
-        style={{ textDecoration: "none", color: "inherit", display: "block" }}
-      >
-        {ad.image_url && (
-          <img
-            src={ad.image_url}
-            alt={ad.business_name}
-            loading="lazy"
-            style={{ width: "100%", borderRadius: 8, marginBottom: 10, display: "block" }}
-            // A broken image URL should degrade to a text ad, not a broken icon.
-            onError={(e) => { e.currentTarget.style.display = "none"; }}
-          />
-        )}
-        <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 6 }}>{ad.business_name}</div>
-        <div style={{ fontSize: 13, color: "#FFB020", fontWeight: 600 }}>Visit site →</div>
-      </a>
-      {/* Disclosure is not optional: the FTC requires paid placement to be
-          identifiable as advertising, and a rail that looks like editorial
-          content is exactly what that rule is about. */}
-      <div style={{ fontSize: 11, color: "#64748b", marginTop: 10, letterSpacing: 0.3 }}>
+    <div style={{ ...styles.adRailInner, display: "flex", flexDirection: "column", gap: 10 }}>
+      <div style={{ fontSize: 10, color: "#64748b", letterSpacing: 1, fontWeight: 700 }}>
         SPONSORED
-        {live.length > 1 && <span style={{ marginLeft: 6 }}>· {idx + 1}/{live.length}</span>}
+        {pages > 1 && <span style={{ marginLeft: 6, fontWeight: 500 }}>{page + 1}/{pages}</span>}
+      </div>
+
+      {visible.map(ad => (
+        <a
+          key={ad.id}
+          href={ad.link_url}
+          target="_blank"
+          // noopener: the advertiser's page must not get a handle on this window.
+          // nofollow + sponsored: paid links, and telling Google otherwise is how
+          // a site earns a manual action.
+          rel="noopener noreferrer nofollow sponsored"
+          onClick={(e) => e.stopPropagation()}
+          style={{
+            textDecoration: "none",
+            color: "inherit",
+            display: "block",
+            padding: 10,
+            borderRadius: 10,
+            background: "rgba(255,255,255,0.04)",
+            border: "1px solid rgba(255,255,255,0.08)",
+          }}
+        >
+          {ad.image_url && (
+            <img
+              src={ad.image_url}
+              alt={ad.business_name}
+              loading="lazy"
+              // Fixed height with object-fit: one advertiser uploading a tall
+              // image must not push the others off the rail.
+              style={{ width: "100%", height: 80, objectFit: "cover", borderRadius: 6, marginBottom: 8, display: "block" }}
+              onError={(e) => { e.currentTarget.style.display = "none"; }}
+            />
+          )}
+          <div style={{ fontSize: 14, fontWeight: 700, lineHeight: 1.3 }}>{ad.business_name}</div>
+          <div style={{ fontSize: 12, color: "#FFB020", fontWeight: 600, marginTop: 4 }}>Visit site →</div>
+        </a>
+      ))}
+
+      {/* Keeps the slot selling itself even when it's full. */}
+      <div
+        onClick={onPromoClick}
+        role="button"
+        tabIndex={0}
+        style={{ fontSize: 12, color: "#94a3b8", cursor: "pointer", paddingTop: 4, borderTop: "1px solid rgba(255,255,255,0.08)" }}
+      >
+        Advertise on DriveLink →
       </div>
     </div>
   );
