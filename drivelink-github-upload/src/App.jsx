@@ -1407,12 +1407,15 @@ const denyFlaggedReferral = async (refId) => {
   );
 
   if (view === "landing") return (
-    <Landing
-      onSignIn={() => setView("auth")}
-      onBrowse={() => setView("home")}
-      onNavigate={setView}
-      signedIn={!!currentUser}
-    />
+    <>
+      <Landing
+        onSignIn={() => setView("auth")}
+        onBrowse={() => setView("home")}
+        onNavigate={setView}
+        signedIn={!!currentUser}
+      />
+      <InstallPrompt />
+    </>
   );
 
   if (!currentUser && view === "auth") return (
@@ -1570,6 +1573,7 @@ const denyFlaggedReferral = async (refId) => {
         <AdRail ads={publicAds} onPromoClick={() => setView("advertise")} />
       </div>
       </div>
+      <InstallPrompt />
       <footer style={styles.appFooter}>
         <button style={styles.appFooterLink} onClick={() => setView("landing")}>About DriveLink</button>
         <span style={{ color: "#d1d5db" }}>·</span>
@@ -3441,6 +3445,154 @@ const AD_PAGE_SIZE = 4;
 
 // Own state rather than the app-level toast: showToast is defined inside App
 // and is not in scope down here in AdminView.
+// ── Install prompt ────────────────────────────────────────────────────────────
+// Nudges phone visitors to add DriveLink to their home screen. Two paths,
+// because the platforms differ:
+//
+//   Android/Chrome — fires beforeinstallprompt, which can be deferred and
+//     replayed on a button click. One tap, real install.
+//   iOS/Safari — no such event and never will be; Apple requires the user to
+//     go through Share → Add to Home Screen manually. So iOS gets instructions
+//     rather than a button that cannot work.
+//
+// Hidden entirely when already installed, and a dismissal is remembered for 30
+// days — an install banner that reappears on every visit is an irritation, and
+// someone who said no to it once has answered.
+const INSTALL_DISMISS_KEY = "dl_install_dismissed_at";
+const INSTALL_SNOOZE_DAYS = 30;
+
+function InstallPrompt() {
+  const [deferred, setDeferred] = useState(null);
+  const [show, setShow] = useState(false);
+  const [iosHelp, setIosHelp] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    // Already installed — the banner would be advertising something they have.
+    const standalone =
+      window.matchMedia?.("(display-mode: standalone)")?.matches ||
+      window.navigator.standalone === true;
+    if (standalone) return;
+
+    let dismissedAt = 0;
+    try { dismissedAt = Number(localStorage.getItem(INSTALL_DISMISS_KEY)) || 0; } catch { /* private mode */ }
+    if (dismissedAt && Date.now() - dismissedAt < INSTALL_SNOOZE_DAYS * 86400000) return;
+
+    const ua = window.navigator.userAgent || "";
+    const isIOS = /iphone|ipad|ipod/i.test(ua);
+    // Chrome and Firefox on iOS cannot install PWAs — Apple only allows it from
+    // Safari — so showing them instructions would send them down a dead end.
+    const isIosSafari = isIOS && !/crios|fxios|edgios/i.test(ua);
+    const isSmallScreen = window.innerWidth <= 820;
+
+    if (isIosSafari && isSmallScreen) {
+      setShow(true);
+      setIosHelp(true);
+      return;
+    }
+
+    const onPrompt = (e) => {
+      e.preventDefault();
+      setDeferred(e);
+      if (isSmallScreen) setShow(true);
+    };
+    window.addEventListener("beforeinstallprompt", onPrompt);
+    window.addEventListener("appinstalled", () => setShow(false));
+    return () => window.removeEventListener("beforeinstallprompt", onPrompt);
+  }, []);
+
+  const dismiss = () => {
+    setShow(false);
+    try { localStorage.setItem(INSTALL_DISMISS_KEY, String(Date.now())); } catch { /* private mode */ }
+  };
+
+  const install = async () => {
+    if (!deferred) return;
+    deferred.prompt();
+    const { outcome } = await deferred.userChoice;
+    setDeferred(null);
+    setShow(false);
+    // A decline is a dismissal — don't ask again next visit.
+    if (outcome !== "accepted") dismiss();
+  };
+
+  if (!show) return null;
+
+  return (
+    <div
+      style={{
+        position: "fixed",
+        left: 12,
+        right: 12,
+        // Clears the iOS Safari toolbar and any Android gesture bar.
+        bottom: "calc(12px + env(safe-area-inset-bottom, 0px))",
+        zIndex: 9000,
+        background: "#0f172a",
+        color: "#fff",
+        borderRadius: 14,
+        padding: "14px 16px",
+        boxShadow: "0 10px 30px rgba(0,0,0,0.35)",
+        display: "flex",
+        alignItems: "center",
+        gap: 12,
+      }}
+      role="dialog"
+      aria-label="Install DriveLink"
+    >
+      <img
+        src="/icons/icon-192.png"
+        alt=""
+        width={40}
+        height={40}
+        style={{ borderRadius: 9, background: "#fff", flexShrink: 0 }}
+      />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontWeight: 700, fontSize: 15 }}>Get DriveLink on your phone</div>
+        <div style={{ fontSize: 13, color: "#cbd5e1", marginTop: 2, lineHeight: 1.4 }}>
+          {iosHelp
+            ? <>Tap <strong>Share</strong> then <strong>Add to Home Screen</strong>.</>
+            : <>Add it to your home screen — no app store needed.</>}
+        </div>
+      </div>
+      {!iosHelp && (
+        <button
+          onClick={install}
+          style={{
+            background: "#FFB020",
+            color: "#0f172a",
+            border: "none",
+            borderRadius: 10,
+            padding: "10px 16px",
+            fontWeight: 700,
+            fontSize: 14,
+            cursor: "pointer",
+            flexShrink: 0,
+          }}
+        >
+          Install
+        </button>
+      )}
+      <button
+        onClick={dismiss}
+        aria-label="Dismiss"
+        style={{
+          background: "none",
+          border: "none",
+          color: "#94a3b8",
+          fontSize: 22,
+          lineHeight: 1,
+          cursor: "pointer",
+          padding: "0 2px",
+          flexShrink: 0,
+        }}
+      >
+        ×
+      </button>
+    </div>
+  );
+}
+
 function CopyButton({ value }) {
   const [copied, setCopied] = useState(false);
   return (
