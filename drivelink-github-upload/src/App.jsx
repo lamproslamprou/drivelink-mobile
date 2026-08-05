@@ -265,6 +265,10 @@ export default function App() {
   // Generalises returnToAdvertise, which only ever remembered one destination
   // (the advertise page). Any gated view can be resumed now.
   const [pendingView, setPendingView] = useState(null);
+  // Live ads for the sidebar rail (public view), and the full placement rows
+  // for the admin tab (empty for non-admins under RLS).
+  const [publicAds, setPublicAds] = useState([]);
+  const [adPlacements, setAdPlacements] = useState([]);
   const [viewingListing, setViewingListing] = useState(null); // { listing, seller, myRef, sellerRating, sellerReviewCount, myOffer }
   const [path, setPath] = usePath();
   // Bring-your-own-deal invite links: /d/:token. Kept separate from the main
@@ -343,6 +347,12 @@ export default function App() {
     const { data: payoutsData } = await supabase.from("payouts").select("*").order("paid_at", { ascending: false });
     const { data: disputesData } = await supabase.from("disputes").select("*").order("created_at", { ascending: false });
     const { data: offersData } = await supabase.from("offers").select("*").order("created_at", { ascending: false });
+    // Two sources on purpose. public_ads is a display-only view any visitor can
+    // read (it powers the sidebar rail). ad_placements is the full table, which
+    // RLS returns only to admins — everyone else gets an empty array and the
+    // admin tab simply has nothing to show.
+    const { data: publicAdsData } = await supabase.from("public_ads").select("*");
+    const { data: adPlacementsData } = await supabase.from("ad_placements").select("*").order("created_at", { ascending: false });
     let finalListings = listingsData || [];
     // Stale-listing auto-archive runs server-side in the archive-stale-listings
     // pg_cron job, not here. It used to run opportunistically from whichever
@@ -356,6 +366,8 @@ export default function App() {
       setUsers([...byId.values()]);
     }
     if (reportsData) setReports(reportsData);
+    if (publicAdsData) setPublicAds(publicAdsData);
+    if (adPlacementsData) setAdPlacements(adPlacementsData);
     if (feedbackData) setFeedback(feedbackData);
     if (userReportsData) setUserReports(userReportsData);
     if (reviewsData) setReviews(reviewsData);
@@ -1502,12 +1514,8 @@ const denyFlaggedReferral = async (refId) => {
             Sits as a real layout column beside main content (position: sticky), not floating
             on top of it — avoids overlapping the hero banner and any click-through issues that
             came with the old fixed-position version. */}
-        <div className="app-ad-rail" onClick={(e) => { e.stopPropagation(); setView("advertise"); }}>
-          <div style={styles.adRailInner}>
-            <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 8 }}>📢 Advertise Here</div>
-            <div style={{ fontSize: 13, color: "#94a3b8" }}>Reach car buyers and sellers on DriveLink.</div>
-            <div style={{ fontSize: 13, color: "#FFB020", fontWeight: 600, marginTop: 12 }}>Click to learn more →</div>
-          </div>
+        <div className="app-ad-rail">
+          <AdRail ads={publicAds} onPromoClick={() => setView("advertise")} />
         </div>
 
       <main style={styles.main} className="app-main">
@@ -1523,16 +1531,12 @@ const denyFlaggedReferral = async (refId) => {
         {view === "blocked" && <BlockedUsersView blocks={blocks} users={users} onToggleBlock={toggleBlock} onBrowse={() => setView("home")} />}
         {view === "dashboard" && <PromoterDashboard currentUser={dbUser} referrals={referrals.filter(r => r.promoter_id === currentUser?.id)} listings={listings} payouts={payouts} onSetupPayouts={setupPayouts} onRetract={retractReferral} />}
         {view === "profile" && <ProfileView dbUser={dbUser} authEmail={currentUser?.email} onUpdateProfile={updateProfile} onChangeEmail={changeEmail} onChangePassword={changePassword} onSetupPayouts={setupPayouts} onStartIdentityVerification={startIdentityVerification} />}
-       {view === "admin" && <AdminView listings={listings} users={users} referrals={referrals} reports={reports} feedback={feedback} userReports={userReports} reviews={reviews} payouts={payouts} disputes={disputes} onArchive={archiveListing} onMarkSold={markSold} onConfirmReceipt={confirmReceipt} onResolveReport={resolveReport} onResolveUserReport={resolveUserReport} onToggleVerified={toggleVerified} onResetData={resetTestData} onRecordPayout={recordPayout} onPayoutViaStripe={payoutPromoterViaStripe} onResolveDispute={resolveDispute} onDeleteUser={deleteUser} onApproveFlaggedReferral={approveFlaggedReferral} onDenyFlaggedReferral={denyFlaggedReferral} />}
+       {view === "admin" && <AdminView listings={listings} users={users} referrals={referrals} reports={reports} feedback={feedback} userReports={userReports} reviews={reviews} payouts={payouts} disputes={disputes} adPlacements={adPlacements} onArchive={archiveListing} onMarkSold={markSold} onConfirmReceipt={confirmReceipt} onResolveReport={resolveReport} onResolveUserReport={resolveUserReport} onToggleVerified={toggleVerified} onResetData={resetTestData} onRecordPayout={recordPayout} onPayoutViaStripe={payoutPromoterViaStripe} onResolveDispute={resolveDispute} onDeleteUser={deleteUser} onApproveFlaggedReferral={approveFlaggedReferral} onDenyFlaggedReferral={denyFlaggedReferral} />}
         {view === "success" && <SuccessView onHome={() => setView("home")} />}
       </main>
 
-      <div className="app-ad-rail" onClick={(e) => { e.stopPropagation(); setView("advertise"); }}>
-        <div style={styles.adRailInner}>
-          <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 8 }}>📢 Advertise Here</div>
-          <div style={{ fontSize: 13, color: "#94a3b8" }}>Reach car buyers and sellers on DriveLink.</div>
-          <div style={{ fontSize: 13, color: "#FFB020", fontWeight: 600, marginTop: 12 }}>Click to learn more →</div>
-        </div>
+      <div className="app-ad-rail">
+        <AdRail ads={publicAds} onPromoClick={() => setView("advertise")} />
       </div>
       </div>
       <footer style={styles.appFooter}>
@@ -3392,6 +3396,74 @@ function ProfileView({ dbUser, authEmail, onUpdateProfile, onChangeEmail, onChan
   );
 }
 
+// ── Sidebar ad rail ───────────────────────────────────────────────────────────
+// Renders whatever placements are currently paid for and running. With none, it
+// falls back to the promo that used to be hardcoded here — which meant a
+// business that had paid up to $1,200 saw an advert asking them to advertise.
+//
+// Multiple advertisers rotate rather than compete for the slot: whoever loaded
+// first should not get every impression for the session. Rotation is
+// deliberately slow, since an ad that swaps while someone is reading it is
+// worse than one that sits still.
+function AdRail({ ads, onPromoClick }) {
+  const [idx, setIdx] = useState(0);
+  const live = ads || [];
+
+  useEffect(() => {
+    if (live.length <= 1) return;
+    const id = setInterval(() => setIdx(i => (i + 1) % live.length), 15000);
+    return () => clearInterval(id);
+  }, [live.length]);
+
+  // A placement removed between renders must not leave a blank rail.
+  const ad = live[idx % live.length];
+
+  if (!ad) {
+    return (
+      <div style={styles.adRailInner} onClick={onPromoClick} role="button" tabIndex={0}>
+        <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 8 }}>📢 Advertise Here</div>
+        <div style={{ fontSize: 13, color: "#94a3b8" }}>Reach car buyers and sellers on DriveLink.</div>
+        <div style={{ fontSize: 13, color: "#FFB020", fontWeight: 600, marginTop: 12 }}>Click to learn more →</div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={styles.adRailInner}>
+      <a
+        href={ad.link_url}
+        target="_blank"
+        // noopener: the advertiser's page must not get a handle on this window.
+        // nofollow + sponsored: paid links, and telling Google otherwise is how
+        // a site earns a manual action.
+        rel="noopener noreferrer nofollow sponsored"
+        onClick={(e) => e.stopPropagation()}
+        style={{ textDecoration: "none", color: "inherit", display: "block" }}
+      >
+        {ad.image_url && (
+          <img
+            src={ad.image_url}
+            alt={ad.business_name}
+            loading="lazy"
+            style={{ width: "100%", borderRadius: 8, marginBottom: 10, display: "block" }}
+            // A broken image URL should degrade to a text ad, not a broken icon.
+            onError={(e) => { e.currentTarget.style.display = "none"; }}
+          />
+        )}
+        <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 6 }}>{ad.business_name}</div>
+        <div style={{ fontSize: 13, color: "#FFB020", fontWeight: 600 }}>Visit site →</div>
+      </a>
+      {/* Disclosure is not optional: the FTC requires paid placement to be
+          identifiable as advertising, and a rail that looks like editorial
+          content is exactly what that rule is about. */}
+      <div style={{ fontSize: 11, color: "#64748b", marginTop: 10, letterSpacing: 0.3 }}>
+        SPONSORED
+        {live.length > 1 && <span style={{ marginLeft: 6 }}>· {idx + 1}/{live.length}</span>}
+      </div>
+    </div>
+  );
+}
+
 function Field({ label, value, onChange, placeholder, type = "text" }) {
   return (
     <div style={{ marginBottom: 16 }}>
@@ -3903,7 +3975,7 @@ function StatBox({ label, value, color }) {
   return <div style={styles.statBox}><div style={{ ...styles.statValue, color }}>{value}</div><div style={styles.statLabel}>{label}</div></div>;
 }
 
-function AdminView({ listings, users, referrals, reports, feedback, userReports, reviews, payouts, disputes, onArchive, onMarkSold, onConfirmReceipt, onResolveReport, onResolveUserReport, onToggleVerified, onResetData, onRecordPayout, onPayoutViaStripe, onResolveDispute, onDeleteUser, onApproveFlaggedReferral, onDenyFlaggedReferral }) {
+function AdminView({ listings, users, referrals, reports, feedback, userReports, reviews, payouts, disputes, adPlacements, onArchive, onMarkSold, onConfirmReceipt, onResolveReport, onResolveUserReport, onToggleVerified, onResetData, onRecordPayout, onPayoutViaStripe, onResolveDispute, onDeleteUser, onApproveFlaggedReferral, onDenyFlaggedReferral }) {
   const [tab, setTab] = useState("listings");
   const [showDeletedUsers, setShowDeletedUsers] = useState(false);
   const deletedUserCount = (users || []).filter(u => u.deleted_at).length;
@@ -3915,6 +3987,31 @@ function AdminView({ listings, users, referrals, reports, feedback, userReports,
   const platformEarnings = activeAndSold.filter(l => l.status === "sold").reduce((s, l) => s + (l.platform_fee || Math.round((l.sale_price || 0) * 0.01)), 0);
   const totalCommissions = referrals.filter(r => r.status === "paid").reduce((s, r) => s + (r.commission_amount || 0), 0);
   const openReports = reports.filter(r => r.status === "open");
+
+  // ── Ads ──────────────────────────────────────────────────────────────────
+  // Bucketed by what you'd actually do about each: running ones are fine,
+  // expiring ones are a renewal conversation, and pending_payment is someone
+  // who opened Stripe Checkout and never finished — a real lead, not noise.
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const ads = adPlacements || [];
+  const adState = (a) => {
+    if (a.status === "pending_payment") return "awaiting payment";
+    if (a.status !== "active") return a.status;
+    if (a.end_date && a.end_date < todayStr) return "expired";
+    if (a.start_date && a.start_date > todayStr) return "scheduled";
+    return "running";
+  };
+  const runningAds = ads.filter(a => adState(a) === "running");
+  const pendingAds = ads.filter(a => adState(a) === "awaiting payment");
+  const adRevenue = ads
+    .filter(a => a.status === "active")
+    .reduce((s, a) => s + (a.amount_cents || 0), 0);
+  // Within 30 days of expiry and still running — worth an email before it lapses.
+  const expiringSoon = runningAds.filter(a => {
+    if (!a.end_date) return false;
+    const days = (new Date(`${a.end_date}T12:00:00Z`) - Date.now()) / 86400000;
+    return days <= 30;
+  });
   const openUserReports = (userReports || []).filter(r => r.status === "open");
   const awaitingConfirmation = activeAndSold.filter(l => l.status === "pending_confirmation");
   const openDisputes = (disputes || []).filter(d => d.status === "open");
@@ -3934,7 +4031,7 @@ function AdminView({ listings, users, referrals, reports, feedback, userReports,
         <StatBox label="Open User Reports" value={openUserReports.length} color="#dc2626" />
       </div>
       <div style={styles.tabRow}>
-        {["listings", "archived", "users", "referrals", "payouts", "disputes", "reports", "userReports", "feedback", "analytics", "danger"].map(t => <button key={t} style={{ ...styles.tab, ...(tab === t ? styles.tabActive : {}), ...(t === "danger" ? { color: tab === "danger" ? "#dc2626" : "#dc2626" } : {}) }} onClick={() => setTab(t)}>{t === "danger" ? "⚠️ Danger Zone" : t === "userReports" ? "User Reports" : t === "analytics" ? "📊 Analytics" : t.charAt(0).toUpperCase() + t.slice(1)}{t === "reports" && openReports.length > 0 ? ` (${openReports.length})` : ""}{t === "userReports" && openUserReports.length > 0 ? ` (${openUserReports.length})` : ""}{t === "disputes" && openDisputes.length > 0 ? ` (${openDisputes.length})` : ""}{t === "feedback" && feedback.length > 0 ? ` (${feedback.length})` : ""}</button>)}
+        {["listings", "archived", "users", "referrals", "payouts", "ads", "disputes", "reports", "userReports", "feedback", "analytics", "danger"].map(t => <button key={t} style={{ ...styles.tab, ...(tab === t ? styles.tabActive : {}), ...(t === "danger" ? { color: tab === "danger" ? "#dc2626" : "#dc2626" } : {}) }} onClick={() => setTab(t)}>{t === "danger" ? "⚠️ Danger Zone" : t === "userReports" ? "User Reports" : t === "analytics" ? "📊 Analytics" : t === "ads" ? "📢 Ads" : t.charAt(0).toUpperCase() + t.slice(1)}{t === "reports" && openReports.length > 0 ? ` (${openReports.length})` : ""}{t === "userReports" && openUserReports.length > 0 ? ` (${openUserReports.length})` : ""}{t === "disputes" && openDisputes.length > 0 ? ` (${openDisputes.length})` : ""}{t === "feedback" && feedback.length > 0 ? ` (${feedback.length})` : ""}{t === "ads" && runningAds.length > 0 ? ` (${runningAds.length})` : ""}</button>)}
       </div>
       {tab === "listings" && (
         <div style={styles.tableWrap}>
@@ -4077,6 +4174,54 @@ function AdminView({ listings, users, referrals, reports, feedback, userReports,
                 <div style={styles.rowInfo} className="app-row-info">
                   <div style={styles.rowTitle}>{u?.name || p.user_id} — {fmt(p.amount)}</div>
                   <div style={styles.rowMeta}>via {p.method} {p.note ? `• "${p.note}"` : ""} • {new Date(p.paid_at).toLocaleDateString()}</div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+      {tab === "ads" && (
+        <div style={styles.tableWrap}>
+          <div style={{ display: "flex", gap: 24, flexWrap: "wrap", marginBottom: 16, fontSize: 14 }}>
+            <div><strong>{runningAds.length}</strong> running</div>
+            <div><strong>{fmt(adRevenue)}</strong> collected</div>
+            {expiringSoon.length > 0 && (
+              <div style={{ color: "#b45309" }}>
+                <strong>{expiringSoon.length}</strong> expiring within 30 days
+              </div>
+            )}
+            {pendingAds.length > 0 && (
+              <div style={{ color: "#6b7280" }}>
+                <strong>{pendingAds.length}</strong> abandoned at checkout
+              </div>
+            )}
+          </div>
+
+          {ads.length === 0 && <p style={{ color: "#6b7280" }}>No ad placements yet.</p>}
+
+          {ads.map(a => {
+            const state = adState(a);
+            const owner = users.find(u => u.id === a.user_id);
+            const color =
+              state === "running"          ? "#16a34a"
+              : state === "expired"        ? "#6b7280"
+              : state === "awaiting payment" ? "#b45309"
+              : "#1d4ed8";
+            return (
+              <div key={a.id} style={styles.listingRow} className="app-listing-row">
+                <div style={styles.rowInfo} className="app-row-info">
+                  <div style={styles.rowTitle}>
+                    {a.business_name} — {fmt(a.amount_cents)}
+                    <span style={{ color, fontWeight: 600, fontSize: 13, marginLeft: 8 }}>· {state}</span>
+                  </div>
+                  <div style={styles.rowMeta}>
+                    {a.plan} • {a.start_date ? `${a.start_date} → ${a.end_date}` : "not yet activated"}
+                    {a.contact_email ? ` • ${a.contact_email}` : ""}
+                    {owner?.name ? ` • ${owner.name}` : ""}
+                  </div>
+                  <div style={styles.rowMeta}>
+                    <a href={a.link_url} target="_blank" rel="noopener noreferrer nofollow">{a.link_url}</a>
+                  </div>
                 </div>
               </div>
             );
