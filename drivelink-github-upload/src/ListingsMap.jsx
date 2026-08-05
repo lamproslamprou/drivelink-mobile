@@ -10,7 +10,14 @@ const icon = L.icon({
   iconAnchor: [12, 41],
 });
 
-const fmt = (n) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n);
+// Prices are stored as integer cents (see toCents/fromCents in App.jsx). This
+// file had its own formatter that skipped the /100, so a $7,500 car rendered on
+// the map as $750,000.
+const fmt = (cents) => {
+  const c = Number(cents);
+  if (!Number.isFinite(c)) return "—";
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(c / 100);
+};
 
 export default function ListingsMap({ listings, onSelect }) {
   const withCoords = listings.filter(l => l.lat && l.lng);
