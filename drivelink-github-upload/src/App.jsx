@@ -210,35 +210,25 @@ export default function App() {
   // it must render for a signed-out stranger before any listings arrive.
   const [dealToken, setDealToken] = useState(null);
 
-  // ── Nav bar horizontal scrolling. It has overflow-x:auto for touch/trackpad,
-  // but a plain vertical mouse wheel and click-drag don't scroll horizontal
-  // content by default in most browsers — only arrow keys and a visible
-  // scrollbar (which we hide) worked before. These two handlers add both.
-  const navRef = useRef(null);
-  const navDrag = useRef({ active: false, startX: 0, startScrollLeft: 0 });
+  // ── Account dropdown. The nav used to carry 13 destinations in one scrolling
+  // row; everything account-scoped now lives behind the avatar instead.
+  const accountMenuRef = useRef(null);
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
 
-  const handleNavWheel = (e) => {
-    const el = navRef.current;
-    if (!el || el.scrollWidth <= el.clientWidth) return; // nothing to scroll
-    el.scrollLeft += e.deltaY;
-    e.preventDefault();
-  };
-
-  const handleNavMouseDown = (e) => {
-    const el = navRef.current;
-    if (!el || el.scrollWidth <= el.clientWidth) return;
-    navDrag.current = { active: true, startX: e.pageX, startScrollLeft: el.scrollLeft };
-    el.style.cursor = "grabbing";
-  };
-  const handleNavMouseMove = (e) => {
-    if (!navDrag.current.active || !navRef.current) return;
-    e.preventDefault();
-    navRef.current.scrollLeft = navDrag.current.startScrollLeft - (e.pageX - navDrag.current.startX);
-  };
-  const endNavDrag = () => {
-    navDrag.current.active = false;
-    if (navRef.current) navRef.current.style.cursor = "";
-  };
+  // Close the account dropdown on an outside click or Escape.
+  useEffect(() => {
+    if (!accountMenuOpen) return;
+    const onDown = (e) => {
+      if (accountMenuRef.current && !accountMenuRef.current.contains(e.target)) setAccountMenuOpen(false);
+    };
+    const onKey = (e) => { if (e.key === "Escape") setAccountMenuOpen(false); };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [accountMenuOpen]);
 
   const showToast = (msg, type = "success") => {
     setToast({ msg, type });
@@ -1237,46 +1227,90 @@ const denyFlaggedReferral = async (refId) => {
             <img src={logoIcon} alt="DriveLink" style={styles.logoImg} />
             <span style={styles.logoText}>DriveLink</span>
           </div>
-          <div
-            style={styles.navLinks}
-            className="app-nav-links"
-            ref={navRef}
-            onWheel={handleNavWheel}
-            onMouseDown={handleNavMouseDown}
-            onMouseMove={handleNavMouseMove}
-            onMouseUp={endNavDrag}
-            onMouseLeave={endNavDrag}
-          >
+          {/* Primary row: only things anyone might want to DO. Everything that
+              belongs to "my account" moved into the avatar dropdown, which is
+              what let this drop from 13 items to 5 and killed the drag-scroll. */}
+          <div style={styles.navLinks} className="app-nav-links">
             <NavBtn active={view === "home"} onClick={() => { setView("home"); setHomeResetKey(k => k + 1); }}>Browse</NavBtn>
-            <NavBtn active={view === "advertise"} onClick={() => setView("advertise")}>📢 Advertise</NavBtn>
             {currentUser && <NavBtn active={view === "myListings"} onClick={() => setView("myListings")}>My Listings</NavBtn>}
-            {currentUser && <NavBtn active={view === "myPurchases"} onClick={() => setView("myPurchases")}>My Purchases</NavBtn>}
-            {currentUser && <NavBtn active={view === "myOffers"} onClick={() => setView("myOffers")}>💰 My Offers</NavBtn>}
             {currentUser && <NavBtn active={view === "postListing"} onClick={() => setView("postListing")}>+ Post Car</NavBtn>}
             <NavBtn active={view === "startDeal"} onClick={() => setView("startDeal")}>🔒 Secure a Deal</NavBtn>
-            {currentUser && <NavBtn active={view === "messages"} onClick={() => setView("messages")}>Messages</NavBtn>}
-            {currentUser && <NavBtn active={view === "savedSearches"} onClick={() => setView("savedSearches")}>Saved Searches</NavBtn>}
-            {currentUser && <NavBtn active={view === "favorites"} onClick={() => setView("favorites")}>❤️ Saved Cars</NavBtn>}
-            {currentUser && <NavBtn active={view === "blocked"} onClick={() => setView("blocked")}>🚫 Blocked</NavBtn>}
-            {currentUser && <NavBtn active={view === "dashboard"} onClick={() => setView("dashboard")}>Earnings</NavBtn>}
-            {currentUser && <NavBtn active={view === "profile"} onClick={() => setView("profile")}>⚙️ Profile</NavBtn>}
-            {dbUser?.role === "admin" && <NavBtn active={view === "admin"} onClick={() => setView("admin")}>Admin</NavBtn>}
+            <NavBtn active={view === "advertise"} onClick={() => setView("advertise")}>📢 Advertise</NavBtn>
           </div>
           <div style={styles.navRight} className="app-nav-right">
             {currentUser ? (
               <div style={styles.userChip} className="app-user-chip">
-                <div style={styles.avatar}>{(dbUser?.name || currentUser.email)[0].toUpperCase()}</div>
-                <div className="app-user-text">
-                  <div style={styles.userName}>{dbUser?.name || currentUser.email}</div>
-                  <div style={styles.userRole}>{dbUser?.role === "admin" ? "admin" : "member"}</div>
-                </div>
+                <button
+                  style={{ ...styles.navBtn, ...(view === "messages" ? styles.navBtnActive : {}) }}
+                  onClick={() => setView("messages")}
+                >
+                  Messages
+                </button>
                 {dbUser?.balance > 0 && <span style={styles.balanceBadge}>{fmt(dbUser.balance)}</span>}
-                <button style={styles.logoutBtn} onClick={logout}>Sign out</button>
+                <div style={{ position: "relative" }} ref={accountMenuRef}>
+                  <button
+                    style={styles.avatarBtn}
+                    onClick={() => setAccountMenuOpen(o => !o)}
+                    aria-haspopup="menu"
+                    aria-expanded={accountMenuOpen}
+                    title={dbUser?.name || currentUser.email}
+                  >
+                    <span style={styles.avatar}>{(dbUser?.name || currentUser.email)[0].toUpperCase()}</span>
+                    <span style={styles.caret}>▾</span>
+                  </button>
+                  {accountMenuOpen && (
+                    <div style={styles.menu} role="menu">
+                      <div style={styles.menuHeader}>
+                        <div style={styles.userName}>{dbUser?.name || currentUser.email}</div>
+                        <div style={styles.userRole}>{dbUser?.role === "admin" ? "admin" : "member"}</div>
+                      </div>
+                      {[
+                        ["myPurchases", "My Purchases"],
+                        ["myOffers", "💰 My Offers"],
+                        ["favorites", "❤️ Saved Cars"],
+                        ["savedSearches", "Saved Searches"],
+                        ["dashboard", "Earnings"],
+                        ["blocked", "🚫 Blocked"],
+                        ["profile", "⚙️ Profile"],
+                      ].map(([v, label]) => (
+                        <button
+                          key={v}
+                          role="menuitem"
+                          style={{ ...styles.menuItem, ...(view === v ? styles.menuItemActive : {}) }}
+                          onClick={() => { setView(v); setAccountMenuOpen(false); }}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                      {dbUser?.role === "admin" && (
+                        <>
+                          <div style={styles.menuDivider} />
+                          <button
+                            role="menuitem"
+                            style={{ ...styles.menuItem, ...(view === "admin" ? styles.menuItemActive : {}) }}
+                            onClick={() => { setView("admin"); setAccountMenuOpen(false); }}
+                          >
+                            Admin
+                          </button>
+                        </>
+                      )}
+                      <div style={styles.menuDivider} />
+                      <div style={styles.menuRow}>
+                        <span style={styles.menuRowLabel}>Language</span>
+                        <LangToggle />
+                      </div>
+                      <div style={styles.menuDivider} />
+                      <button role="menuitem" style={{ ...styles.menuItem, color: "#b91c1c" }} onClick={logout}>Sign out</button>
+                    </div>
+                  )}
+                </div>
               </div>
             ) : (
-              <button style={styles.signInBtn} onClick={() => setView("auth")}>{t("auth.signin")}</button>
+              <>
+                <button style={styles.signInBtn} onClick={() => setView("auth")}>{t("auth.signin")}</button>
+                <LangToggle style={{ marginLeft: 8 }} />
+              </>
             )}
-            <LangToggle style={{ marginLeft: 8 }} />
           </div>
         </div>
       </nav>
@@ -4152,10 +4186,17 @@ const styles = {
   logoImg: { height: 30, width: "auto", display: "block" },
   logoIcon: { fontSize: 22 },
   logoText: { fontWeight: 800, fontSize: 20, color: "#0f172a", letterSpacing: "-0.03em" },
-  // minWidth:0 lets this flex child actually shrink; without it the row refuses
-  // to get narrower than its content and pushes the page wider than the screen,
-  // which is why "My Purchases" was rendering as "My Pur…" with no way to reach it.
-  navLinks: { display: "flex", gap: 4, flex: 1, minWidth: 0, overflowX: "auto", flexWrap: "nowrap", WebkitOverflowScrolling: "touch", scrollbarWidth: "none", cursor: "grab", userSelect: "none" },
+  // Five items fit at 360px, so this no longer needs to scroll or be dragged.
+  navLinks: { display: "flex", gap: 4, flex: 1, minWidth: 0, overflowX: "auto", flexWrap: "nowrap", WebkitOverflowScrolling: "touch", scrollbarWidth: "none" },
+  avatarBtn: { display: "flex", alignItems: "center", gap: 4, background: "none", border: "none", cursor: "pointer", padding: 2, borderRadius: 999 },
+  caret: { fontSize: 11, color: "#6b7280" },
+  menu: { position: "absolute", right: 0, top: "calc(100% + 10px)", background: "#fff", border: "1px solid #e5e7eb", borderRadius: 12, boxShadow: "0 8px 28px rgba(0,0,0,.14)", minWidth: 220, padding: 6, zIndex: 200 },
+  menuHeader: { padding: "8px 12px 10px", borderBottom: "1px solid #f1f5f9", marginBottom: 4 },
+  menuItem: { display: "block", width: "100%", textAlign: "left", background: "none", border: "none", padding: "9px 12px", borderRadius: 8, fontSize: 14, fontWeight: 500, color: "#374151", cursor: "pointer" },
+  menuItemActive: { background: "#f1f5f9", color: "#0f172a", fontWeight: 700 },
+  menuDivider: { height: 1, background: "#f1f5f9", margin: "6px 0" },
+  menuRow: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "6px 12px" },
+  menuRowLabel: { fontSize: 13, color: "#6b7280", fontWeight: 600 },
   adRailInner: { background: "linear-gradient(160deg, #1a1a2e, #16213e)", border: "1px dashed #FFB020", borderRadius: 12, padding: "22px 16px", color: "#fff", textAlign: "center", height: "100%", display: "flex", flexDirection: "column", justifyContent: "center", boxSizing: "border-box" },
   navBtn: { background: "none", border: "none", padding: "6px 14px", borderRadius: 8, cursor: "pointer", fontSize: 14, fontWeight: 500, color: "#4b5563", flexShrink: 0, whiteSpace: "nowrap" },
   navBtnActive: { background: "#f1f5f9", color: "#0f172a" },
