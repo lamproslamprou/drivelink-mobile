@@ -282,8 +282,52 @@ Deno.serve(async (req) => {
       const sellerNet = Math.max(0, rawSellerNet);
       const netWasClamped = rawSellerNet !== sellerNet;
 
-      const releaseAt = new Date();
-      releaseAt.setDate(releaseAt.getDate() + AUTO_RELEASE_DAYS);
+      // ── RELEASE CLOCK ─────────────────────────────────────────────────────
+      // Anchored to the LATER of (payment + 7d) and (handover + 7d).
+      //
+      // This used to be payment + 7d unconditionally, which meant that on any
+      // sale where the seller couldn't hand the car over promptly, the escrow
+      // released to the seller before the buyer ever saw the vehicle. The
+      // buyer's only recourse at that point was a dispute against money that
+      // had already left the platform.
+      //
+      // handover_date arrives as a plain YYYY-MM-DD in session metadata,
+      // written there by create-checkout-session (which reads it server-side
+      // from the listing — never from the browser). Absent or unparseable, the
+      // behaviour is byte-for-byte what it was before: payment + 7d. That is
+      // deliberate, so this function is safe to deploy on its own, ahead of
+      // the checkout change that starts populating the field.
+      //
+      // Noon UTC, not midnight: a calendar date two people agreed on carries
+      // no time of day, and midnight sits close enough to a DST boundary to
+      // shift the result by a day twice a year. Noon UTC is 7-8am ET whatever
+      // the season. This matches guard_listings_handover() in the database —
+      // the two must agree, or the trigger will quietly push the date around
+      // after this function writes it.
+      const paymentReleaseAt = new Date();
+      paymentReleaseAt.setDate(paymentReleaseAt.getDate() + AUTO_RELEASE_DAYS);
+
+      const handoverDate = /^\d{4}-\d{2}-\d{2}$/.test(meta.handover_date ?? "")
+        ? meta.handover_date
+        : null;
+
+      let releaseAt = paymentReleaseAt;
+
+      if (handoverDate) {
+        const handoverReleaseAt = new Date(`${handoverDate}T12:00:00Z`);
+        handoverReleaseAt.setDate(handoverReleaseAt.getDate() + AUTO_RELEASE_DAYS);
+
+        // Math.max over getTime() rather than comparing Dates directly — `>`
+        // on two Date objects coerces to string in some paths and compares
+        // lexically, which is exactly the kind of bug that would silently
+        // release money early.
+        if (
+          Number.isFinite(handoverReleaseAt.getTime()) &&
+          handoverReleaseAt.getTime() > paymentReleaseAt.getTime()
+        ) {
+          releaseAt = handoverReleaseAt;
+        }
+      }
 
       const { data: soldListing, error: listingErr } = await supabase
         .from("listings")
@@ -298,6 +342,11 @@ Deno.serve(async (req) => {
           // Precise payment instant. sold_at is a date and cannot carry this.
           // Read by evaluate_listing_risk() for INSTANT_CONFIRM / FAST_CLOSE.
           paid_at: new Date().toISOString(),
+          // Persisted so the agreed date survives on the listing itself, not
+          // only in Stripe metadata. guard_listings_handover() takes over from
+          // here: once this row is pending_confirmation the date can be pushed
+          // later (a slipped handover) but never pulled earlier.
+          ...(handoverDate ? { handover_date: handoverDate } : {}),
           auto_release_at: releaseAt.toISOString(),
         })
         .eq("id", listing_id)
@@ -338,6 +387,8 @@ Deno.serve(async (req) => {
         ? `Fees exceeded the sale price, so seller net was clamped to $0. Check this before releasing.`
         : feeWasEstimated
         ? `Stripe's balance_transaction wasn't readable, so the processing fee above is an ESTIMATE. Compare it to the real fee on the payment in Stripe and adjust seller_net before release if it's off.`
+        : handoverDate
+        ? `Handover is agreed for ${handoverDate}, so funds auto-release on ${releaseAt.toISOString().slice(0, 10)} — ${AUTO_RELEASE_DAYS} days after the car changes hands, not after payment. The buyer can confirm or dispute before then.`
         : `Funds auto-release in ${AUTO_RELEASE_DAYS} days unless the buyer confirms or disputes first.`;
 
       notifyAdmin({
@@ -348,6 +399,10 @@ Deno.serve(async (req) => {
             : "New sale — payment received, awaiting buyer confirmation",
           [
             ["Vehicle", carLabel],
+            ...(handoverDate
+              ? [["Handover agreed for", handoverDate] as [string, unknown]]
+              : []),
+            ["Funds auto-release", releaseAt.toISOString().slice(0, 10)],
             ["Sale price", money(salePrice)],
             ["Platform fee (1%)", money(platformFee)],
             [
