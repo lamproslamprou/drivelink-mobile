@@ -19,7 +19,7 @@ Deno.serve(async (req) => {
 
     const { data: listing, error: listingErr } = await supabase
       .from("listings")
-      .select("id, make, model, year, price, seller_id, status, is_private, buyer_id")
+      .select("id, make, model, year, price, seller_id, status, is_private, buyer_id, handover_date")
       .eq("id", listing_id)
       .single();
     if (listingErr || !listing) {
@@ -131,6 +131,54 @@ Deno.serve(async (req) => {
       // either mispriced or a units bug — fail loudly rather than charge.
       throw new Error("This listing's price is not valid for checkout");
     }
+    // ── Handover date ────────────────────────────────────────────────────────
+    // The day the seller hands the car over. Read from the LISTING, server-side,
+    // never from the request body — same rule as buyerEmail above. A buyer who
+    // could post their own handover_date could push the seller's payout months
+    // out; a seller who could post one at checkout could pull it forward.
+    //
+    // This is what anchors the escrow clock. stripe-webhook sets
+    // auto_release_at to the later of (payment + 7d) and (handover + 7d), so
+    // funds cannot release before the buyer has had the car for a week. Null
+    // means immediate handover, which is the overwhelming majority of sales and
+    // behaves exactly as it always has.
+    //
+    // Dates already in the past are ignored rather than rejected: a seller who
+    // set "next Tuesday" three weeks ago and never updated it should not have
+    // their sale blocked at the payment screen. The webhook's max() means an
+    // ignored date costs nothing — the clock just falls back to payment + 7d.
+    const HANDOVER_MAX_DAYS = 90;
+    let handoverDate: string | null = null;
+
+    if (typeof listing.handover_date === "string" && listing.handover_date.length > 0) {
+      const parsed = new Date(`${listing.handover_date}T12:00:00Z`);
+      const daysOut = Math.round((parsed.getTime() - Date.now()) / 86_400_000);
+
+      if (!Number.isFinite(parsed.getTime())) {
+        console.error("unparseable handover_date on listing:", listing.id, listing.handover_date);
+      } else if (daysOut > HANDOVER_MAX_DAYS) {
+        // Not a delayed car sale — something needs a human. Better to fail at
+        // the payment screen than to lock a buyer's money up for a quarter.
+        throw new Error(
+          `This listing's handover date is more than ${HANDOVER_MAX_DAYS} days away. ` +
+          `Ask the seller to update it before purchasing.`,
+        );
+      } else if (daysOut > 0) {
+        handoverDate = listing.handover_date;
+      }
+    }
+
+    // Rendered on Stripe's own payment screen, not just ours. A buyer agreeing
+    // to a delayed handover on the seller's website is weaker consent than one
+    // who saw it on the page where the card was actually charged — this is the
+    // page a dispute gets argued over.
+    const handoverNotice = handoverDate
+      ? `The seller hands over this vehicle on ${new Date(`${handoverDate}T12:00:00Z`)
+          .toLocaleDateString("en-US", { timeZone: "UTC", month: "long", day: "numeric", year: "numeric" })}. ` +
+        `DriveLink holds your payment in escrow until then — it is not released to the seller ` +
+        `until 7 days after handover, and you can confirm or dispute at any point before that.`
+      : null;
+
     const origin = req.headers.get("origin") ?? "https://drivelink.deals";
     const label = [listing.year, listing.make, listing.model].filter(Boolean).join(" ") || "DriveLink vehicle purchase";
 
@@ -159,10 +207,17 @@ Deno.serve(async (req) => {
         listing_id: String(listing.id),
         buyer_id: buyerId,
         seller_id: String(listing.seller_id),
+        // Read back by stripe-webhook to anchor auto_release_at. Empty string
+        // rather than omitted: Stripe metadata values must be strings, and the
+        // webhook's regex test treats "" as absent.
+        handover_date: handoverDate ?? "",
         // Mirrored into Stripe so attribution is visible in the dashboard and
         // survives a webhook replay even if the listings row is later touched.
         referral_code: attributedCode ?? "",
       },
+      ...(handoverNotice
+        ? { custom_text: { submit: { message: handoverNotice.slice(0, 1200) } } }
+        : {}),
       // Copied onto the PaymentIntent as well as the session. Refunds and
       // disputes surface from the payment, not the checkout session, so
       // without this the buyer link is missing exactly where it's needed.

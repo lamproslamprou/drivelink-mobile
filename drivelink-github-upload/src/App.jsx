@@ -2867,6 +2867,7 @@ function EditListingModal({ listing, onCancel, onSave }) {
     make: listing.make || "", model: listing.model || "", year: listing.year || new Date().getFullYear(),
     price: listing.price != null ? fromCents(listing.price) : "", mileage: listing.mileage || "", color: listing.color || "",
     description: listing.description || "", vin: listing.vin || "", location_text: listing.location_text || "",
+    handover_date: listing.handover_date || "",
   });
   const [images, setImages] = useState(listing.images && listing.images.length ? listing.images : (listing.image ? [listing.image] : []));
   const [saving, setSaving] = useState(false);
@@ -2892,6 +2893,9 @@ function EditListingModal({ listing, onCancel, onSave }) {
       price: toCents(form.price),
       mileage: +form.mileage,
       year: +form.year,
+      // A date column rejects "". Empty means "no agreed handover date", which
+      // is null, which is what the escrow clock treats as immediate.
+      handover_date: form.handover_date || null,
       images,
       image: images[0] || listing.image,
       // vin_verified is deliberately NOT sent. It is a platform attestation
@@ -2921,6 +2925,7 @@ function EditListingModal({ listing, onCancel, onSave }) {
           <Field label="Location (city or ZIP)" value={form.location_text} onChange={v => set("location_text", v)} />
         </div>
         <SellerNetPreview price={toCents(form.price)} />
+        <HandoverDateField value={form.handover_date} onChange={v => set("handover_date", v)} />
         <div style={{ marginTop: 12 }}>
           <label style={styles.fieldLabel}>VIN (optional)</label>
           <div style={{ display: "flex", gap: 8 }}>
@@ -2952,7 +2957,7 @@ function EditListingModal({ listing, onCancel, onSave }) {
 
 function PostListingView({ onPost }) {
   const { t } = useLang();
-  const [form, setForm] = useState({ make: "", model: "", year: new Date().getFullYear(), price: "", mileage: "", color: "", description: "", vin: "", location_text: "" });
+  const [form, setForm] = useState({ make: "", model: "", year: new Date().getFullYear(), price: "", mileage: "", color: "", description: "", vin: "", location_text: "", handover_date: "" });
   const [images, setImages] = useState([]);
   const [submitting, setSubmitting] = useState(false);
   const [vinChecking, setVinChecking] = useState(false);
@@ -2982,6 +2987,8 @@ function PostListingView({ onPost }) {
       price: toCents(form.price),
       mileage: +form.mileage,
       year: +form.year,
+      // See EditListingModal — "" is not a valid date, null means immediate.
+      handover_date: form.handover_date || null,
       images,
       image: images[0] || "https://images.unsplash.com/photo-1494976388531-d1058494cdd8?w=600&q=80",
       // See note in EditListingModal — the platform sets vin_verified, not us.
@@ -3011,6 +3018,7 @@ function PostListingView({ onPost }) {
           <Field label={t("sell.location")} value={form.location_text} onChange={v => set("location_text", v)} placeholder="e.g. Austin, TX" />
         </div>
         <SellerNetPreview price={toCents(form.price)} />
+        <HandoverDateField value={form.handover_date} onChange={v => set("handover_date", v)} />
         <div style={{ marginTop: 12 }}>
           <label style={styles.fieldLabel}>VIN (optional)</label>
           <div style={{ display: "flex", gap: 8 }}>
@@ -3241,6 +3249,69 @@ function Field({ label, value, onChange, placeholder, type = "text" }) {
     <div style={{ marginBottom: 16 }}>
       <label style={styles.fieldLabel}>{label}</label>
       <input style={styles.fieldInput} type={type} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} />
+    </div>
+  );
+}
+
+// ── Handover date ────────────────────────────────────────────────────────────
+// The day the seller physically hands the car to the buyer, when that isn't
+// straight away. It is optional and empty on almost every listing — the common
+// case is "we meet this week" and needs no date at all.
+//
+// It matters because it anchors the escrow clock. auto_release_at is the LATER
+// of (payment + 7 days) and (handover + 7 days), so without a date on a sale
+// where the seller is away for three weeks, the money reaches the seller before
+// the buyer has seen the car. Setting it here is the seller choosing to be paid
+// later, which is why it's safe to let a browser write it at all.
+//
+// The 90-day ceiling matches the hard limit in create-checkout-session, which
+// refuses to open a Checkout session beyond it. Enforcing it here too means the
+// seller finds out while editing their listing rather than the buyer finding
+// out at the payment screen.
+const HANDOVER_MAX_DAYS = 90;
+
+function HandoverDateField({ value, onChange }) {
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const maxIso = new Date(Date.now() + HANDOVER_MAX_DAYS * 86400000).toISOString().slice(0, 10);
+
+  // Mirrors the webhook's arithmetic: handover + 7 days, resolved at noon UTC
+  // so the displayed day can't drift across a DST boundary.
+  const releaseLabel = (() => {
+    if (!value) return null;
+    const d = new Date(`${value}T12:00:00Z`);
+    if (!Number.isFinite(d.getTime())) return null;
+    d.setDate(d.getDate() + 7);
+    return d.toLocaleDateString("en-US", { timeZone: "UTC", month: "long", day: "numeric", year: "numeric" });
+  })();
+
+  return (
+    <div style={{ marginTop: 16 }}>
+      <label style={styles.fieldLabel}>Handover date (optional)</label>
+      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+        <input
+          style={{ ...styles.fieldInput, flex: 1 }}
+          type="date"
+          value={value || ""}
+          min={todayIso}
+          max={maxIso}
+          onChange={e => onChange(e.target.value)}
+        />
+        {value && (
+          <button type="button" style={{ ...styles.cancelBtn, whiteSpace: "nowrap" }} onClick={() => onChange("")}>
+            Clear
+          </button>
+        )}
+      </div>
+      <div style={{ fontSize: 13, color: "#6b7280", marginTop: 6, lineHeight: 1.5 }}>
+        {releaseLabel ? (
+          <>
+            Buyers will see this date before they pay. Their payment stays in escrow and reaches you on{" "}
+            <strong>{releaseLabel}</strong> — 7 days after handover — unless they confirm sooner.
+          </>
+        ) : (
+          <>Leave blank if you can hand the car over as soon as it sells. Set a date only if the buyer would have to wait — it delays your payout, but it's what lets someone buy a car you can't deliver yet.</>
+        )}
+      </div>
     </div>
   );
 }
