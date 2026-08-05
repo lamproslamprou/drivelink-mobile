@@ -1141,6 +1141,22 @@ const denyFlaggedReferral = async (refId) => {
   };
 
 
+  // ── Admin: delete a stale ad placement ──────────────────────────────────────
+  // Abandoned checkouts and finished runs only. A live placement is refused by
+  // the ad_placements_admin_delete RLS policy, not just hidden in the UI — the
+  // row is the customer's receipt as much as it is the ad.
+  const deleteAdPlacement = async (adId) => {
+    const { error } = await supabase.from("ad_placements").delete().eq("id", adId);
+    if (error) {
+      showToast(`Couldn't delete that placement: ${error.message}`, "error");
+      return;
+    }
+    // A running placement matches no policy row, so the delete succeeds with
+    // zero rows affected rather than erroring. Reload and let the list speak.
+    await loadData();
+    showToast("Ad placement deleted.");
+  };
+
   const messageSeller = (listing) => {
     if (listing.seller_id === currentUser.id) return;
     if (blocks.some(b => b.blocked_id === listing.seller_id)) { showToast("You've blocked this seller.", "error"); return; }
@@ -1535,7 +1551,7 @@ const denyFlaggedReferral = async (refId) => {
         {view === "blocked" && <BlockedUsersView blocks={blocks} users={users} onToggleBlock={toggleBlock} onBrowse={() => setView("home")} />}
         {view === "dashboard" && <PromoterDashboard currentUser={dbUser} referrals={referrals.filter(r => r.promoter_id === currentUser?.id)} listings={listings} payouts={payouts} onSetupPayouts={setupPayouts} onRetract={retractReferral} />}
         {view === "profile" && <ProfileView dbUser={dbUser} authEmail={currentUser?.email} onUpdateProfile={updateProfile} onChangeEmail={changeEmail} onChangePassword={changePassword} onSetupPayouts={setupPayouts} onStartIdentityVerification={startIdentityVerification} />}
-       {view === "admin" && <AdminView listings={listings} users={users} referrals={referrals} reports={reports} feedback={feedback} userReports={userReports} reviews={reviews} payouts={payouts} disputes={disputes} adPlacements={adPlacements} onArchive={archiveListing} onMarkSold={markSold} onConfirmReceipt={confirmReceipt} onResolveReport={resolveReport} onResolveUserReport={resolveUserReport} onToggleVerified={toggleVerified} onResetData={resetTestData} onRecordPayout={recordPayout} onPayoutViaStripe={payoutPromoterViaStripe} onResolveDispute={resolveDispute} onDeleteUser={deleteUser} onApproveFlaggedReferral={approveFlaggedReferral} onDenyFlaggedReferral={denyFlaggedReferral} />}
+       {view === "admin" && <AdminView listings={listings} users={users} referrals={referrals} reports={reports} feedback={feedback} userReports={userReports} reviews={reviews} payouts={payouts} disputes={disputes} adPlacements={adPlacements} onDeleteAd={deleteAdPlacement} onArchive={archiveListing} onMarkSold={markSold} onConfirmReceipt={confirmReceipt} onResolveReport={resolveReport} onResolveUserReport={resolveUserReport} onToggleVerified={toggleVerified} onResetData={resetTestData} onRecordPayout={recordPayout} onPayoutViaStripe={payoutPromoterViaStripe} onResolveDispute={resolveDispute} onDeleteUser={deleteUser} onApproveFlaggedReferral={approveFlaggedReferral} onDenyFlaggedReferral={denyFlaggedReferral} />}
         {view === "success" && <SuccessView onHome={() => setView("home")} />}
       </main>
 
@@ -4004,7 +4020,7 @@ function StatBox({ label, value, color }) {
   return <div style={styles.statBox}><div style={{ ...styles.statValue, color }}>{value}</div><div style={styles.statLabel}>{label}</div></div>;
 }
 
-function AdminView({ listings, users, referrals, reports, feedback, userReports, reviews, payouts, disputes, adPlacements, onArchive, onMarkSold, onConfirmReceipt, onResolveReport, onResolveUserReport, onToggleVerified, onResetData, onRecordPayout, onPayoutViaStripe, onResolveDispute, onDeleteUser, onApproveFlaggedReferral, onDenyFlaggedReferral }) {
+function AdminView({ listings, users, referrals, reports, feedback, userReports, reviews, payouts, disputes, adPlacements, onDeleteAd, onArchive, onMarkSold, onConfirmReceipt, onResolveReport, onResolveUserReport, onToggleVerified, onResetData, onRecordPayout, onPayoutViaStripe, onResolveDispute, onDeleteUser, onApproveFlaggedReferral, onDenyFlaggedReferral }) {
   const [tab, setTab] = useState("listings");
   const [showDeletedUsers, setShowDeletedUsers] = useState(false);
   const deletedUserCount = (users || []).filter(u => u.deleted_at).length;
@@ -4252,6 +4268,20 @@ function AdminView({ listings, users, referrals, reports, feedback, userReports,
                     <a href={a.link_url} target="_blank" rel="noopener noreferrer nofollow">{a.link_url}</a>
                   </div>
                 </div>
+                {/* Running placements have no delete control — the row is the
+                    advertiser's receipt. The RLS policy refuses them too. */}
+                {state !== "running" && state !== "scheduled" && (
+                  <button
+                    style={{ ...styles.dangerBtn, width: "auto", padding: "8px 14px", fontSize: 13, whiteSpace: "nowrap", alignSelf: "center" }}
+                    onClick={() => {
+                      if (window.confirm(`Delete the "${a.business_name}" placement? This cannot be undone.`)) {
+                        onDeleteAd(a.id);
+                      }
+                    }}
+                  >
+                    Delete
+                  </button>
+                )}
               </div>
             );
           })}

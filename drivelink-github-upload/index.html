@@ -2,25 +2,53 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>DriveLink — Buy, Sell & Earn</title>
     <meta name="description" content="Peer-to-peer car marketplace. Share listings and earn 1% on every sale you unlock." />
     <link rel="icon" type="image/png" href="/favicon.png" />
+
+    <!-- ── PWA ────────────────────────────────────────────────────────────── -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content="#0f172a" />
+    <!-- iOS ignores the manifest entirely for home-screen installs and reads
+         these instead. Without apple-touch-icon it screenshots the page and
+         uses that as the icon, which looks broken. -->
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="DriveLink" />
+
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-<!-- Google tag (gtag.js) -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-ZR5N15ZQZ1">
-</script>
-<script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
 
-  gtag('config', 'G-ZR5N15ZQZ1');
-</script>
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-ZR5N15ZQZ1"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      // send_page_view: false because App.jsx fires page_view on every route
+      // change, including the first. Left at the default, gtag sends its own
+      // pageview on load and every first visit is counted twice — which would
+      // quietly inflate every number in the funnel.
+      gtag('config', 'G-ZR5N15ZQZ1', { send_page_view: false });
+    </script>
   </head>
   <body>
     <div id="root"></div>
     <script type="module" src="./src/main.jsx"></script>
+
+    <script>
+      // Registered after load so it never competes with the app for bandwidth
+      // on a first visit. Failure is non-fatal: no service worker just means no
+      // offline shell and no install prompt.
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function () {
+          navigator.serviceWorker.register('/sw.js').catch(function (err) {
+            console.warn('Service worker registration failed:', err);
+          });
+        });
+      }
+    </script>
   </body>
 </html>
