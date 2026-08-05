@@ -205,6 +205,7 @@ const VIEW_PATHS = {
   terms:         "/terms",
   privacy:       "/privacy",
   safety:        "/safety",
+  about:         "/about",
 };
 const PATH_TO_VIEW = Object.fromEntries(
   Object.entries(VIEW_PATHS).map(([v, p]) => [p, v]),
@@ -216,7 +217,7 @@ const normalizePath = (p) => (p || "/").replace(/[?#].*$/, "").replace(/\/+$/, "
 // and resumes afterwards. Browsing without an account is deliberate — asking
 // someone to register before they have seen a single car loses them.
 const PUBLIC_VIEWS = new Set([
-  "landing", "auth", "home", "advertise", "terms", "privacy", "safety",
+  "landing", "auth", "home", "advertise", "terms", "privacy", "safety", "about",
 ]);
 
 // The view to paint on first render, read from the address bar.
@@ -1402,6 +1403,14 @@ const denyFlaggedReferral = async (refId) => {
     <LegalPageView type={view} onBack={() => setView(currentUser ? "home" : "landing")} />
   );
 
+  if (view === "about") return (
+    <AboutView
+      onBack={() => setView(currentUser ? "home" : "landing")}
+      onBrowse={() => setView("home")}
+      onSafety={() => setView("safety")}
+    />
+  );
+
   if (view === "safety") return (
     <SafetyTipsView onBack={() => setView(currentUser ? "home" : "landing")} />
   );
@@ -1575,7 +1584,7 @@ const denyFlaggedReferral = async (refId) => {
       </div>
       <InstallPrompt />
       <footer style={styles.appFooter}>
-        <button style={styles.appFooterLink} onClick={() => setView("landing")}>About DriveLink</button>
+        <button style={styles.appFooterLink} onClick={() => setView("about")}>About DriveLink</button>
         <span style={{ color: "#d1d5db" }}>·</span>
         <button style={styles.appFooterLink} onClick={() => setView("safety")}>🛡️ Safety Tips</button>
         <span style={{ color: "#d1d5db" }}>·</span>
@@ -3461,6 +3470,50 @@ const AD_PAGE_SIZE = 4;
 const INSTALL_DISMISS_KEY = "dl_install_dismissed_at";
 const INSTALL_SNOOZE_DAYS = 30;
 
+// ── About ─────────────────────────────────────────────────────────────────────
+// Doubles as the trust page and the crawlable one. Someone deciding whether to
+// hand a stranger $7,000 through a site they have never heard of is asking who
+// runs it, where the money sits, and what happens when it goes wrong — so the
+// page answers those plainly rather than selling.
+function AboutView({ onBack, onBrowse, onSafety }) {
+  return (
+    <div style={styles.legalPage}>
+      <style>{css}</style>
+      <div style={styles.legalInner}>
+        <button style={styles.legalBackBtn} onClick={onBack}>← Back to DriveLink</button>
+        <h1 style={styles.legalTitle}>About DriveLink</h1>
+        <p style={styles.legalUpdated}>A peer-to-peer car marketplace where the money is held safely until the car actually changes hands.</p>
+        <div style={styles.legalBody} className="legalBody">
+          <h2>Why DriveLink exists</h2>
+          <p>Buying a used car privately usually means choosing between two bad options. Marketplaces like Facebook and Craigslist have the cars but no payment protection at all — you meet a stranger and hand over a cashier's check, hoping the title is clean. Escrow services offer protection but aren't built for cars, so you're bolting a generic process onto a transaction it wasn't designed for.</p>
+          <p>DriveLink puts the two together. Every sale closes through escrow, and the buyer's money is held until the keys and the title have changed hands.</p>
+
+          <h2>How a sale works</h2>
+          <p>A seller lists their car. A buyer pays through the platform, and that payment is held — it does not reach the seller yet. The two arrange the handover themselves, in person, like any private sale.</p>
+          <p>Once the buyer has the car and confirms it, the funds are released to the seller. If the buyer never gets around to confirming, the release happens automatically seven days after the handover — not seven days after payment, so a seller who can't hand the car over for two weeks doesn't leave the buyer exposed. If something goes wrong, the buyer can open a dispute before that window closes.</p>
+
+          <h2>What it costs</h2>
+          <p>DriveLink charges sellers 1% of the sale price. Buyers pay nothing beyond the price of the car. The fee is shown upfront when a car is listed, alongside what the seller will actually receive after card processing costs — no discovering the real number at payout time.</p>
+
+          <h2>Where the money sits</h2>
+          <p>Payments are processed by Stripe, and funds are held on DriveLink's Stripe balance between payment and release. DriveLink never handles card details directly — those go straight to Stripe. Sellers connect their own account to receive payouts.</p>
+
+          <h2>Who runs it</h2>
+          <p>DriveLink LLC is a company registered in New Jersey, United States. It's a small operation, which is deliberate — you can reach a person who can actually fix your problem rather than a support queue.</p>
+          <p>Questions, problems, or something that looks wrong on the platform: <a href="mailto:support@drivelink.deals">support@drivelink.deals</a>.</p>
+
+          <h2>Before you meet anyone</h2>
+          <p>Escrow protects the money. It doesn't replace the ordinary care any private sale needs — checking the VIN, meeting somewhere public, confirming the title. Our <button style={styles.legalInlineLink} onClick={onSafety}>meetup safety guide</button> covers what to check and where to meet.</p>
+
+          <p style={{ marginTop: 28 }}>
+            <button style={styles.legalBackBtn} onClick={onBrowse}>Browse cars →</button>
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function InstallPrompt() {
   const [deferred, setDeferred] = useState(null);
   const [show, setShow] = useState(false);
@@ -4847,6 +4900,7 @@ const styles = {
   app: { fontFamily: "'Inter', system-ui, sans-serif", background: "#f8fafc", minHeight: "100vh", color: "#111827" },
   legalPage: { fontFamily: "'Inter', system-ui, sans-serif", background: "#fff", minHeight: "100vh", color: "#111827" },
   legalInner: { maxWidth: 760, margin: "0 auto", padding: "48px 24px 96px" },
+  legalInlineLink: { background: "none", border: "none", padding: 0, color: "#1d4ed8", cursor: "pointer", fontSize: "inherit", fontFamily: "inherit", textDecoration: "underline" },
   legalBackBtn: { background: "none", border: "1px solid #e5e7eb", padding: "8px 16px", borderRadius: 10, cursor: "pointer", fontSize: 14, fontWeight: 600, color: "#374151", marginBottom: 32 },
   legalTitle: { fontSize: 36, fontWeight: 800, color: "#0f172a", letterSpacing: "-0.02em", marginBottom: 8 },
   legalUpdated: { fontSize: 13, color: "#9ca3af", marginBottom: 24 },
