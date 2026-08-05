@@ -1146,13 +1146,24 @@ const denyFlaggedReferral = async (refId) => {
   // the ad_placements_admin_delete RLS policy, not just hidden in the UI — the
   // row is the customer's receipt as much as it is the ad.
   const deleteAdPlacement = async (adId) => {
-    const { error } = await supabase.from("ad_placements").delete().eq("id", adId);
+    // .select() so the response reports what was actually removed. Without it,
+    // a delete blocked by RLS returns success with zero rows and no error —
+    // indistinguishable from a real delete, which is how this shipped showing
+    // a green toast over a row that never went anywhere.
+    const { data: removed, error } = await supabase
+      .from("ad_placements")
+      .delete()
+      .eq("id", adId)
+      .select("id");
+
     if (error) {
       showToast(`Couldn't delete that placement: ${error.message}`, "error");
       return;
     }
-    // A running placement matches no policy row, so the delete succeeds with
-    // zero rows affected rather than erroring. Reload and let the list speak.
+    if (!removed || removed.length === 0) {
+      showToast("Nothing was deleted — the database refused it. Running placements can't be removed.", "error");
+      return;
+    }
     await loadData();
     showToast("Ad placement deleted.");
   };
@@ -3428,6 +3439,29 @@ function ProfileView({ dbUser, authEmail, onUpdateProfile, onChangeEmail, onChan
 // first taking the session.
 const AD_PAGE_SIZE = 4;
 
+// Own state rather than the app-level toast: showToast is defined inside App
+// and is not in scope down here in AdminView.
+function CopyButton({ value }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      style={{ background: "none", border: "none", color: copied ? "#16a34a" : "#1d4ed8", cursor: "pointer", padding: 0, fontSize: 13 }}
+      onClick={async () => {
+        try {
+          await navigator.clipboard.writeText(value);
+          setCopied(true);
+          setTimeout(() => setCopied(false), 1500);
+        } catch {
+          // Clipboard API needs a secure context and can be blocked outright.
+          // Selecting the address by hand still works, so fail quietly.
+        }
+      }}
+    >
+      {copied ? "copied ✓" : "copy"}
+    </button>
+  );
+}
+
 function AdRail({ ads, onPromoClick }) {
   const live = ads || [];
   const pages = Math.max(1, Math.ceil(live.length / AD_PAGE_SIZE));
@@ -4252,6 +4286,28 @@ function AdminView({ listings, users, referrals, reports, feedback, userReports,
               : state === "expired"        ? "#6b7280"
               : state === "awaiting payment" ? "#b45309"
               : "#1d4ed8";
+
+            // An abandoned checkout is the warmest lead this platform produces:
+            // they chose a plan, filled in their business details, and reached
+            // the payment page. Everything needed to follow up is already on
+            // the row — it was just never surfaced.
+            const email = a.contact_email || owner?.email || null;
+            const daysAgo = a.created_at
+              ? Math.floor((Date.now() - new Date(a.created_at).getTime()) / 86400000)
+              : null;
+            const planLabel = a.plan === "12mo" ? "12-month" : a.plan === "6mo" ? "6-month" : "3-month";
+            const mailto = email
+              ? `mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(
+                  `Your DriveLink ad placement for ${a.business_name}`,
+                )}&body=${encodeURIComponent(
+                  `Hi,\n\n` +
+                  `We noticed you started setting up a ${planLabel} sidebar ad for ${a.business_name} on DriveLink but didn't finish checking out.\n\n` +
+                  `If something went wrong with the payment, or you have questions about placement or reach, just reply here and we'll sort it out.\n\n` +
+                  `We can send you a fresh checkout link whenever you're ready.\n\n` +
+                  `— DriveLink\ndrivelink.deals`,
+                )}`
+              : null;
+
             return (
               <div key={a.id} style={styles.listingRow} className="app-listing-row">
                 <div style={styles.rowInfo} className="app-row-info">
@@ -4261,12 +4317,23 @@ function AdminView({ listings, users, referrals, reports, feedback, userReports,
                   </div>
                   <div style={styles.rowMeta}>
                     {a.plan} • {a.start_date ? `${a.start_date} → ${a.end_date}` : "not yet activated"}
-                    {a.contact_email ? ` • ${a.contact_email}` : ""}
                     {owner?.name ? ` • ${owner.name}` : ""}
+                    {daysAgo !== null && ` • started ${daysAgo === 0 ? "today" : `${daysAgo}d ago`}`}
                   </div>
                   <div style={styles.rowMeta}>
                     <a href={a.link_url} target="_blank" rel="noopener noreferrer nofollow">{a.link_url}</a>
                   </div>
+                  {email && (
+                    <div style={{ ...styles.rowMeta, display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginTop: 4 }}>
+                      <a href={`mailto:${email}`}>{email}</a>
+                      <CopyButton value={email} />
+                      {state === "awaiting payment" && mailto && (
+                        <a href={mailto} style={{ color: "#b45309", fontWeight: 600 }}>
+                          Email them about it →
+                        </a>
+                      )}
+                    </div>
+                  )}
                 </div>
                 {/* Running placements have no delete control — the row is the
                     advertiser's receipt. The RLS policy refuses them too. */}
