@@ -282,8 +282,11 @@ export default function Messages({ currentUser, listings, users, offers, openThr
   };
 
   // On a phone the list and the chat are separate screens, not columns.
+  // With an empty list there is nothing to select, so the chat pane is dropped
+  // rather than rendered as a large "Select a conversation" void.
+  const hasAnything = visibleThreads.length > 0 || !!pendingThread;
   const showList = !isMobile || !active;
-  const showChat = !isMobile || !!active;
+  const showChat = (!isMobile || !!active) && (hasAnything || !!active);
 
   const emptyCopy = tab === "archived"
     ? "Nothing archived."
@@ -310,9 +313,13 @@ export default function Messages({ currentUser, listings, users, offers, openThr
 
       {actionError && <div style={s.actionBar}>{actionError}</div>}
 
-      <div style={{ ...s.layout, ...(isMobile ? s.layoutMobile : {}) }}>
+      <div style={{
+        ...s.layout,
+        ...(visibleThreads.length === 0 && !pendingThread ? s.layoutEmpty : s.layoutFilled),
+        ...(isMobile ? s.layoutMobile : {}),
+      }}>
         {showList && (
-          <div style={{ ...s.threadList, ...(isMobile ? s.threadListMobile : {}) }}>
+          <div style={{ ...s.threadList, ...(isMobile ? s.threadListMobile : {}), ...(!showChat ? s.threadListOnly : {}) }}>
             {visibleThreads.length === 0 && !pendingThread && (
               <p style={{ color: "#6b7280", padding: 16, fontSize: 13 }}>{emptyCopy}</p>
             )}
@@ -411,15 +418,18 @@ export default function Messages({ currentUser, listings, users, offers, openThr
 }
 
 const s = {
-  pageWrap: { paddingTop: 36 },
+  pageWrap: { paddingTop: 36, width: "100%", maxWidth: 1100, margin: "0 auto", padding: "36px 16px 0", boxSizing: "border-box" },
   pageTitle: { fontSize: 28, fontWeight: 800, color: "#0f172a", marginBottom: 16, letterSpacing: "-0.02em" },
   tabRow: { display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" },
   tabBtn: { background: "#fff", border: "1px solid #e5e7eb", borderRadius: 999, padding: "7px 16px", fontSize: 13, fontWeight: 600, color: "#6b7280", cursor: "pointer" },
   tabBtnActive: { background: "#0f172a", borderColor: "#0f172a", color: "#fff" },
   actionBar: { background: "#fffbeb", color: "#92400e", fontSize: 13, padding: "10px 14px", borderRadius: 10, border: "1px solid #fde68a", marginBottom: 12, lineHeight: 1.45 },
-  layout: { display: "flex", gap: 20, background: "#fff", borderRadius: 16, boxShadow: "0 1px 4px rgba(0,0,0,.06)", minHeight: 480, overflow: "hidden" },
-  layoutMobile: { gap: 0, minHeight: 420 },
+  layout: { display: "flex", width: "100%", gap: 0, background: "#fff", borderRadius: 16, boxShadow: "0 1px 4px rgba(0,0,0,.06)", overflow: "hidden", alignItems: "stretch" },
+  layoutEmpty: { minHeight: 0 },
+  layoutFilled: { minHeight: 480 },
+  layoutMobile: { minHeight: 0 },
   threadList: { width: 300, flexShrink: 0, borderRight: "1px solid #e5e7eb", overflowY: "auto", maxHeight: 560 },
+  threadListOnly: { width: "100%", borderRight: "none", maxHeight: "none" },
   threadListMobile: { width: "100%", borderRight: "none", maxHeight: "none" },
   threadItem: { padding: "14px 16px", borderBottom: "1px solid #f1f5f9", cursor: "pointer" },
   threadItemActive: { background: "#f1f5f9" },
