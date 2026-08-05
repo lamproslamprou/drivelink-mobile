@@ -185,18 +185,26 @@ async function decodeVin(vin) {
 // "/" is the marketing landing page and "/browse" is the listing grid — two
 // different pages with different intent that used to share one URL.
 const VIEW_PATHS = {
-  landing:     "/",
-  home:        "/browse",
-  auth:        "/signin",
-  myListings:  "/my-listings",
-  postListing: "/sell",
-  messages:    "/messages",
-  admin:       "/admin",
-  advertise:   "/advertise",
-  startDeal:   "/start-deal",
-  terms:       "/terms",
-  privacy:     "/privacy",
-  safety:      "/safety",
+  landing:       "/",
+  home:          "/browse",
+  auth:          "/signin",
+  myListings:    "/my-listings",
+  myPurchases:   "/my-purchases",
+  myOffers:      "/my-offers",
+  savedSearches: "/saved-searches",
+  favorites:     "/favorites",
+  dashboard:     "/dashboard",
+  profile:       "/profile",
+  blocked:       "/blocked",
+  postListing:   "/sell",
+  messages:      "/messages",
+  admin:         "/admin",
+  advertise:     "/advertise",
+  startDeal:     "/start-deal",
+  success:       "/purchase-complete",
+  terms:         "/terms",
+  privacy:       "/privacy",
+  safety:        "/safety",
 };
 const PATH_TO_VIEW = Object.fromEntries(
   Object.entries(VIEW_PATHS).map(([v, p]) => [p, v]),
@@ -254,8 +262,8 @@ export default function App() {
   // link like /sell — so they continue to what they came for instead of being
   // dumped on the home grid.
   //
-  // Replaces returnToAdvertise, which was read in Auth's onAuth but never set
-  // anywhere, so it was permanently false and the redirect never happened.
+  // Generalises returnToAdvertise, which only ever remembered one destination
+  // (the advertise page). Any gated view can be resumed now.
   const [pendingView, setPendingView] = useState(null);
   const [viewingListing, setViewingListing] = useState(null); // { listing, seller, myRef, sellerRating, sellerReviewCount, myOffer }
   const [path, setPath] = usePath();
@@ -1227,6 +1235,11 @@ const denyFlaggedReferral = async (refId) => {
     // would appear frozen.
     const mapped = PATH_TO_VIEW[normalizePath(path)];
     if (mapped && mapped !== view) {
+      // Guard against kicking someone out of a view that has no URL. This
+      // effect re-runs on every data refresh, so if a view is ever added
+      // without a VIEW_PATHS entry, the stale URL here would silently yank the
+      // user back to whatever that URL maps to mid-session.
+      if (!VIEW_PATHS[view]) return;
       // /admin is a real URL but not a real permission. Anyone can type it, so
       // it is checked here rather than trusted from the address bar. The admin
       // components are also gated on dbUser?.role separately — this only stops
@@ -1498,7 +1511,7 @@ const denyFlaggedReferral = async (refId) => {
         </div>
 
       <main style={styles.main} className="app-main">
-        {view === "advertise" && <AdvertiseView currentUser={dbUser} onSubmit={createAdCheckout} onSignIn={() => { setReturnToAdvertise(true); setView("auth"); }} />}
+        {view === "advertise" && <AdvertiseView currentUser={dbUser} onSubmit={createAdCheckout} onSignIn={() => { setPendingView("advertise"); setView("auth"); }} />}
         {view === "home" && <HomeView key={homeResetKey} listings={activeListings} allListings={listings} currentUser={dbUser} users={users} onShare={generateShare} onBuy={handleBuyNow} referrals={referrals} onSignIn={() => setView("auth")} onMessageSeller={messageSeller} onReport={fileReport} onSaveSearch={saveSearch} favorites={favorites} onToggleFavorite={toggleFavorite} onToggleBlock={toggleBlock} onReportUser={reportUserAction} blocks={blocks} reviews={reviews} offers={offers} onMakeOffer={makeOffer} onOpenListing={openListing} />}
         {view === "myListings" && <MyListingsView listings={listings.filter(l => l.seller_id === currentUser?.id)} referrals={referrals} users={users} offers={offers} onMarkSold={markSold} onSetStatus={setListingStatus} onUpdate={updateListing} onRespondToOffer={respondToOffer} onRescindOffer={rescindOffer} onOpenSafety={() => setView("safety")} currentUser={dbUser} onSetupPayouts={setupPayouts} />}
         {view === "myPurchases" && <MyPurchasesView listings={listings.filter(l => l.buyer_id === currentUser?.id)} users={users} reviews={reviews} currentUser={currentUser} onSubmitReview={submitReview} onConfirmReceipt={confirmReceipt} onFileDispute={fileDispute} onBrowse={() => setView("home")} onOpenSafety={() => setView("safety")} />}
