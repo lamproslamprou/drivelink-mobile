@@ -139,7 +139,8 @@ Deno.serve(async (req) => {
     //
     // This is what anchors the escrow clock. stripe-webhook sets
     // auto_release_at to the later of (payment + 7d) and (handover + 7d), so
-    // funds cannot release before the buyer has had the car for a week. Null
+    // unconfirmed sale escalates to manual review (NOT to payment — see
+    // auto-release-cron). Null
     // means immediate handover, which is the overwhelming majority of sales and
     // behaves exactly as it always has.
     //
@@ -169,15 +170,28 @@ Deno.serve(async (req) => {
     }
 
     // Rendered on Stripe's own payment screen, not just ours. A buyer agreeing
-    // to a delayed handover on the seller's website is weaker consent than one
-    // who saw it on the page where the card was actually charged — this is the
+    // to escrow terms on the seller's website is weaker consent than one who
+    // saw them on the page where the card was actually charged — this is the
     // page a dispute gets argued over.
-    const handoverNotice = handoverDate
-      ? `The seller hands over this vehicle on ${new Date(`${handoverDate}T12:00:00Z`)
-          .toLocaleDateString("en-US", { timeZone: "UTC", month: "long", day: "numeric", year: "numeric" })}. ` +
-        `DriveLink holds your payment in escrow until then — it is not released to the seller ` +
-        `until 7 days after handover, and you can confirm or dispute at any point before that.`
-      : null;
+    //
+    // CHANGED 2026-08-06. This previously promised release "7 days after
+    // handover", which stopped being true the moment auto-release-cron was
+    // rewritten: nothing pays out on a timer any more. Leaving the old wording
+    // on the Stripe payment screen would have been a written commitment, shown
+    // at the point of payment, that the backend no longer honours.
+    //
+    // It now also renders on EVERY sale, not only delayed-handover ones. The
+    // handover code is how funds move in all cases, so every buyer needs to
+    // know they hold it before they hand over money.
+    const escrowNotice =
+      (handoverDate
+        ? `The seller hands over this vehicle on ${new Date(`${handoverDate}T12:00:00Z`)
+            .toLocaleDateString("en-US", { timeZone: "UTC", month: "long", day: "numeric", year: "numeric" })}. `
+        : "") +
+      `DriveLink holds your payment — the seller is not paid at checkout. ` +
+      `You'll get a 6-digit handover code. Give it to the seller only after the vehicle and the signed title are in your hands; ` +
+      `entering it releases the funds. You can also confirm receipt yourself in the app, or report a problem instead. ` +
+      `Nothing is released automatically.`;
 
     const origin = req.headers.get("origin") ?? "https://drivelink.deals";
     const label = [listing.year, listing.make, listing.model].filter(Boolean).join(" ") || "DriveLink vehicle purchase";
@@ -215,9 +229,7 @@ Deno.serve(async (req) => {
         // survives a webhook replay even if the listings row is later touched.
         referral_code: attributedCode ?? "",
       },
-      ...(handoverNotice
-        ? { custom_text: { submit: { message: handoverNotice.slice(0, 1200) } } }
-        : {}),
+      custom_text: { submit: { message: escrowNotice.slice(0, 1200) } },
       // Copied onto the PaymentIntent as well as the session. Refunds and
       // disputes surface from the payment, not the checkout session, so
       // without this the buyer link is missing exactly where it's needed.

@@ -551,7 +551,8 @@ export default function App() {
   // ── Buy Now — creates a real Stripe Checkout session at the listing's price
   // via the create-checkout-session Edge Function, instead of the old static
   // payment link. Funds land on the platform's Stripe balance and are held
-  // until the buyer confirms receipt (or 7 days pass with no dispute).
+  // until the buyer confirms receipt or the seller enters the buyer's handover
+  // code. Nothing releases on a timer.
   const handleBuyNow = async (listing) => {
     showToast("Redirecting to secure checkout…", "info");
     const { data, error } = await supabase.functions.invoke("create-checkout-session", {
@@ -3693,7 +3694,7 @@ function AboutView({ onBack, onBrowse, onSafety }) {
 
           <h2>How a sale works</h2>
           <p>A seller lists their car. A buyer pays through the platform, and that payment is held — it does not reach the seller yet. The two arrange the handover themselves, in person, like any private sale.</p>
-          <p>Once the buyer has the car and confirms it, the funds are released to the seller. If the buyer never gets around to confirming, the release happens automatically seven days after the handover — not seven days after payment, so a seller who can't hand the car over for two weeks doesn't leave the buyer exposed. If something goes wrong, the buyer can open a dispute before that window closes.</p>
+          <p>Nothing is released on a timer. When the buyer pays, they get a 6-digit handover code. At the handover — once the car and the signed title are in their hands — they give that code to the seller, who enters it, and the funds are released. The buyer can also confirm receipt in the app if they'd rather. If a sale goes quiet with no confirmation either way, we pause it and ask both people what happened, rather than paying anyone out and hoping. If something goes wrong, the buyer can open a dispute at any point.</p>
 
           <h2>What it costs</h2>
           <p>DriveLink charges sellers 1% of the sale price. Buyers pay nothing beyond the price of the car. The fee is shown upfront when a car is listed, alongside what the seller will actually receive after card processing costs — no discovering the real number at payout time.</p>
@@ -3975,10 +3976,11 @@ function Field({ label, value, onChange, placeholder, type = "text" }) {
 // case is "we meet this week" and needs no date at all.
 //
 // It matters because it anchors the escrow clock. auto_release_at is the LATER
-// of (payment + 7 days) and (handover + 7 days), so without a date on a sale
-// where the seller is away for three weeks, the money reaches the seller before
-// the buyer has seen the car. Setting it here is the seller choosing to be paid
-// later, which is why it's safe to let a browser write it at all.
+// of (payment + 7 days) and (handover + 7 days) — but as of 2026-08-06 that
+// timestamp no longer releases money. Nothing does, automatically. It is now
+// the point at which a sale nobody has confirmed gets escalated to manual
+// review. Setting a handover date means that escalation fires at a sensible
+// time rather than while the car is still legitimately undelivered.
 //
 // The 90-day ceiling matches the hard limit in create-checkout-session, which
 // refuses to open a Checkout session beyond it. Enforcing it here too means the
@@ -3989,16 +3991,6 @@ const HANDOVER_MAX_DAYS = 90;
 function HandoverDateField({ value, onChange }) {
   const todayIso = new Date().toISOString().slice(0, 10);
   const maxIso = new Date(Date.now() + HANDOVER_MAX_DAYS * 86400000).toISOString().slice(0, 10);
-
-  // Mirrors the webhook's arithmetic: handover + 7 days, resolved at noon UTC
-  // so the displayed day can't drift across a DST boundary.
-  const releaseLabel = (() => {
-    if (!value) return null;
-    const d = new Date(`${value}T12:00:00Z`);
-    if (!Number.isFinite(d.getTime())) return null;
-    d.setDate(d.getDate() + 7);
-    return d.toLocaleDateString("en-US", { timeZone: "UTC", month: "long", day: "numeric", year: "numeric" });
-  })();
 
   return (
     <div style={{ marginTop: 16 }}>
@@ -4019,13 +4011,12 @@ function HandoverDateField({ value, onChange }) {
         )}
       </div>
       <div style={{ fontSize: 13, color: "#6b7280", marginTop: 6, lineHeight: 1.5 }}>
-        {releaseLabel ? (
+        {value ? (
           <>
-            Buyers will see this date before they pay. Their payment stays in escrow and reaches you on{" "}
-            <strong>{releaseLabel}</strong> — 7 days after handover — unless they confirm sooner.
+            Buyers will see this date before they pay. Their payment stays in escrow until the handover — you're paid when they give you their 6-digit code, or when they confirm receipt in the app.
           </>
         ) : (
-          <>Leave blank if you can hand the car over as soon as it sells. Set a date only if the buyer would have to wait — it delays your payout, but it's what lets someone buy a car you can't deliver yet.</>
+          <>Leave blank if you can hand the car over as soon as it sells. Set a date only if the buyer would have to wait — it's what lets someone buy a car you can't deliver yet.</>
         )}
       </div>
     </div>
