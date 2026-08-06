@@ -272,6 +272,10 @@ export default function App() {
   // Per-listing view and favourite counts, keyed by listing id. Own listings
   // only — the database view enforces that, not the frontend.
   const [listingStats, setListingStats] = useState({});
+  // Buyer-only. RLS on escrow_handovers grants SELECT to the buyer of the
+  // listing and nobody else, so this comes back empty for sellers by design —
+  // the seller must be told the code in person.
+  const [handoverCodes, setHandoverCodes] = useState({});
   const [adPlacements, setAdPlacements] = useState([]);
   const [viewingListing, setViewingListing] = useState(null); // { listing, seller, myRef, sellerRating, sellerReviewCount, myOffer }
   const [path, setPath] = usePath();
@@ -386,6 +390,19 @@ export default function App() {
     if (payoutsData) setPayouts(payoutsData);
     if (disputesData) setDisputes(disputesData);
     if (offersData) setOffers(offersData);
+
+    // ── Handover codes (buyer only) ───────────────────────────────────────
+    // Fetched separately rather than joined onto listings: RLS on this table is
+    // the security control, and a join would make it easy to widen the listings
+    // select later without noticing the code came along for the ride. A seller
+    // running this gets zero rows.
+    const { data: handoverData } = await supabase
+      .from("escrow_handovers")
+      .select("listing_id, code, confirmed_at");
+    if (handoverData) {
+      setHandoverCodes(Object.fromEntries(handoverData.map(h => [h.listing_id, h])));
+    }
+
     setLoading(false);
   };
 
@@ -676,6 +693,30 @@ export default function App() {
     } else {
       showToast("Receipt confirmed — sale finalized and commission released.");
     }
+  };
+
+  // ── Seller enters the buyer's 6-digit handover code to release funds.
+  // This is the primary release path as of 2026-08-06. Nothing pays out on a
+  // timer any more: auto-release-cron only escalates silent sales to review.
+  // The code proves the buyer was present and willing at handover — which is
+  // why the SELLER submits it and the BUYER holds it.
+  const confirmHandover = async (listingId, code) => {
+    const { data, error } = await supabase.functions.invoke("confirm-handover", {
+      body: { listing_id: listingId, code },
+    });
+    if (error || data?.error) {
+      showToast(data?.error || error?.message || "Couldn't verify that code — try again.", "error");
+      return false;
+    }
+    await loadData();
+    if (data?.heldForReview) {
+      showToast("Handover confirmed. This sale is under a short review before funds are released.", "info");
+    } else if (data?.referral === "flagged_ambiguous" || data?.referral === "flagged_self_referral") {
+      showToast("Handover confirmed and funds released. The Scout commission is flagged for review before it's paid.", "info");
+    } else {
+      showToast("Handover confirmed — funds released to your Stripe account. Expect them in your bank within a few business days.");
+    }
+    return true;
   };
 
   // ── Buyer disputes a pending sale instead of confirming receipt (car not as
@@ -1587,8 +1628,8 @@ const denyFlaggedReferral = async (refId) => {
       <main style={styles.main} className="app-main">
         {view === "advertise" && <AdvertiseView currentUser={dbUser} onSubmit={createAdCheckout} onSignIn={() => { setPendingView("advertise"); setView("auth"); }} />}
         {view === "home" && <HomeView key={homeResetKey} listings={activeListings} allListings={listings} currentUser={dbUser} users={users} onShare={generateShare} onBuy={handleBuyNow} referrals={referrals} onSignIn={() => setView("auth")} onMessageSeller={messageSeller} onReport={fileReport} onSaveSearch={saveSearch} favorites={favorites} onToggleFavorite={toggleFavorite} onToggleBlock={toggleBlock} onReportUser={reportUserAction} blocks={blocks} reviews={reviews} offers={offers} onMakeOffer={makeOffer} onOpenListing={openListing} />}
-        {view === "myListings" && <MyListingsView listings={listings.filter(l => l.seller_id === currentUser?.id)} referrals={referrals} users={users} offers={offers} stats={listingStats} onMarkSold={markSold} onSetStatus={setListingStatus} onUpdate={updateListing} onRespondToOffer={respondToOffer} onRescindOffer={rescindOffer} onOpenSafety={() => setView("safety")} currentUser={dbUser} onSetupPayouts={setupPayouts} />}
-        {view === "myPurchases" && <MyPurchasesView listings={listings.filter(l => l.buyer_id === currentUser?.id)} users={users} reviews={reviews} currentUser={currentUser} onSubmitReview={submitReview} onConfirmReceipt={confirmReceipt} onFileDispute={fileDispute} onBrowse={() => setView("home")} onOpenSafety={() => setView("safety")} />}
+        {view === "myListings" && <MyListingsView listings={listings.filter(l => l.seller_id === currentUser?.id)} referrals={referrals} users={users} offers={offers} stats={listingStats} onMarkSold={markSold} onSetStatus={setListingStatus} onUpdate={updateListing} onRespondToOffer={respondToOffer} onRescindOffer={rescindOffer} onOpenSafety={() => setView("safety")} onConfirmHandover={confirmHandover} currentUser={dbUser} onSetupPayouts={setupPayouts} />}
+        {view === "myPurchases" && <MyPurchasesView listings={listings.filter(l => l.buyer_id === currentUser?.id)} users={users} reviews={reviews} currentUser={currentUser} handoverCodes={handoverCodes} onSubmitReview={submitReview} onConfirmReceipt={confirmReceipt} onFileDispute={fileDispute} onBrowse={() => setView("home")} onOpenSafety={() => setView("safety")} />}
         {view === "myOffers" && <MyOffersView offers={offers.filter(o => o.buyer_id === currentUser?.id)} listings={listings} onRespondToCounter={respondToCounter} onBuy={handleBuyNow} onBrowse={() => setView("home")} />}
         {view === "postListing" && <PostListingView onPost={postListing} />}
         {view === "messages" && currentUser && <Messages currentUser={{ ...dbUser, id: currentUser.id }} listings={listings} users={users} openThread={openThread} onOpened={() => setOpenThread(null)} />}
@@ -2703,7 +2744,57 @@ function BlockedUsersView({ blocks, users, onToggleBlock, onBrowse }) {
   );
 }
 
-function MyListingsView({ listings, referrals, users, offers, stats, onMarkSold, onSetStatus, onUpdate, onRespondToOffer, onRescindOffer, onOpenSafety, currentUser, onSetupPayouts }) {
+// Seller-side 6-digit entry. Local state only — the code is never stored on the
+// seller's side, and a wrong entry is answered by the server, not guessed at
+// here. Server enforces 5 attempts then a 60-minute lockout; this component
+// deliberately does no client-side attempt counting, because a counter the
+// browser owns is a counter the browser can reset.
+function HandoverCodeEntry({ listingId, onSubmit }) {
+  const [code, setCode] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const submit = async () => {
+    if (code.replace(/\D/g, "").length !== 6 || busy) return;
+    setBusy(true);
+    const ok = await onSubmit(listingId, code.replace(/\D/g, ""));
+    setBusy(false);
+    if (!ok) setCode("");
+  };
+
+  return (
+    <div style={{ marginTop: 10, padding: 12, background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: 8 }}>
+      <div style={{ fontSize: 12, fontWeight: 600, color: "#374151", marginBottom: 6 }}>
+        Buyer's handover code
+      </div>
+      <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 8, lineHeight: 1.5 }}>
+        Ask for this <strong>after</strong> the buyer has the car and the signed title. Entering it releases your funds immediately.
+      </div>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <input
+          value={code}
+          onChange={e => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+          placeholder="000000"
+          inputMode="numeric"
+          autoComplete="off"
+          onKeyDown={e => { if (e.key === "Enter") submit(); }}
+          style={{
+            flex: "1 1 140px", padding: "10px 12px", fontSize: 18, letterSpacing: 4,
+            fontFamily: "monospace", border: "1px solid #d1d5db", borderRadius: 6, minWidth: 0,
+          }}
+        />
+        <button
+          style={{ ...styles.soldBtn, opacity: code.length === 6 && !busy ? 1 : 0.5 }}
+          disabled={code.length !== 6 || busy}
+          onClick={submit}
+        >
+          {busy ? "Checking…" : "Release Funds"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function MyListingsView({ listings, referrals, users, offers, stats, onMarkSold, onSetStatus, onUpdate, onRespondToOffer, onRescindOffer, onOpenSafety, onConfirmHandover, currentUser, onSetupPayouts }) {
   const [editing, setEditing] = useState(null);
   const [markingSold, setMarkingSold] = useState(null);
   const hasHandoffPending = listings.some(l => l.status === "pending_confirmation");
@@ -2765,10 +2856,11 @@ function MyListingsView({ listings, referrals, users, offers, stats, onMarkSold,
                   )}
                   {l.status === "pending_confirmation" && (
                     <>
-                      <div style={styles.awaitingBadge}>💳 Payment received for {fmt(l.sale_price)} — awaiting buyer confirmation before payout</div>
+                      <div style={styles.awaitingBadge}>💳 Payment received for {fmt(l.sale_price)} — enter the buyer's handover code to get paid</div>
                       <div style={{ fontSize: 12, color: "#6b7280", marginTop: 4, lineHeight: 1.5 }}>
-                        The buyer's payment is held safely. Once they confirm they've received the car, {fmt(l.seller_net)} is released to you — or automatically after 7 days if they don't. Bank arrival typically takes another few business days after that.
+                        The buyer's payment is held safely. Once they have the car and the signed title, ask them for their 6-digit handover code and enter it below — {fmt(l.seller_net)} is released to you immediately. They can also release it themselves from their purchases page. Bank arrival typically takes a few business days after that.
                       </div>
+                      <HandoverCodeEntry listingId={l.id} onSubmit={onConfirmHandover} />
                     </>
                   )}
                   {l.status === "disputed" && <div style={{ ...styles.awaitingBadge, background: "#fee2e2", color: "#b91c1c" }}>⚠️ Buyer disputed this sale — our team is reviewing it</div>}
@@ -2880,7 +2972,7 @@ function SellerOfferRow({ offer, buyer, onRespond }) {
   );
 }
 
-function MyPurchasesView({ listings, users, reviews, currentUser, onSubmitReview, onConfirmReceipt, onFileDispute, onBrowse, onOpenSafety }) {
+function MyPurchasesView({ listings, users, reviews, currentUser, handoverCodes, onSubmitReview, onConfirmReceipt, onFileDispute, onBrowse, onOpenSafety }) {
   const [reviewing, setReviewing] = useState(null);
   const [disputing, setDisputing] = useState(null);
   const hasHandoffPending = listings.some(l => l.status === "pending_confirmation");
@@ -2907,8 +2999,29 @@ function MyPurchasesView({ listings, users, reviews, currentUser, onSubmitReview
                 <div style={styles.rowTitle}>{l.year} {l.make} {l.model}</div>
                 <div style={styles.rowMeta}>{fmt(l.sale_price || l.price)} • Sold by {seller?.name || "seller"} on {l.sold_at}</div>
                 {awaitingConfirmation && (
-                  <div style={{ fontSize: 13, color: "#1d4ed8", fontWeight: 600, marginTop: 4 }}>
-                    Once you've received the car, confirm below — this finalizes the sale and releases the promoter's commission. Had a problem instead? Report it rather than confirming.
+                  <div style={{ marginTop: 6 }}>
+                    <div style={{ fontSize: 13, color: "#1d4ed8", fontWeight: 600 }}>
+                      Your money is held safely by DriveLink until you have the car. Had a problem instead? Report it rather than confirming.
+                    </div>
+                    {handoverCodes?.[l.id]?.code && (
+                      <div style={{ marginTop: 10, padding: 12, background: "#FFF8E7", border: "1px solid #FFB020", borderRadius: 8 }}>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: "#7c5000", marginBottom: 6 }}>
+                          YOUR HANDOVER CODE
+                        </div>
+                        <div style={{ fontSize: 30, fontFamily: "monospace", letterSpacing: 8, fontWeight: 700, color: "#111" }}>
+                          {handoverCodes[l.id].code}
+                        </div>
+                        {/* This wording is a security control, not marketing copy. The
+                            code is the only thing standing between the seller and the
+                            money, and a seller can ask for it before handing over the
+                            keys. Nothing server-side can prevent that — only this can. */}
+                        <div style={{ fontSize: 13, color: "#7c5000", marginTop: 8, lineHeight: 1.6 }}>
+                          Give this to the seller <strong>only after</strong> the car and the signed title are in your hands. The moment they enter it, the money is theirs.
+                          <br />
+                          <strong>Don't text or email it. Read it out in person.</strong>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
                 {disputed && (
