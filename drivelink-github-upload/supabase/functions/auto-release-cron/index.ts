@@ -1,47 +1,48 @@
 // POST /auto-release-cron
-// Not called by users — scheduled via pg_cron, currently every 6 hours. Finds
-// every listing whose release window has passed with no buyer confirmation,
-// and releases funds to the seller automatically, same math as release-funds.
+// Not called by users — scheduled via pg_cron, every 6 hours.
 //
-// Note: no separate "dispute_status" check is needed here. fileDispute() flips
-// listings.status to "disputed" the moment a buyer files one, which takes it
-// out of this query's status="pending_confirmation" filter automatically — so
-// a disputed sale is naturally skipped. is_release_blocked() checks the
-// disputes table as well, belt and braces.
+// ── THIS FUNCTION NO LONGER MOVES MONEY ─────────────────────────────────────
+// Until 2026-08-06 this job transferred the seller's proceeds whenever
+// auto_release_at passed with no buyer confirmation. That meant buyer silence
+// was treated as consent: a buyer who never received the car, or who simply
+// stopped reading email, paid the seller in full on a timer. Nothing in the
+// system knew whether the car had changed hands, and nothing asked.
 //
-// Referral settlement is delegated to settleReferral() in _shared/helpers.ts.
-// This function previously carried its own copy, which had drifted from the
-// version in release-funds: it used .maybeSingle() (which errors when two
-// Scouts shared a listing, silently paying nobody), ignored listings.referral_code
-// attribution entirely, and had no self-referral check. A sale must settle the
-// same way whether the buyer clicked confirm or the clock ran out.
+// Funds now leave escrow on exactly two signals, both requiring a live human:
+//   • release-funds     — the buyer taps Confirm Receipt
+//   • confirm-handover  — the seller enters the buyer's 6-digit handover code
 //
-// ── MONEY IS CENTS ──────────────────────────────────────────────────────────
-// As of migration 20260803_05_money_to_cents, listings.seller_net and every
-// other money column are CENTS, and Stripe transfers are cents. seller_net
-// goes to Stripe unchanged. The previous `* 100` would transfer one hundred
-// times the seller's proceeds out of the platform balance, and unlike an
-// overcharged card nothing rejects that on the way out.
+// What this job does instead:
+//   • warns BOTH parties 48h and 24h before the review deadline
+//   • at the deadline, sets listings.review_flagged_at and alerts the admin
+//   • never transfers, never marks sold, never touches funds_released
 //
-// ── RISK GATE ───────────────────────────────────────────────────────────────
-// is_release_blocked() runs per listing before each transfer. It recomputes
-// the flags at release time rather than trusting what was written at payment,
-// because conditions change in between. A blocked listing is left exactly as
-// it is — not marked sold, not released — and re-evaluated on the next run, so
-// clearing the flags in the admin dashboard is all that's needed to complete
-// the payout. Fail closed: an unreadable risk check holds the money.
+// The transfer block, the Stripe client, the source_transaction sourcing and
+// settleReferral all moved to confirm-handover. They are gone from here on
+// purpose — this function no longer has any reason to hold Stripe credentials,
+// and an unattended job that cannot move money cannot move it wrongly.
 //
-// TRANSFERS ARE CHARGE-SOURCED. Every transfer names the originating charge via
-// source_transaction. Without it the transfer draws on the platform's available
-// balance, which fails with `balance_insufficient` whenever the charge hasn't
-// settled — and on a new account with a rolling reserve that can be a week or
-// more after the sale. This job runs precisely in that window, so unqualified
-// transfers here fail as a rule rather than as an edge case: every run between
-// 2026-07-29 and 2026-08-01 400'd for this reason.
+// ── WHY NOT JUST REFUSE TO RELEASE FOREVER ──────────────────────────────────
+// Because the mirror failure is just as bad: the seller hands over the car, the
+// buyer never confirms, and the seller is out a vehicle and the money with no
+// way to force resolution. Neither party's silence may be read as consent. So
+// silence routes to a human — you — rather than defaulting to either side.
+//
+// ── auto_release_at KEPT, MEANING CHANGED ───────────────────────────────────
+// The column, the guard_listings_handover trigger, the stripe-webhook write and
+// the create-checkout-session cap all stay exactly as shipped on 2026-08-05. It
+// now marks the ESCALATION deadline rather than the payment date. Where a
+// handover_date was set, escalation correctly waits until a week after the car
+// was due to change hands. Where none was set, the deadline is payment + 7d and
+// the worst case is a review email about a sale that has not happened yet —
+// a false positive, not a lost car.
+//
+// A flagged listing stays 'pending_confirmation'. It is NOT given a new status,
+// so if the buyer surfaces late and confirms, or the seller finally enters the
+// code, the sale completes on its own with no admin action.
 //
 // This function is unattended by definition — nobody is watching a response.
-// Every outcome that moves money or fails to therefore sends an alert, and the
-// alerts are awaited rather than fire-and-forget.
+// Alerts are awaited rather than fire-and-forget.
 //
 // Deployed with --no-verify-jwt since the scheduler isn't a logged-in user.
 import {
@@ -50,173 +51,196 @@ import {
   notifyAdminSync,
   alertHtml,
   money,
-  settleReferral,
-  stripeClient,
   supabaseAdmin,
 } from "../_shared/helpers.ts";
+
+const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY")!;
+const FROM = "DriveLink <noreply@drivelink.deals>";
+const SITE = "https://drivelink.deals";
+
+// Local rather than shared: these are the only user-facing emails this job
+// sends, and inlining them keeps the escrow-safety change to three files.
+async function sendUserEmail(to: string, subject: string, html: string) {
+  if (!to) return false;
+  try {
+    const res = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${RESEND_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ from: FROM, to, subject, html }),
+    });
+    if (!res.ok) {
+      console.error(`Resend failed for ${to}:`, await res.text());
+      return false;
+    }
+    return true;
+  } catch (e) {
+    console.error(`Resend threw for ${to}:`, e);
+    return false;
+  }
+}
+
+function shell(heading: string, body: string) {
+  return `
+  <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:520px;margin:0 auto;color:#1a1a1a">
+    <h2 style="font-size:18px;margin:0 0 16px">${heading}</h2>
+    ${body}
+    <p style="font-size:13px;color:#666;margin-top:28px;border-top:1px solid #eee;padding-top:16px">
+      DriveLink · <a href="${SITE}" style="color:#B87300">drivelink.deals</a>
+    </p>
+  </div>`;
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   const supabase = supabaseAdmin();
-  const stripe = stripeClient();
-  const results: Array<{ listing_id: string; status: string; detail?: string }> = [];
+  const results: Array<{ listing_id: string; action: string; detail?: string }> = [];
 
   try {
-    const { data: dueListings, error } = await supabase
+    const now = Date.now();
+
+    // Every open escrow, not only the overdue ones — the 48h and 24h warnings
+    // fire before auto_release_at, so filtering on lte() here would mean the
+    // warnings never send.
+    const { data: openSales, error } = await supabase
       .from("listings")
-      .select("id, seller_id, buyer_id, seller_net, sale_price, status, funds_released, auto_release_at, referral_code, stripe_payment_intent_id, make, model, year")
+      .select(
+        "id, seller_id, buyer_id, seller_net, sale_price, status, funds_released, auto_release_at, handover_date, review_flagged_at, handover_warned_48h_at, handover_warned_24h_at, make, model, year",
+      )
       .eq("status", "pending_confirmation")
-      .eq("funds_released", false)
-      .lte("auto_release_at", new Date().toISOString());
+      .eq("funds_released", false);
 
     if (error) throw error;
 
-    for (const listing of dueListings ?? []) {
-      const carLabel = [listing.year, listing.make, listing.model].filter(Boolean).join(" ") || listing.id;
+    for (const listing of openSales ?? []) {
+      const carLabel =
+        [listing.year, listing.make, listing.model].filter(Boolean).join(" ") || listing.id;
 
-      // ── Risk gate, before anything else costs money ─────────────────────
-      const { data: blocked, error: riskErr } = await supabase.rpc("is_release_blocked", {
-        p_listing_id: listing.id,
-      });
-
-      if (riskErr || blocked === true) {
-        results.push({
-          listing_id: listing.id,
-          status: riskErr ? "held_risk_check_failed" : "held_for_review",
-        });
-
-        const { data: flags } = await supabase
-          .from("v_listing_risk")
-          .select("risk_score, open_flags")
-          .eq("listing_id", listing.id)
-          .maybeSingle();
-
-        await notifyAdminSync({
-          subject: riskErr
-            ? `⚠️ Auto-release HELD — risk check errored on ${carLabel}`
-            : `⚠️ Auto-release HELD for review — ${carLabel} (${money(Number(listing.sale_price))})`,
-          html: alertHtml(
-            riskErr
-              ? "Automatic release skipped because the risk check could not run"
-              : "Automatic release held pending review",
-            [
-              ["Vehicle", carLabel],
-              ["Sale price", money(Number(listing.sale_price))],
-              ["Would pay seller", money(Number(listing.seller_net))],
-              ["Risk score", flags?.risk_score ?? "—"],
-              ["Flags", Array.isArray(flags?.open_flags) ? flags.open_flags.join(", ") : "—"],
-              ...(riskErr ? [["Risk check error", riskErr.message] as [string, unknown]] : []),
-              ["Listing ID", listing.id],
-            ],
-            "No money moved and the listing is unchanged. Resolve the flags in the admin dashboard and this will release on the next run — no manual transfer needed.",
-          ),
-        });
+      if (!listing.auto_release_at) {
+        results.push({ listing_id: listing.id, action: "skipped_no_deadline" });
         continue;
       }
 
-      const { data: seller } = await supabase
+      const deadline = new Date(listing.auto_release_at).getTime();
+      const hoursLeft = (deadline - now) / 3_600_000;
+
+      // Fetch both parties once — needed by every branch below.
+      const { data: parties } = await supabase
         .from("users")
-        .select("stripe_account_id, name, email")
-        .eq("id", listing.seller_id)
-        .single();
+        .select("id, name, email")
+        .in("id", [listing.seller_id, listing.buyer_id].filter(Boolean));
 
-      if (!seller?.stripe_account_id) {
-        results.push({ listing_id: listing.id, status: "skipped_no_connect_account" });
+      const buyer = parties?.find((u) => String(u.id) === String(listing.buyer_id));
+      const seller = parties?.find((u) => String(u.id) === String(listing.seller_id));
 
-        // The buyer's money is sitting on the platform balance with no way to
-        // reach the seller. This does not resolve itself — it needs you.
-        await notifyAdminSync({
-          subject: `Auto-release blocked — ${carLabel} has no payout account`,
-          html: alertHtml("Seller cannot be paid", [
-            ["Vehicle", carLabel],
-            ["Seller", `${seller?.name ?? "—"} (${seller?.email ?? "—"})`],
-            ["Amount owed", money(Number(listing.seller_net))],
-            ["Listing ID", listing.id],
-          ], "The release window has passed but the seller has not completed Stripe Connect onboarding. Funds remain on the platform balance."),
-        });
-        continue;
-      }
-
-      // Already cents. No conversion.
-      const sellerNetCents = Number(listing.seller_net);
-
-      try {
-        if (!Number.isFinite(sellerNetCents) || sellerNetCents <= 0) {
-          throw new Error("Listing has no valid seller_net to transfer");
+      // ── Past the deadline: escalate once ────────────────────────────────
+      if (hoursLeft <= 0) {
+        if (listing.review_flagged_at) {
+          results.push({ listing_id: listing.id, action: "already_flagged" });
+          continue;
         }
-
-        // Resolve the charge behind this sale. Thrown errors land in the catch
-        // below, which alerts and leaves the listing untouched for the next run.
-        if (!listing.stripe_payment_intent_id) {
-          throw new Error("Listing has no stripe_payment_intent_id — cannot source the transfer");
-        }
-        const pi = await stripe.paymentIntents.retrieve(listing.stripe_payment_intent_id);
-        const chargeId = typeof pi.latest_charge === "string" ? pi.latest_charge : pi.latest_charge?.id;
-        if (!chargeId) {
-          throw new Error(`No charge found on payment intent ${listing.stripe_payment_intent_id}`);
-        }
-
-        const transfer = await stripe.transfers.create({
-          amount: sellerNetCents,
-          currency: "usd",
-          destination: seller.stripe_account_id,
-          transfer_group: `listing_${listing.id}`,
-          source_transaction: chargeId,
-        }, {
-          // Shares the key with release-funds so a buyer confirming at the same
-          // moment this job runs cannot produce two transfers for one sale.
-          idempotencyKey: `release_${listing.id}`,
-        });
 
         await supabase
           .from("listings")
-          .update({
-            status: "sold",
-            confirmed_at: new Date().toISOString(),
-            funds_released: true,
-            stripe_transfer_id: transfer.id,
-          })
+          .update({ review_flagged_at: new Date().toISOString() })
           .eq("id", listing.id);
 
-        const referral = await settleReferral(supabase, listing);
+        // One question to each party, because the two answers mean opposite
+        // things: "the car never arrived" is a refund, "I got it and forgot to
+        // confirm" is a release. Nothing here should guess which.
+        const askBody = `
+          <p>The escrow on your <strong>${carLabel}</strong> sale has been open for a while
+          with no confirmation, so we've paused it for review. <strong>The money is safe and
+          has not moved.</strong></p>
+          <p style="background:#FFF8E7;border-left:3px solid #FFB020;padding:12px 14px;margin:18px 0">
+            <strong>Reply to this email with one line: has the car changed hands yet?</strong>
+          </p>
+          <p style="font-size:14px;color:#444">If it has, the buyer can confirm receipt in the app,
+          or the seller can enter the buyer's 6-digit handover code — either releases the funds
+          straight away. If it hasn't, tell us and we'll sort it out.</p>`;
 
-        results.push({ listing_id: listing.id, status: "released", detail: referral.outcome });
+        const sentBuyer = await sendUserEmail(
+          buyer?.email ?? "",
+          `Action needed — your ${carLabel} purchase is on hold`,
+          shell("We've paused this transaction", askBody),
+        );
+        const sentSeller = await sendUserEmail(
+          seller?.email ?? "",
+          `Action needed — your ${carLabel} sale is on hold`,
+          shell("We've paused this transaction", askBody),
+        );
 
         await notifyAdminSync({
-          subject: `Funds auto-released — ${carLabel} (${money(Number(listing.seller_net))})`,
-          html: alertHtml("Release window elapsed, seller paid automatically", [
+          subject: `🔍 Escrow escalated to review — ${carLabel} (${money(Number(listing.sale_price))})`,
+          html: alertHtml("Sale passed its deadline with no confirmation", [
             ["Vehicle", carLabel],
             ["Sale price", money(Number(listing.sale_price))],
-            ["Paid to seller", money(Number(listing.seller_net))],
-            ["Seller", `${seller.name ?? "—"} (${seller.email ?? "—"})`],
-            ["Transfer ID", transfer.id],
-            ["Sourced from charge", chargeId],
-            ["Referral", referral.outcome],
-            ...(referral.commission
-              ? [["Commission", money(referral.commission)] as [string, unknown]]
-              : []),
+            ["Held from seller", money(Number(listing.seller_net))],
+            ["Buyer", `${buyer?.name ?? "—"} (${buyer?.email ?? "—"})`],
+            ["Seller", `${seller?.name ?? "—"} (${seller?.email ?? "—"})`],
+            ["Handover date", listing.handover_date ?? "not set"],
+            ["Deadline was", listing.auto_release_at],
+            ["Buyer emailed", sentBuyer ? "yes" : "FAILED"],
+            ["Seller emailed", sentSeller ? "yes" : "FAILED"],
             ["Listing ID", listing.id],
-          ], referral.outcome.startsWith("flagged")
-            ? "A referral on this sale needs manual review in the admin dashboard."
-            : "The buyer never confirmed receipt. Released on the automatic schedule."),
+          ], "NO MONEY MOVED. Both parties were asked whether the car changed hands. Resolve manually: if received, have the buyer confirm or the seller enter the handover code. If not received, refund from the Stripe dashboard — check the refund window has not lapsed."),
         });
-      } catch (transferErr) {
-        const msg = transferErr instanceof Error ? transferErr.message : String(transferErr);
-        console.error(`auto-release failed for listing ${listing.id}:`, transferErr);
-        results.push({ listing_id: listing.id, status: "transfer_failed", detail: msg });
 
-        await notifyAdminSync({
-          subject: `⚠️ Auto-release TRANSFER FAILED — ${carLabel}`,
-          html: alertHtml("Stripe transfer failed", [
-            ["Vehicle", carLabel],
-            ["Amount", money(Number(listing.seller_net))],
-            ["Seller", `${seller.name ?? "—"} (${seller.email ?? "—"})`],
-            ["Stripe error", msg],
-            ["Listing ID", listing.id],
-          ], "The listing was NOT marked sold and funds were NOT released. This will retry on the next run."),
-        });
+        results.push({ listing_id: listing.id, action: "flagged_for_review" });
+        continue;
       }
+
+      // ── 24h warning ─────────────────────────────────────────────────────
+      if (hoursLeft <= 24 && !listing.handover_warned_24h_at) {
+        const body = `
+          <p>Your <strong>${carLabel}</strong> transaction is still awaiting confirmation.
+          Tomorrow we'll pause it and check in with both of you.</p>
+          <p style="font-size:14px;color:#444"><strong>Buyer:</strong> if you have the car and
+          the signed title, confirm receipt in the app to release the funds — or give the seller
+          your 6-digit handover code in person.<br>
+          <strong>Seller:</strong> once the buyer has the car and title, ask them for their code
+          and enter it to get paid.</p>
+          <p><a href="${SITE}" style="display:inline-block;background:#FFB020;color:#111;padding:10px 18px;border-radius:6px;text-decoration:none;font-weight:600">Open DriveLink</a></p>`;
+
+        await sendUserEmail(buyer?.email ?? "", `Tomorrow: your ${carLabel} escrow gets paused`, shell("One more day", body));
+        await sendUserEmail(seller?.email ?? "", `Tomorrow: your ${carLabel} escrow gets paused`, shell("One more day", body));
+
+        await supabase
+          .from("listings")
+          .update({ handover_warned_24h_at: new Date().toISOString() })
+          .eq("id", listing.id);
+
+        results.push({ listing_id: listing.id, action: "warned_24h" });
+        continue;
+      }
+
+      // ── 48h warning ─────────────────────────────────────────────────────
+      if (hoursLeft <= 48 && !listing.handover_warned_48h_at) {
+        const body = `
+          <p>Your <strong>${carLabel}</strong> transaction is still open. If nothing changes
+          in the next two days we'll pause it and ask you both what happened. The money stays
+          in escrow either way.</p>
+          <p style="font-size:14px;color:#444"><strong>Buyer:</strong> confirm receipt once the
+          car and signed title are in your hands.<br>
+          <strong>Seller:</strong> enter the buyer's 6-digit handover code after they take the car.</p>
+          <p><a href="${SITE}" style="display:inline-block;background:#FFB020;color:#111;padding:10px 18px;border-radius:6px;text-decoration:none;font-weight:600">Open DriveLink</a></p>`;
+
+        await sendUserEmail(buyer?.email ?? "", `Your ${carLabel} escrow is still open`, shell("Two days left", body));
+        await sendUserEmail(seller?.email ?? "", `Your ${carLabel} escrow is still open`, shell("Two days left", body));
+
+        await supabase
+          .from("listings")
+          .update({ handover_warned_48h_at: new Date().toISOString() })
+          .eq("id", listing.id);
+
+        results.push({ listing_id: listing.id, action: "warned_48h" });
+        continue;
+      }
+
+      results.push({ listing_id: listing.id, action: "no_action", detail: `${Math.round(hoursLeft)}h left` });
     }
 
     return jsonResponse({ processed: results.length, results });
@@ -224,16 +248,15 @@ Deno.serve(async (req) => {
     const msg = err instanceof Error ? err.message : "Unknown error";
     console.error("auto-release-cron error:", err);
 
-    // A failure here means the whole job did nothing. pg_cron will still log
-    // "succeeded" because the HTTP post was queued fine, so without this alert
-    // the job can fail silently for weeks — which is exactly what happened
+    // pg_cron logs "succeeded" as long as the HTTP post was queued, so without
+    // this alert the job can fail silently for weeks — which is what happened
     // between 2026-07-22 and 2026-07-27 with a stale column reference.
     await notifyAdminSync({
       subject: "⚠️ auto-release-cron failed",
-      html: alertHtml("Automatic fund release job errored", [
+      html: alertHtml("Escrow monitoring job errored", [
         ["Error", msg],
         ["Time", new Date().toISOString()],
-      ], "No funds were released on this run. Sales past their release window are still waiting."),
+      ], "No warnings sent and no sales escalated on this run. No money was at risk — this job no longer moves funds — but stalled sales are going unnoticed."),
     });
 
     return jsonResponse({ error: msg }, 500);
