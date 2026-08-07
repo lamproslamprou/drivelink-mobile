@@ -167,9 +167,28 @@ Deno.serve(async (req) => {
 
   // Idempotency: Stripe redelivers events on retry. If we've already logged
   // this event id, acknowledge and stop — don't double-process a sale.
+  //
+  // The ledger row is written at the END of successful processing, not here.
+  // Claiming the event up front meant a failed run still marked it "seen", so
+  // Stripe's retry — the one thing that would have healed the failure — was
+  // dropped as a duplicate. That is exactly how l1786111000114 was charged
+  // with no sale recorded: gen_handover_code() threw inside the listing
+  // UPDATE's trigger, the handler logged it, returned 200, and the event was
+  // already marked processed. Record success, never receipt.
   const { data: existing } = await supabase.from("stripe_events").select("id").eq("id", event.id).maybeSingle();
   if (existing) return jsonResponse({ received: true, duplicate: true });
-  await supabase.from("stripe_events").insert({ id: event.id, type: event.type });
+
+  // Marks the event processed. Called immediately before each success return.
+  const claimEvent = async () => {
+    const { error } = await supabase
+      .from("stripe_events")
+      .insert({ id: event!.id, type: event!.type });
+    // A duplicate-key error here means a concurrent delivery of the same event
+    // won the race and already recorded it. Harmless: the work is idempotent.
+    if (error && !/duplicate key/i.test(error.message)) {
+      console.error("stripe_events insert failed:", error.message, event!.id);
+    }
+  };
 
   try {
     if (event.type === "checkout.session.completed") {
@@ -211,17 +230,22 @@ Deno.serve(async (req) => {
           .select("business_name, contact_email, link_url, plan, amount_cents")
           .single();
 
-        // Money has already changed hands at this point. If the row update
-        // failed, that is exactly when you most need to know — alert either
-        // way, and say so in the subject.
-        if (adErr) console.error("ad_placements update failed:", adErr.message, meta.ad_id);
+        // Money has already changed hands at this point. Fail loudly with a
+        // 500 so Stripe redelivers: the retry re-runs this update, and a
+        // transient database fault heals itself without anyone touching SQL.
+        // No admin email here — Stripe retries several times over ~3 days and
+        // one alert per attempt is noise. Stripe's own endpoint-failure
+        // notification is the signal that retries are being exhausted; make
+        // sure it's switched on in the dashboard.
+        if (adErr) {
+          console.error("ad_placements update failed:", adErr.message, meta.ad_id);
+          return jsonResponse({ error: "ad_placements update failed", detail: adErr.message }, 500);
+        }
 
         notifyAdmin({
-          subject: adErr
-            ? `⚠️ Ad paid but NOT activated — ${meta.ad_id}`
-            : `New ad placement purchased — ${adRow?.business_name ?? "Unknown business"}`,
+          subject: `New ad placement purchased — ${adRow?.business_name ?? "Unknown business"}`,
           html: alertHtml(
-            adErr ? "Ad payment received but the placement did not activate" : "New ad placement",
+            "New ad placement",
             [
               ["Business", adRow?.business_name],
               ["Contact", adRow?.contact_email],
@@ -231,12 +255,10 @@ Deno.serve(async (req) => {
               ["Runs", `${todayET(startDate)} to ${todayET(endDate)}`],
               ["Ad ID", meta.ad_id],
             ],
-            adErr
-              ? `Database error: ${adErr.message}. The customer has been charged — activate this manually.`
-              : undefined,
           ),
         });
 
+        await claimEvent();
         return jsonResponse({ received: true });
       }
 
@@ -354,7 +376,19 @@ Deno.serve(async (req) => {
         .select("make, model, year, seller_id")
         .single();
 
-      if (listingErr) console.error("listings update failed:", listingErr.message, listing_id);
+      // The buyer has been charged. Anything that stops the listing from
+      // recording that is a retryable fault, not a finished job — return 500
+      // and let Stripe redeliver rather than emailing a human to go and fix
+      // the database by hand.
+      //
+      // No admin email on this path: Stripe retries several times over ~3
+      // days, and one alert per attempt is noise. If every attempt fails,
+      // Stripe's endpoint-failure notification is the thing that should reach
+      // you — confirm it's enabled in the dashboard.
+      if (listingErr) {
+        console.error("listings update failed:", listingErr.message, listing_id);
+        return jsonResponse({ error: "listings update failed", detail: listingErr.message }, 500);
+      }
 
       // Referral stays "pending" — it's marked "paid" and credited to the
       // promoter's balance in release-funds, same moment the seller is paid,
@@ -374,17 +408,13 @@ Deno.serve(async (req) => {
       // Anything that needs a human eye goes in the subject line, in priority
       // order — a failed row update outranks a clamped net outranks an
       // estimated fee.
-      const subject = listingErr
-        ? `⚠️ Sale paid but listing NOT updated — ${listing_id}`
-        : netWasClamped
+      const subject = netWasClamped
         ? `⚠️ Sale recorded with $0 seller net — ${carLabel}`
         : feeWasEstimated
         ? `⚠️ Sale recorded with ESTIMATED processing fee — ${carLabel}`
         : `New car sale — ${carLabel} (${money(salePrice)})`;
 
-      const footnote = listingErr
-        ? `Database error: ${listingErr.message}. The buyer has been charged — reconcile this manually.`
-        : netWasClamped
+      const footnote = netWasClamped
         ? `Fees exceeded the sale price, so seller net was clamped to $0. Check this before releasing.`
         : feeWasEstimated
         ? `Stripe's balance_transaction wasn't readable, so the processing fee above is an ESTIMATE. Compare it to the real fee on the payment in Stripe and adjust seller_net before release if it's off.`
@@ -395,9 +425,7 @@ Deno.serve(async (req) => {
       notifyAdmin({
         subject,
         html: alertHtml(
-          listingErr
-            ? "Payment received but the listing did not update"
-            : "New sale — payment received, awaiting buyer confirmation",
+          "New sale — payment received, awaiting buyer confirmation",
           [
             ["Vehicle", carLabel],
             ...(handoverDate
@@ -440,7 +468,7 @@ Deno.serve(async (req) => {
       // checkout.session.completed fires days before the money settles, and
       // mailing the code here would let a buyer take delivery of a car against
       // a payment that can still fail.
-      if (!listingErr) {
+      {
         const { data: handover } = await supabase
           .from("escrow_handovers")
           .select("code")
@@ -528,23 +556,21 @@ Deno.serve(async (req) => {
       }
     }
 
+    await claimEvent();
     return jsonResponse({ received: true });
   } catch (err) {
     console.error("stripe-webhook processing error:", err);
 
-    // A thrown error here means a paid checkout may not have been recorded.
-    // Silence was the old behavior; a log line nobody reads is not a signal.
-    notifyAdmin({
-      subject: "⚠️ Stripe webhook threw an error",
-      html: alertHtml("Webhook processing failed", [
-        ["Event type", event?.type],
-        ["Event ID", event?.id],
-        ["Error", err instanceof Error ? err.message : String(err)],
-      ], "Check the function logs and Stripe dashboard — a payment may be unrecorded."),
-    });
-
-    // Still 200 so Stripe doesn't hammer retries on a bug we need to fix
-    // server-side — but log loudly so it doesn't go unnoticed.
-    return jsonResponse({ received: true, processingError: true });
+    // A thrown error means a paid checkout may not have been recorded. The
+    // event is deliberately NOT claimed above, so returning 500 puts it back
+    // in Stripe's retry queue — which is what fixes a transient fault, and
+    // what buys time to ship a fix for a real one before the retries lapse.
+    //
+    // No admin email: retries would send one per attempt. Stripe's own
+    // endpoint-failure notification covers the case where they all fail.
+    return jsonResponse(
+      { error: "processing failed", detail: err instanceof Error ? err.message : String(err) },
+      500,
+    );
   }
 });

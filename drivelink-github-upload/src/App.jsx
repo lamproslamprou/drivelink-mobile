@@ -277,6 +277,11 @@ export default function App() {
   // the seller must be told the code in person.
   const [handoverCodes, setHandoverCodes] = useState({});
   const [adPlacements, setAdPlacements] = useState([]);
+  // Open risk flags, keyed by listing_id. RLS returns rows to admins only, so
+  // this is an empty object for everyone else and the panel simply never
+  // renders. Only unresolved flags are loaded — a resolved flag is history and
+  // belongs in an audit view, not in the queue of things blocking a payout.
+  const [riskFlags, setRiskFlags] = useState({});
   const [viewingListing, setViewingListing] = useState(null); // { listing, seller, myRef, sellerRating, sellerReviewCount, myOffer }
   const [path, setPath] = usePath();
   // Bring-your-own-deal invite links: /d/:token. Kept separate from the main
@@ -401,6 +406,21 @@ export default function App() {
       .select("listing_id, code, confirmed_at");
     if (handoverData) {
       setHandoverCodes(Object.fromEntries(handoverData.map(h => [h.listing_id, h])));
+    }
+
+    // Same shape as handoverCodes above and the same reasoning: admin-only at
+    // the database level, so no role check is needed here.
+    const { data: riskFlagData } = await supabase
+      .from("listing_risk_flags")
+      .select("*")
+      .is("resolved_at", null)
+      .order("score", { ascending: false });
+    if (riskFlagData) {
+      const byListing = {};
+      for (const f of riskFlagData) {
+        (byListing[f.listing_id] ||= []).push(f);
+      }
+      setRiskFlags(byListing);
     }
 
     setLoading(false);
@@ -758,6 +778,46 @@ export default function App() {
     await supabase.from("disputes").update({ status: resolution, resolution_note: resolutionNote, resolved_at: new Date().toISOString() }).eq("id", disputeId);
     await supabase.from("listings").update({ status: "pending_confirmation" }).eq("id", dispute.listing_id);
     showToast("Dispute dismissed — sale returned to awaiting confirmation.");
+    await loadData();
+  };
+
+  // ── Admin resolves a risk flag ────────────────────────────────────────────
+  // is_release_blocked() counts only flags with resolved_at IS NULL, so writing
+  // that column is what unblocks a held payout. It does not release anything by
+  // itself: after clearing the last blocking flag you still press Force Confirm
+  // on the listing, which re-runs the gate and pays the seller.
+  //
+  // The four resolutions are recorded rather than collapsed into a boolean
+  // because they mean different things later. false_positive says the rule
+  // misfired and should be tuned; released says the rule was right and a human
+  // overrode it. Only those two clear the way for a payout — held and refunded
+  // are decisions NOT to pay, recorded here so the reason survives if the
+  // seller disputes it months from now. Refunding itself happens in Stripe.
+  //
+  // Writes only the four resolution columns. The admin UPDATE policy on this
+  // table is not column-scoped, so the restraint lives here.
+  const resolveRiskFlag = async (flagId, resolution, reviewerNotes) => {
+    const { error } = await supabase
+      .from("listing_risk_flags")
+      .update({
+        resolved_at: new Date().toISOString(),
+        resolved_by: currentUser?.id ?? null,
+        resolution,
+        reviewer_notes: reviewerNotes || null,
+      })
+      .eq("id", flagId);
+
+    if (error) {
+      showToast(error.message || "Couldn't resolve that flag — try again.", "error");
+      return;
+    }
+
+    const cleared = resolution === "false_positive" || resolution === "released";
+    showToast(
+      cleared
+        ? "Flag cleared. If it was the last one blocking, press Force Confirm to pay the seller."
+        : "Flag recorded. Funds stay held.",
+    );
     await loadData();
   };
 
@@ -1661,7 +1721,7 @@ const denyFlaggedReferral = async (refId) => {
         {view === "blocked" && <BlockedUsersView blocks={blocks} users={users} onToggleBlock={toggleBlock} onBrowse={() => setView("home")} />}
         {view === "dashboard" && <PromoterDashboard currentUser={dbUser} referrals={referrals.filter(r => r.promoter_id === currentUser?.id)} listings={listings} payouts={payouts} onSetupPayouts={setupPayouts} onRetract={retractReferral} />}
         {view === "profile" && <ProfileView dbUser={dbUser} authEmail={currentUser?.email} onUpdateProfile={updateProfile} onChangeEmail={changeEmail} onChangePassword={changePassword} onSetupPayouts={setupPayouts} onStartIdentityVerification={startIdentityVerification} />}
-       {view === "admin" && <AdminView listings={listings} users={users} referrals={referrals} reports={reports} feedback={feedback} userReports={userReports} reviews={reviews} payouts={payouts} disputes={disputes} adPlacements={adPlacements} onDeleteAd={deleteAdPlacement} onArchive={archiveListing} onMarkSold={markSold} onConfirmReceipt={confirmReceipt} onResolveReport={resolveReport} onResolveUserReport={resolveUserReport} onToggleVerified={toggleVerified} onResetData={resetTestData} onRecordPayout={recordPayout} onPayoutViaStripe={payoutPromoterViaStripe} onResolveDispute={resolveDispute} onDeleteUser={deleteUser} onApproveFlaggedReferral={approveFlaggedReferral} onDenyFlaggedReferral={denyFlaggedReferral} />}
+       {view === "admin" && <AdminView listings={listings} users={users} riskFlags={riskFlags} onResolveRiskFlag={resolveRiskFlag} referrals={referrals} reports={reports} feedback={feedback} userReports={userReports} reviews={reviews} payouts={payouts} disputes={disputes} adPlacements={adPlacements} onDeleteAd={deleteAdPlacement} onArchive={archiveListing} onMarkSold={markSold} onConfirmReceipt={confirmReceipt} onResolveReport={resolveReport} onResolveUserReport={resolveUserReport} onToggleVerified={toggleVerified} onResetData={resetTestData} onRecordPayout={recordPayout} onPayoutViaStripe={payoutPromoterViaStripe} onResolveDispute={resolveDispute} onDeleteUser={deleteUser} onApproveFlaggedReferral={approveFlaggedReferral} onDenyFlaggedReferral={denyFlaggedReferral} />}
         {view === "success" && <SuccessView onHome={() => setView("home")} />}
       </main>
 
@@ -4599,7 +4659,7 @@ function StatBox({ label, value, color }) {
   return <div style={styles.statBox}><div style={{ ...styles.statValue, color }}>{value}</div><div style={styles.statLabel}>{label}</div></div>;
 }
 
-function AdminView({ listings, users, referrals, reports, feedback, userReports, reviews, payouts, disputes, adPlacements, onDeleteAd, onArchive, onMarkSold, onConfirmReceipt, onResolveReport, onResolveUserReport, onToggleVerified, onResetData, onRecordPayout, onPayoutViaStripe, onResolveDispute, onDeleteUser, onApproveFlaggedReferral, onDenyFlaggedReferral }) {
+function AdminView({ listings, users, referrals, reports, feedback, userReports, reviews, payouts, disputes, adPlacements, riskFlags, onResolveRiskFlag, onDeleteAd, onArchive, onMarkSold, onConfirmReceipt, onResolveReport, onResolveUserReport, onToggleVerified, onResetData, onRecordPayout, onPayoutViaStripe, onResolveDispute, onDeleteUser, onApproveFlaggedReferral, onDenyFlaggedReferral }) {
   const [tab, setTab] = useState("listings");
   const [showDeletedUsers, setShowDeletedUsers] = useState(false);
   const deletedUserCount = (users || []).filter(u => u.deleted_at).length;
@@ -4668,6 +4728,7 @@ function AdminView({ listings, users, referrals, reports, feedback, userReports,
                 <div style={styles.rowMeta}>{fmt(l.price)}</div>
                 {l.status === "pending_confirmation" && <div style={{ fontSize: 12, color: "#1d4ed8", marginTop: 2 }}>Sold {fmt(l.sale_price)} on {l.sold_at} • waiting on buyer to confirm receipt</div>}
                 {l.status === "disputed" && <div style={{ fontSize: 12, color: "#b91c1c", marginTop: 2 }}>⚠️ Disputed — see Disputes tab</div>}
+                <RiskFlagPanel flags={(riskFlags || {})[l.id]} onResolve={onResolveRiskFlag} />
               </div>
               <span style={{ ...styles.statusPill, background: l.status === "active" ? "#dcfce7" : l.status === "pending_confirmation" ? "#dbeafe" : l.status === "disputed" ? "#fee2e2" : "#fee2e2", color: l.status === "active" ? "#15803d" : l.status === "pending_confirmation" ? "#1d4ed8" : "#b91c1c" }}>{l.status === "pending_confirmation" ? "awaiting confirmation" : l.status}</span>
               {l.status === "active" && <button style={styles.soldBtn} onClick={() => setMarkingSold(l)}>Mark Sold</button>}
@@ -5175,6 +5236,106 @@ function DisputeRow({ dispute, listing, buyer, seller, onResolve }) {
           <button style={styles.pendingBtn} onClick={() => onResolve(dispute.id, "dismissed", note)}>Dismiss</button>
         </>
       )}
+    </div>
+  );
+}
+
+// Open risk flags for one listing, rendered inline on the row they belong to
+// rather than in a tab of their own. A twelfth tab would have to be remembered
+// and visited; a flag is only ever interesting next to the sale it is holding
+// up, and the Force Confirm button that finishes the job is already on this row.
+// (The tab bar is also the known clipped-at-both-edges mobile bug — see the CSS
+// note further down — and widening it would make that worse.)
+//
+// Renders nothing when there are no open flags, which is the normal case.
+function RiskFlagPanel({ flags, onResolve }) {
+  const [openId, setOpenId] = useState(null);
+  const [note, setNote] = useState("");
+
+  if (!flags || flags.length === 0) return null;
+
+  const total = flags.reduce((sum, f) => sum + (f.score || 0), 0);
+  const severityColor = {
+    critical: "#b91c1c", high: "#c2410c", medium: "#a16207",
+    low: "#4b5563", info: "#6b7280",
+  };
+
+  const choose = (flagId, resolution) => {
+    onResolve(flagId, resolution, note);
+    setOpenId(null);
+    setNote("");
+  };
+
+  return (
+    <div style={{ marginTop: 8, padding: "8px 10px", background: "#fffbeb", border: "1px solid #fcd34d", borderRadius: 6 }}>
+      <div style={{ fontSize: 12, fontWeight: 700, color: "#854d0e", marginBottom: 6 }}>
+        ⚠️ {flags.length} open risk {flags.length === 1 ? "flag" : "flags"} · score {total}
+      </div>
+
+      {flags.map(f => (
+        <div key={f.id} style={{ marginBottom: 6 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <span style={{ fontSize: 12, fontWeight: 600, color: severityColor[f.severity] || "#4b5563" }}>
+              {f.flag_code}
+            </span>
+            <span style={{ fontSize: 11, color: "#6b7280" }}>
+              {f.severity} · {f.score} pts
+            </span>
+            <button
+              style={{ ...styles.pendingBtn, padding: "2px 8px", fontSize: 11 }}
+              onClick={() => { setOpenId(openId === f.id ? null : f.id); setNote(""); }}
+            >
+              {openId === f.id ? "Cancel" : "Resolve"}
+            </button>
+          </div>
+
+          {/* The evaluator writes the numbers it actually compared into details.
+              Showing them raw beats paraphrasing: PRICE_OVER_MARKET means
+              nothing without the ratio it tripped on. */}
+          {f.details && Object.keys(f.details).length > 0 && (
+            <div style={{ fontSize: 11, color: "#6b7280", marginTop: 2 }}>
+              {Object.entries(f.details).map(([k, v]) => `${k}: ${v}`).join(" · ")}
+            </div>
+          )}
+
+          {openId === f.id && (
+            <div style={{ marginTop: 6, paddingLeft: 8, borderLeft: "2px solid #fcd34d" }}>
+              <input
+                style={{ ...styles.fieldInput, maxWidth: 320, fontSize: 12, padding: "4px 8px" }}
+                placeholder="Why? (optional, but future-you will want it)"
+                value={note}
+                onChange={e => setNote(e.target.value)}
+              />
+              <div style={{ display: "flex", gap: 6, marginTop: 6, flexWrap: "wrap" }}>
+                <button style={{ ...styles.soldBtn, padding: "3px 10px", fontSize: 11 }}
+                  onClick={() => choose(f.id, "false_positive")}
+                  title="The rule misfired — this transaction is fine">
+                  False positive
+                </button>
+                <button style={{ ...styles.soldBtn, padding: "3px 10px", fontSize: 11 }}
+                  onClick={() => choose(f.id, "released")}
+                  title="The flag was fair, but you reviewed it and it's OK to pay">
+                  Reviewed — OK to pay
+                </button>
+                <button style={{ ...styles.pendingBtn, padding: "3px 10px", fontSize: 11 }}
+                  onClick={() => choose(f.id, "held")}
+                  title="Deliberately not paying yet. Recorded, funds stay held.">
+                  Keep held
+                </button>
+                <button style={{ ...styles.removeBtn, padding: "3px 10px", fontSize: 11 }}
+                  onClick={() => choose(f.id, "refunded")}
+                  title="You refunded in Stripe — this records why">
+                  Refunded
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      ))}
+
+      <div style={{ fontSize: 11, color: "#854d0e", marginTop: 6 }}>
+        Clearing every blocking flag doesn't pay anyone by itself — press Force Confirm afterwards.
+      </div>
     </div>
   );
 }

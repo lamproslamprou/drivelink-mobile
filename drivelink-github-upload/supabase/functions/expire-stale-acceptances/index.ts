@@ -14,6 +14,12 @@
 // the acceptance must stay exactly as it is — it is the record of what the two
 // parties agreed to.
 //
+// AUTH: this endpoint cancels sellers' accepted offers, so it requires the
+// service-role key as a bearer token. It previously accepted any request that
+// reached the URL — the listing-state guard below limited what an attacker
+// could destroy, but that is a blast-radius argument, not access control.
+// Whatever schedules this function must send the header; see CALLER below.
+//
 // Deploy:
 //   supabase functions deploy expire-stale-acceptances
 //
@@ -34,6 +40,17 @@ const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const LOCKED_LISTING_STATES = ["pending_confirmation", "sold", "disputed"];
 
 Deno.serve(async (req) => {
+  // 0. Authorization. Constant-time-ish comparison isn't warranted here — the
+  //    secret isn't guessable byte-by-byte over a network round trip — but the
+  //    length check avoids comparing against an empty env var, which would let
+  //    a bare "Bearer " through if SERVICE_ROLE were ever unset.
+  const expected = SERVICE_ROLE ? `Bearer ${SERVICE_ROLE}` : null;
+  const presented = req.headers.get("Authorization");
+  if (!expected || presented !== expected) {
+    console.warn("expire-stale-acceptances: rejected unauthorized request");
+    return json({ error: "unauthorized" }, 401);
+  }
+
   const startedAt = Date.now();
   const dryRun = new URL(req.url).searchParams.get("dry") === "1";
   const supabase = createClient(SUPABASE_URL, SERVICE_ROLE);

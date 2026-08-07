@@ -45,6 +45,12 @@
 // Alerts are awaited rather than fire-and-forget.
 //
 // Deployed with --no-verify-jwt since the scheduler isn't a logged-in user.
+// That is NOT the same as no authentication: the handler checks the
+// service-role key itself (see below). Before 2026-08-07 it checked nothing,
+// so anyone who knew the URL could drive it. It cannot move money, but it can
+// email both parties that their sale has been paused and set
+// review_flagged_at — enough to sow doubt in a live transaction on demand.
+// The pg_cron job supplies the header from Vault.
 import {
   corsHeaders,
   jsonResponse,
@@ -53,6 +59,8 @@ import {
   money,
   supabaseAdmin,
 } from "../_shared/helpers.ts";
+
+const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY")!;
 const FROM = "DriveLink <noreply@drivelink.deals>";
@@ -95,6 +103,15 @@ function shell(heading: string, body: string) {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
+  // Authorization. The length-guarded comparison against a null `expected`
+  // matters: if SUPABASE_SERVICE_ROLE_KEY were ever unset, a naive check would
+  // let a bare "Bearer " through and hand an anonymous caller the whole job.
+  const expected = SERVICE_ROLE ? `Bearer ${SERVICE_ROLE}` : null;
+  if (!expected || req.headers.get("Authorization") !== expected) {
+    console.warn("auto-release-cron: rejected unauthorized request");
+    return jsonResponse({ error: "unauthorized" }, 401);
+  }
 
   const supabase = supabaseAdmin();
   const results: Array<{ listing_id: string; action: string; detail?: string }> = [];
