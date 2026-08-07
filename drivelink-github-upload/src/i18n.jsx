@@ -104,6 +104,57 @@ const dict = {
     "browse.backToBrowse": "Back to Browse",
     "browse.paymentSuccess": "Payment Successful!",
 
+    // ── Listing detail modal ─────────────────────────────────────────────
+    "detail.close": "Close",
+    "detail.soldBy": "Sold by",
+    "detail.copyLink": "Copy link",
+    "detail.vinVerified": "VIN Verified",
+    "detail.carfax": "Look up history on Carfax",
+    "detail.nicb": "Free theft & salvage check",
+    "translate.toEnglish": "Translate to English",
+    "translate.toSpanish": "Traducir al español",
+    "translate.working": "Translating…",
+    "translate.showOriginal": "Show original",
+    "translate.notice": "Translated automatically — the seller wrote this in another language.",
+    "translate.failed": "Couldn't translate this listing — try again.",
+    "detail.payoutsPending": "This seller hasn't finished payout setup with our payments partner. You can still message them and make an offer — checkout opens once they're set up.",
+
+    // ── AI price check ───────────────────────────────────────────────────
+    // assessment.summary itself comes back from assess-deal as English prose.
+    // Only the chrome is translated here; the verdict text needs the same
+    // on-demand translation path as a seller's description.
+    "deal.check": "AI Price Check",
+    "deal.checking": "Checking market data…",
+    "deal.greatDeal": "Great Deal",
+    "deal.fairPrice": "Fair Price",
+    "deal.aboveMarket": "Above Market",
+    "deal.notEnoughData": "Not Enough Data Yet",
+    "deal.liveResearch": "Live market research",
+    "deal.basedOn": "Based on {count} DriveLink listings",
+    "deal.basedOnOne": "Based on 1 DriveLink listing",
+    "deal.marketRange": "Estimated market range",
+
+    // ── Report modals ────────────────────────────────────────────────────
+    "report.listingTitle": "Report this listing",
+    "report.userTitle": "Report this user",
+    "report.reason": "Reason",
+    "report.details": "Details (optional)",
+    "report.detailsPlaceholder": "Anything else we should know?",
+    "common.cancel": "Cancel",
+    "common.other": "Other",
+    "report.submit": "Submit Report",
+    "report.r.misleading": "Misleading listing",
+    "report.r.scam": "Suspected scam",
+    "report.r.bait": "Wrong price / bait and switch",
+    "report.r.soldElsewhere": "Car already sold elsewhere",
+    "report.r.inappropriate": "Inappropriate content",
+    "report.r.other": "Other",
+    "report.u.suspicious": "Suspicious / scam behavior",
+    "report.u.harassment": "Harassment or abusive messages",
+    "report.u.noShow": "Never showed up / wasted my time",
+    "report.u.offPlatform": "Asked to pay outside the platform",
+
+
 
     // ── Auth ─────────────────────────────────────────────────────────────
     "auth.signin": "Sign In",
@@ -148,7 +199,11 @@ const dict = {
 
     // ── Escrow / trust ───────────────────────────────────────────────────
     "escrow.title": "🔒 Escrow protected",
-    "escrow.body": "Your payment is held securely — it isn't released to the seller until you confirm you have the car and the signed title. Both sides can verify their identity through Stripe, and verified sellers carry a badge on their listings.",
+    "escrow.body": "Your payment is held securely — it isn't released to the seller until you confirm you have the car and the signed title.",
+    // Appended only when this specific seller completed Stripe Identity. Was
+    // referenced in App.jsx and never defined here, so t() fell back to
+    // printing the key name to users: "...their listings. escrow.idVerified".
+    "escrow.idVerified": "This seller has verified their identity with Stripe.",
     "escrow.notReady.title": "⏳ Checkout not available yet",
 
     // ── Selling / fees ───────────────────────────────────────────────────
@@ -253,6 +308,51 @@ const dict = {
     "browse.backToBrowse": "Volver a explorar",
     "browse.paymentSuccess": "¡Pago exitoso!",
 
+    "detail.close": "Cerrar",
+    "detail.soldBy": "Vendido por",
+    "detail.copyLink": "Copiar enlace",
+    "detail.vinVerified": "VIN verificado",
+    "detail.carfax": "Consultar historial en Carfax",
+    "detail.nicb": "Verificación gratuita de robo y pérdida total",
+    "translate.toEnglish": "Translate to English",
+    "translate.toSpanish": "Traducir al español",
+    "translate.working": "Traduciendo…",
+    "translate.showOriginal": "Ver original",
+    "translate.notice": "Traducido automáticamente — el vendedor escribió esto en otro idioma.",
+    "translate.failed": "No se pudo traducir este anuncio — inténtalo de nuevo.",
+    "detail.payoutsPending": "Este vendedor no ha terminado de configurar sus pagos con nuestro socio de pagos. Aún puedes enviarle un mensaje y hacer una oferta — la compra se habilita cuando termine.",
+
+    "deal.check": "Análisis de precio con IA",
+    "deal.checking": "Consultando datos del mercado…",
+    "deal.greatDeal": "Muy buen precio",
+    "deal.fairPrice": "Precio justo",
+    "deal.aboveMarket": "Por encima del mercado",
+    "deal.notEnoughData": "Aún no hay suficientes datos",
+    "deal.liveResearch": "Investigación de mercado en vivo",
+    "deal.basedOn": "Basado en {count} anuncios de DriveLink",
+    "deal.basedOnOne": "Basado en 1 anuncio de DriveLink",
+    "deal.marketRange": "Rango de mercado estimado",
+
+    "report.listingTitle": "Reportar este anuncio",
+    "report.userTitle": "Reportar a este usuario",
+    "report.reason": "Motivo",
+    "report.details": "Detalles (opcional)",
+    "report.detailsPlaceholder": "¿Algo más que debamos saber?",
+    "common.cancel": "Cancelar",
+    "common.other": "Otro",
+    "report.submit": "Enviar reporte",
+    "report.r.misleading": "Anuncio engañoso",
+    "report.r.scam": "Sospecha de estafa",
+    "report.r.bait": "Precio incorrecto / cebo y cambio",
+    "report.r.soldElsewhere": "El carro ya se vendió en otro lugar",
+    "report.r.inappropriate": "Contenido inapropiado",
+    "report.r.other": "Otro",
+    "report.u.suspicious": "Comportamiento sospechoso / estafa",
+    "report.u.harassment": "Acoso o mensajes abusivos",
+    "report.u.noShow": "Nunca se presentó / me hizo perder el tiempo",
+    "report.u.offPlatform": "Pidió pagar fuera de la plataforma",
+
+
 
     "auth.signin": "Iniciar sesión",
     "auth.createAccount": "Crear cuenta",
@@ -294,7 +394,8 @@ const dict = {
     "home.searchPlaceholder": "Busca marca, modelo, año…",
 
     "escrow.title": "🔒 Pago protegido",
-    "escrow.body": "Tu pago se guarda de forma segura — no se le entrega al vendedor hasta que confirmes que tienes el carro y el título firmado. Ambas partes pueden verificar su identidad con Stripe, y los vendedores verificados llevan una insignia en sus anuncios.",
+    "escrow.body": "Tu pago se guarda de forma segura — no se le entrega al vendedor hasta que confirmes que tienes el carro y el título firmado.",
+    "escrow.idVerified": "Este vendedor ha verificado su identidad con Stripe.",
     "escrow.notReady.title": "⏳ La compra aún no está disponible",
 
     "sell.pageTitle": "Publica un carro en venta",

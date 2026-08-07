@@ -1227,6 +1227,22 @@ const denyFlaggedReferral = async (refId) => {
     return data.assessment;
   };
 
+  // ── On-demand translation of a listing's seller-written text ────────────
+  // The static i18n dictionary handles every label on the page, but the
+  // description and the AI price-check summary are free prose that only exists
+  // in the language it was written in. This translates on request and caches
+  // server-side. The original is never replaced — see translate-listing.
+  const translateListing = async (listingId, lang) => {
+    const { data, error } = await supabase.functions.invoke("translate-listing", {
+      body: { listing_id: listingId, lang },
+    });
+    if (error || data?.error) {
+      showToast(data?.error || error?.message || "Couldn't translate this listing.", "error");
+      return null;
+    }
+    return data;
+  };
+
   // ── Seller starts (or resumes) real Stripe Identity verification. Opens
   // Stripe's hosted document + selfie capture flow. The actual users.verified
   // flip happens server-side via the stripe-webhook function once Stripe
@@ -1825,6 +1841,7 @@ const denyFlaggedReferral = async (refId) => {
           onMakeOffer={makeOffer}
           onSignIn={() => setView("auth")}
           onCheckDeal={checkDealAssessment}
+          onTranslate={translateListing}
         />
       )}
     </div>
@@ -2316,7 +2333,7 @@ function CarCard({ listing, seller, avgPrice, similarCount, onSeeSimilar, curren
         <p style={styles.cardDesc}>{listing.description}</p>
         {listing.vin && (
           <div style={styles.vinRow}>
-            VIN: {listing.vin} {listing.vin_verified && <span style={styles.verifiedBadge} title="VIN was decoded and matches the make/model/year on this listing">✓ VIN Verified</span>} · <a href="https://www.carfax.com/vehicle-history-reports/" target="_blank" rel="noreferrer noopener" style={styles.vinLink}>Look up history on Carfax →</a> · <a href="https://www.nicb.org/vincheck" target="_blank" rel="noreferrer noopener" style={styles.vinLink}>Free theft &amp; salvage check →</a>
+            VIN: {listing.vin} {listing.vin_verified && <span style={styles.verifiedBadge} title="VIN was decoded and matches the make/model/year on this listing">✓ VIN Verified</span>} · <a href="https://www.carfax.com/vehicle-history-reports/" target="_blank" rel="noreferrer noopener" style={styles.vinLink}>{t("detail.carfax")} →</a> · <a href="https://www.nicb.org/vincheck" target="_blank" rel="noreferrer noopener" style={styles.vinLink}>{t("detail.nicb")} →</a>
           </div>
         )}
         {myRef && <div style={styles.refTag}>{myRef.status === "paid" ? `✅ Commission paid: ${fmt(myRef.commission_amount)}` : "🔗 Your Scout link is live — you'll earn 1% if this sells through it"}</div>}
@@ -2394,6 +2411,7 @@ function CarCard({ listing, seller, avgPrice, similarCount, onSeeSimilar, curren
 // green for purely numeric fields (lowest price, lowest mileage) — doesn't
 // try to score subjective fields like color or description.
 function CompareModal({ listings, users, onRemove, onClose }) {
+  const { t } = useLang();
   useEffect(() => {
     const onKey = (e) => { if (e.key === "Escape") onClose(); };
     window.addEventListener("keydown", onKey);
@@ -2405,7 +2423,7 @@ function CompareModal({ listings, users, onRemove, onClose }) {
       <div style={{ ...styles.modalBox, maxWidth: 900, width: "95%", maxHeight: "88vh", overflowY: "auto" }} onClick={e => e.stopPropagation()}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
           <h3 style={styles.modalTitle}>Compare Cars</h3>
-          <button type="button" onClick={onClose} style={styles.compareCloseBtn} aria-label="Close">✕</button>
+          <button type="button" onClick={onClose} style={styles.compareCloseBtn} aria-label={t("detail.close")}>✕</button>
         </div>
         <div style={{ overflowX: "auto" }}>
           <table style={styles.compareTable}>
@@ -2458,7 +2476,7 @@ function CompareRow({ label, values, rankBy, lowerIsBetter, wrap }) {
   );
 }
 
-function ListingDetailModal({ data, currentUser, isFavorited, isBlocked, onClose, onBuy, onShare, onMessageSeller, onReport, onReportUser, onToggleFavorite, onToggleBlock, onMakeOffer, onSignIn, onCheckDeal }) {
+function ListingDetailModal({ data, currentUser, isFavorited, isBlocked, onClose, onBuy, onShare, onMessageSeller, onReport, onReportUser, onToggleFavorite, onToggleBlock, onMakeOffer, onSignIn, onCheckDeal, onTranslate }) {
   const { t } = useLang();
   const { listing, seller, myRef, sellerRating, sellerReviewCount, myOffer } = data;
   const [activeImg, setActiveImg] = useState(0);
@@ -2492,7 +2510,7 @@ function ListingDetailModal({ data, currentUser, isFavorited, isBlocked, onClose
   return (
     <div style={styles.overlay} onClick={onClose}>
       <div style={styles.detailBox} onClick={e => e.stopPropagation()}>
-        <button style={styles.detailCloseBtn} onClick={onClose} aria-label="Close">✕</button>
+        <button style={styles.detailCloseBtn} onClick={onClose} aria-label={t("detail.close")}>✕</button>
 
         <div style={styles.detailGalleryWrap}>
           <img src={images[activeImg]} alt={`${listing.make} ${listing.model}`} style={styles.detailMainImg}
@@ -2542,8 +2560,7 @@ function ListingDetailModal({ data, currentUser, isFavorited, isBlocked, onClose
             <div style={styles.escrowBoxPending}>
               <div style={styles.escrowBoxTitle}>{t("escrow.notReady.title")}</div>
               <div style={styles.escrowBoxText}>
-                This seller hasn't finished payout setup with our payments partner. You can still
-                message them and make an offer — checkout opens once they're set up.
+                {t("detail.payoutsPending")}
               </div>
             </div>
           )}
@@ -2552,14 +2569,19 @@ function ListingDetailModal({ data, currentUser, isFavorited, isBlocked, onClose
             <span>🛣 {listing.mileage?.toLocaleString()} {t("card.mi")}</span>
             <span>🎨 {listing.color}</span>
             {listing.location_text && <span>📍 {listing.location_text}</span>}
-            {seller?.name && <span>👤 Sold by {seller.name}</span>}
+            {seller?.name && <span>👤 {t("detail.soldBy")} {seller.name}</span>}
           </div>
 
-          <p style={{ ...styles.cardDesc, marginTop: 12 }}>{listing.description}</p>
+          {listing.description && (
+            <TranslatableDescription
+              listing={listing}
+              onTranslate={onTranslate}
+            />
+          )}
 
           {listing.vin && (
             <div style={styles.vinRow}>
-              VIN: {listing.vin} {listing.vin_verified && <span style={styles.verifiedBadge}>✓ VIN Verified</span>} · <a href="https://www.carfax.com/vehicle-history-reports/" target="_blank" rel="noreferrer noopener" style={styles.vinLink}>Look up history on Carfax →</a> · <a href="https://www.nicb.org/vincheck" target="_blank" rel="noreferrer noopener" style={styles.vinLink}>Free theft &amp; salvage check →</a>
+              VIN: {listing.vin} {listing.vin_verified && <span style={styles.verifiedBadge}>✓ {t("detail.vinVerified")}</span>} · <a href="https://www.carfax.com/vehicle-history-reports/" target="_blank" rel="noreferrer noopener" style={styles.vinLink}>{t("detail.carfax")} →</a> · <a href="https://www.nicb.org/vincheck" target="_blank" rel="noreferrer noopener" style={styles.vinLink}>{t("detail.nicb")} →</a>
             </div>
           )}
 
@@ -2587,7 +2609,7 @@ function ListingDetailModal({ data, currentUser, isFavorited, isBlocked, onClose
                   setTimeout(() => setLinkCopied(false), 2500);
                 }}
               >
-                {linkCopied ? "✓ Link copied!" : "🔗 Copy link"}
+                {linkCopied ? "✓ " + t("card.linkCopied") : "🔗 " + t("detail.copyLink")}
               </button>
             )}
           </div>
@@ -2649,7 +2671,65 @@ function ListingDetailModal({ data, currentUser, isFavorited, isBlocked, onClose
 // web search when there isn't enough internal data) and shows the cached
 // result once available. Result is cached server-side per listing, so this
 // only makes a real call the first time (or after cache expiry).
+// ── Translatable description ────────────────────────────────────────────────
+// Shows the seller's own words by default and offers a translation on request.
+// The original is one click away at all times and is never overwritten: this
+// is a car sale, and a buyer must be able to read the condition disclosure
+// exactly as the seller wrote it.
+//
+// The button only appears when the interface language differs from the site's
+// default authoring language — a Spanish reader sees "Traducir al español", an
+// English reader on a Spanish-written listing sees "Translate to English".
+// There is no language detection on the text itself: guessing wrong hides the
+// button on a listing that needed it, which is worse than showing an
+// occasionally redundant one.
+function TranslatableDescription({ listing, onTranslate }) {
+  const { t, lang } = useLang();
+  const [translated, setTranslated] = useState(null);
+  const [showing, setShowing] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  const run = async () => {
+    if (translated) { setShowing(true); return; }
+    if (!onTranslate) return;
+    setLoading(true);
+    const result = await onTranslate(listing.id, lang);
+    setLoading(false);
+    if (!result || result.nothingToTranslate) return;
+    setTranslated(result.description || "");
+    setShowing(true);
+  };
+
+  const body = showing && translated ? translated : listing.description;
+
+  return (
+    <div style={{ marginTop: 12 }}>
+      <p style={styles.cardDesc}>{body}</p>
+      {showing && translated && (
+        <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 4 }}>{t("translate.notice")}</div>
+      )}
+      {onTranslate && (
+        <button
+          type="button"
+          style={styles.translateLink}
+          onClick={() => (showing ? setShowing(false) : run())}
+          disabled={loading}
+        >
+          {loading
+            ? t("translate.working")
+            : showing
+              ? t("translate.showOriginal")
+              : lang === "es"
+                ? t("translate.toSpanish")
+                : t("translate.toEnglish")}
+        </button>
+      )}
+    </div>
+  );
+}
+
 function DealCheckButton({ listing, onCheckDeal }) {
+  const { t } = useLang();
   const [loading, setLoading] = useState(false);
   const [assessment, setAssessment] = useState(listing.deal_assessment || null);
 
@@ -2668,25 +2748,27 @@ function DealCheckButton({ listing, onCheckDeal }) {
   };
 
   const styleFor = {
-    great_deal: { bg: "#dcfce7", color: "#15803d", label: "🟢 Great Deal" },
-    fair_price: { bg: "#fef9c3", color: "#854d0e", label: "🟡 Fair Price" },
-    above_market: { bg: "#fee2e2", color: "#b91c1c", label: "🔴 Above Market" },
-    not_enough_data: { bg: "#f1f5f9", color: "#6b7280", label: "⚪ Not Enough Data Yet" },
+    great_deal: { bg: "#dcfce7", color: "#15803d", label: `🟢 ${t("deal.greatDeal")}` },
+    fair_price: { bg: "#fef9c3", color: "#854d0e", label: `🟡 ${t("deal.fairPrice")}` },
+    above_market: { bg: "#fee2e2", color: "#b91c1c", label: `🔴 ${t("deal.aboveMarket")}` },
+    not_enough_data: { bg: "#f1f5f9", color: "#6b7280", label: `⚪ ${t("deal.notEnoughData")}` },
   };
 
   if (!assessment) {
     return (
       <button type="button" style={styles.dealCheckBtn} onClick={run} disabled={loading}>
-        {loading ? "Checking market data…" : "🤖 AI Price Check"}
+        {loading ? t("deal.checking") : `🤖 ${t("deal.check")}`}
       </button>
     );
   }
 
   const s = styleFor[assessment.rating] || styleFor.fair_price;
   const sourceLabel = assessment.source === "web_search"
-    ? "Live market research"
+    ? t("deal.liveResearch")
     : assessment.comparable_count > 0
-      ? `Based on ${assessment.comparable_count} DriveLink listing${assessment.comparable_count === 1 ? "" : "s"}`
+      ? (assessment.comparable_count === 1
+          ? t("deal.basedOnOne")
+          : t("deal.basedOn", { count: assessment.comparable_count }))
       : null;
 
   return (
@@ -2694,7 +2776,7 @@ function DealCheckButton({ listing, onCheckDeal }) {
       <div style={{ fontSize: 13, fontWeight: 700, color: s.color, marginBottom: 4 }}>{s.label}</div>
       <div style={{ fontSize: 13, color: "#374151", lineHeight: 1.5 }}>{assessment.summary}</div>
       {assessment.estimated_market_range && (
-        <div style={{ fontSize: 12, color: "#374151", marginTop: 4 }}>Estimated market range: {assessment.estimated_market_range}</div>
+        <div style={{ fontSize: 12, color: "#374151", marginTop: 4 }}>{t("deal.marketRange")}: {assessment.estimated_market_range}</div>
       )}
       {sourceLabel && <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 6 }}>{sourceLabel}</div>}
       <button type="button" style={styles.dealCheckRefresh} onClick={run} disabled={loading}>
@@ -2705,26 +2787,27 @@ function DealCheckButton({ listing, onCheckDeal }) {
 }
 
 function ReportModal({ onCancel, onSubmit }) {
+  const { t } = useLang();
   const [reason, setReason] = useState("Misleading listing");
   const [details, setDetails] = useState("");
   return (
     <div style={styles.overlay} onClick={onCancel}>
       <div style={styles.modalBox} onClick={e => e.stopPropagation()}>
-        <h3 style={styles.modalTitle}>Report this listing</h3>
-        <label style={styles.fieldLabel}>Reason</label>
+        <h3 style={styles.modalTitle}>{t("report.listingTitle")}</h3>
+        <label style={styles.fieldLabel}>{t("report.reason")}</label>
         <select style={{ ...styles.selectInput, width: "100%", marginBottom: 12 }} value={reason} onChange={e => setReason(e.target.value)}>
-          <option>Misleading listing</option>
-          <option>Suspected scam</option>
-          <option>Wrong price / bait and switch</option>
-          <option>Car already sold elsewhere</option>
-          <option>Inappropriate content</option>
-          <option>Other</option>
+          <option value="Misleading listing">{t("report.r.misleading")}</option>
+          <option value="Suspected scam">{t("report.r.scam")}</option>
+          <option value="Wrong price / bait and switch">{t("report.r.bait")}</option>
+          <option value="Car already sold elsewhere">{t("report.r.soldElsewhere")}</option>
+          <option value="Inappropriate content">{t("report.r.inappropriate")}</option>
+          <option value="Other">{t("common.other")}</option>
         </select>
-        <label style={styles.fieldLabel}>Details (optional)</label>
-        <textarea style={styles.textarea} rows={3} value={details} onChange={e => setDetails(e.target.value)} placeholder="Anything else we should know?" />
+        <label style={styles.fieldLabel}>{t("report.details")}</label>
+        <textarea style={styles.textarea} rows={3} value={details} onChange={e => setDetails(e.target.value)} placeholder={t("report.detailsPlaceholder")} />
         <div style={styles.modalActions}>
-          <button style={styles.cancelBtn} onClick={onCancel}>Cancel</button>
-          <button style={styles.confirmBtn} onClick={() => onSubmit(reason, details)}>Submit Report</button>
+          <button style={styles.cancelBtn} onClick={onCancel}>{t("common.cancel")}</button>
+          <button style={styles.confirmBtn} onClick={() => onSubmit(reason, details)}>{t("report.submit")}</button>
         </div>
       </div>
     </div>
@@ -2732,25 +2815,26 @@ function ReportModal({ onCancel, onSubmit }) {
 }
 
 function ReportUserModal({ onCancel, onSubmit }) {
+  const { t } = useLang();
   const [reason, setReason] = useState("Suspicious / scam behavior");
   const [details, setDetails] = useState("");
   return (
     <div style={styles.overlay} onClick={onCancel}>
       <div style={styles.modalBox} onClick={e => e.stopPropagation()}>
-        <h3 style={styles.modalTitle}>Report this user</h3>
-        <label style={styles.fieldLabel}>Reason</label>
+        <h3 style={styles.modalTitle}>{t("report.userTitle")}</h3>
+        <label style={styles.fieldLabel}>{t("report.reason")}</label>
         <select style={{ ...styles.selectInput, width: "100%", marginBottom: 12 }} value={reason} onChange={e => setReason(e.target.value)}>
-          <option>Suspicious / scam behavior</option>
-          <option>Harassment or abusive messages</option>
-          <option>Never showed up / wasted my time</option>
-          <option>Asked to pay outside the platform</option>
-          <option>Other</option>
+          <option value="Suspicious / scam behavior">{t("report.u.suspicious")}</option>
+          <option value="Harassment or abusive messages">{t("report.u.harassment")}</option>
+          <option value="Never showed up / wasted my time">{t("report.u.noShow")}</option>
+          <option value="Asked to pay outside the platform">{t("report.u.offPlatform")}</option>
+          <option value="Other">{t("common.other")}</option>
         </select>
-        <label style={styles.fieldLabel}>Details (optional)</label>
-        <textarea style={styles.textarea} rows={3} value={details} onChange={e => setDetails(e.target.value)} placeholder="Anything else we should know?" />
+        <label style={styles.fieldLabel}>{t("report.details")}</label>
+        <textarea style={styles.textarea} rows={3} value={details} onChange={e => setDetails(e.target.value)} placeholder={t("report.detailsPlaceholder")} />
         <div style={styles.modalActions}>
-          <button style={styles.cancelBtn} onClick={onCancel}>Cancel</button>
-          <button style={styles.confirmBtn} onClick={() => onSubmit(reason, details)}>Submit Report</button>
+          <button style={styles.cancelBtn} onClick={onCancel}>{t("common.cancel")}</button>
+          <button style={styles.confirmBtn} onClick={() => onSubmit(reason, details)}>{t("report.submit")}</button>
         </div>
       </div>
     </div>
@@ -3336,6 +3420,7 @@ function MyOffersView({ offers, listings, onRespondToCounter, onBuy, onBrowse, o
 }
 
 function ReviewModal({ listing, onCancel, onSubmit }) {
+  const { t } = useLang();
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState("");
   return (
@@ -3351,7 +3436,7 @@ function ReviewModal({ listing, onCancel, onSubmit }) {
         <label style={styles.fieldLabel}>Comment (optional)</label>
         <textarea style={styles.textarea} rows={3} value={comment} onChange={e => setComment(e.target.value)} placeholder="How was your experience with this seller?" />
         <div style={styles.modalActions}>
-          <button style={styles.cancelBtn} onClick={onCancel}>Cancel</button>
+          <button style={styles.cancelBtn} onClick={onCancel}>{t("common.cancel")}</button>
           <button style={styles.confirmBtn} onClick={() => onSubmit(rating, comment)}>Submit Review</button>
         </div>
       </div>
@@ -3360,6 +3445,7 @@ function ReviewModal({ listing, onCancel, onSubmit }) {
 }
 
 function DisputeModal({ listing, onCancel, onSubmit }) {
+  const { t } = useLang();
   const [reason, setReason] = useState("Car not as described");
   const [details, setDetails] = useState("");
   const [evidence, setEvidence] = useState([]);
@@ -3374,7 +3460,7 @@ function DisputeModal({ listing, onCancel, onSubmit }) {
           <option>Seller never showed up / unreachable</option>
           <option>Car has undisclosed damage or issues</option>
           <option>Title or paperwork problem</option>
-          <option>Other</option>
+          <option value="Other">{t("common.other")}</option>
         </select>
         <label style={styles.fieldLabel}>Details</label>
         <textarea style={styles.textarea} rows={4} value={details} onChange={e => setDetails(e.target.value)} placeholder="Tell us what went wrong" />
@@ -3384,7 +3470,7 @@ function DisputeModal({ listing, onCancel, onSubmit }) {
           <ImageUpload images={evidence} onChange={setEvidence} />
         </div>
         <div style={styles.modalActions}>
-          <button style={styles.cancelBtn} onClick={onCancel}>Cancel</button>
+          <button style={styles.cancelBtn} onClick={onCancel}>{t("common.cancel")}</button>
           <button style={styles.confirmBtn} onClick={() => onSubmit(reason, details, evidence)} disabled={!details.trim()}>File Dispute</button>
         </div>
       </div>
@@ -3392,6 +3478,7 @@ function DisputeModal({ listing, onCancel, onSubmit }) {
   );
 }
 function OfferModal({ listing, onCancel, onSubmit }) {
+  const { t } = useLang();
   const [amount, setAmount] = useState(Math.round(listing.price * 0.95));
   const [message, setMessage] = useState("");
   return (
@@ -3405,7 +3492,7 @@ function OfferModal({ listing, onCancel, onSubmit }) {
         <textarea style={styles.textarea} rows={3} value={message} onChange={e => setMessage(e.target.value)} placeholder="Anything you want the seller to know" />
         <div style={{ fontSize: 12, color: "#6b7280", marginTop: 6 }}>If accepted, you and the seller coordinate the sale directly — checkout still runs at the listed price, so the seller records the agreed amount when they mark it sold.</div>
         <div style={styles.modalActions}>
-          <button style={styles.cancelBtn} onClick={onCancel}>Cancel</button>
+          <button style={styles.cancelBtn} onClick={onCancel}>{t("common.cancel")}</button>
           <button style={styles.confirmBtn} onClick={() => onSubmit(toCents(amount), message)} disabled={!amount || +amount <= 0}>Send Offer</button>
         </div>
       </div>
@@ -3414,6 +3501,7 @@ function OfferModal({ listing, onCancel, onSubmit }) {
 }
 
 function MarkSoldModal({ listing, onCancel, onConfirm }) {
+  const { t } = useLang();
   const [price, setPrice] = useState(fromCents(listing.price));
   const [buyerEmail, setBuyerEmail] = useState("");
   return (
@@ -3426,7 +3514,7 @@ function MarkSoldModal({ listing, onCancel, onConfirm }) {
         <input style={styles.fieldInput} type="email" value={buyerEmail} onChange={e => setBuyerEmail(e.target.value)} placeholder="buyer@example.com" />
         <div style={{ fontSize: 12, color: "#6b7280", marginTop: 6 }}>If the buyer has a DriveLink account, adding their email links the sale so they can leave a review.</div>
         <div style={styles.modalActions}>
-          <button style={styles.cancelBtn} onClick={onCancel}>Cancel</button>
+          <button style={styles.cancelBtn} onClick={onCancel}>{t("common.cancel")}</button>
           <button style={styles.confirmBtn} onClick={() => onConfirm(toCents(price), buyerEmail)}>Confirm Sale</button>
         </div>
       </div>
@@ -3435,6 +3523,7 @@ function MarkSoldModal({ listing, onCancel, onConfirm }) {
 }
 
 function PayoutModal({ user, onCancel, onConfirm, onPayViaStripe }) {
+  const { t } = useLang();
   const [amount, setAmount] = useState(fromCents(user.balance || 0));
   const [method, setMethod] = useState("Bank transfer");
   const [note, setNote] = useState("");
@@ -3465,11 +3554,11 @@ function PayoutModal({ user, onCancel, onConfirm, onPayViaStripe }) {
             <option>Venmo</option>
             <option>Zelle</option>
             <option>Check</option>
-            <option>Other</option>
+            <option value="Other">{t("common.other")}</option>
           </select>
           <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 12 }}>This records that you paid {user.name} outside of DriveLink and reduces their tracked balance to match — it doesn't move any real money.</div>
           <div style={styles.modalActions}>
-            <button style={styles.cancelBtn} onClick={onCancel}>Cancel</button>
+            <button style={styles.cancelBtn} onClick={onCancel}>{t("common.cancel")}</button>
             <button style={styles.confirmBtn} onClick={() => onConfirm(toCents(amount), method, note)}>Record Payout</button>
           </div>
         </div>
@@ -3479,6 +3568,7 @@ function PayoutModal({ user, onCancel, onConfirm, onPayViaStripe }) {
 }
 
 function EditListingModal({ listing, onCancel, onSave }) {
+  const { t } = useLang();
   const [form, setForm] = useState({
     make: listing.make || "", model: listing.model || "", year: listing.year || new Date().getFullYear(),
     price: listing.price != null ? fromCents(listing.price) : "", mileage: listing.mileage || "", color: listing.color || "",
@@ -3573,7 +3663,7 @@ function EditListingModal({ listing, onCancel, onSave }) {
           <textarea style={styles.textarea} value={form.description} onChange={e => set("description", e.target.value)} rows={4} />
         </div>
         <div style={styles.modalActions}>
-          <button style={styles.cancelBtn} onClick={onCancel}>Cancel</button>
+          <button style={styles.cancelBtn} onClick={onCancel}>{t("common.cancel")}</button>
           <button style={{ ...styles.confirmBtn, opacity: saving ? 0.6 : 1 }} onClick={handleSave} disabled={saving}>{saving ? "Saving…" : "Save Changes"}</button>
         </div>
       </div>
@@ -5643,6 +5733,7 @@ const styles = {
   compareTableCellBest: { background: "#f0fdf4", color: "#15803d", fontWeight: 700, borderRadius: 6 },
   cardDesc: { fontSize: 13, color: "#374151", lineHeight: 1.5, marginBottom: 10 },
   vinRow: { fontSize: 12, color: "#6b7280", marginBottom: 12 },
+  translateLink: { background: "none", border: "none", padding: 0, marginTop: 6, color: "#1d4ed8", fontWeight: 600, fontSize: 13, cursor: "pointer", textDecoration: "underline" },
   vinLink: { color: "#1d4ed8", fontWeight: 600, textDecoration: "none" },
   refTag: { background: "#eff6ff", color: "#1d4ed8", fontSize: 12, fontWeight: 600, padding: "6px 10px", borderRadius: 8, marginBottom: 12 },
   escrowBox: { background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 10, padding: "10px 14px", marginBottom: 14 },
