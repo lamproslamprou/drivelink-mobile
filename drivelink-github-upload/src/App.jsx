@@ -4767,7 +4767,16 @@ function AdminView({ listings, users, referrals, reports, feedback, userReports,
   const visibleUsers = showDeletedUsers ? users : (users || []).filter(u => !u.deleted_at);
   const [markingSold, setMarkingSold] = useState(null);
   const [payingOut, setPayingOut] = useState(null);
-  const activeAndSold = listings.filter(l => l.status !== "archived");
+  // ── Test data toggle ──────────────────────────────────────────────────────
+  // Every listing created before real inventory arrived is flagged is_test.
+  // Left in, they put $15 of $5 test sales into GMV and made the dashboard
+  // useless as a read on the actual business. Off by default: the numbers
+  // should mean something at a glance. One click to see everything, because
+  // reconciling against Stripe needs the unfiltered set.
+  const [showTestData, setShowTestData] = useState(false);
+  const testCount = (listings || []).filter(l => l.is_test).length;
+  const scopedListings = showTestData ? listings : (listings || []).filter(l => !l.is_test);
+  const activeAndSold = scopedListings.filter(l => l.status !== "archived");
   const totalRevenue = activeAndSold.filter(l => l.status === "sold" || l.status === "pending_confirmation").reduce((s, l) => s + (l.sale_price || 0), 0);
   const platformEarnings = activeAndSold.filter(l => l.status === "sold").reduce((s, l) => s + (l.platform_fee || Math.round((l.sale_price || 0) * 0.01)), 0);
   const totalCommissions = referrals.filter(r => r.status === "paid").reduce((s, r) => s + (r.commission_amount || 0), 0);
@@ -4803,6 +4812,21 @@ function AdminView({ listings, users, referrals, reports, feedback, userReports,
   return (
     <div style={styles.pageWrap}>
       <h2 style={styles.pageTitle}>Admin Panel</h2>
+      {testCount > 0 && (
+        <div style={{ marginBottom: 12, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+          <button
+            style={{ ...styles.pendingBtn, ...(showTestData ? { background: "#dbeafe", color: "#1d4ed8" } : {}) }}
+            onClick={() => setShowTestData(v => !v)}
+          >
+            {showTestData ? "Hide test data" : `Include test data (${testCount})`}
+          </button>
+          <span style={{ fontSize: 12, color: "#6b7280" }}>
+            {showTestData
+              ? "Showing everything, including internal test listings."
+              : "Stats and listings below exclude internal test listings."}
+          </span>
+        </div>
+      )}
       <div style={styles.statsRow}>
         <StatBox label="Listings" value={activeAndSold.length} color="#1d4ed8" />
         <StatBox label="Active" value={activeAndSold.filter(l => l.status === "active").length} color="#16a34a" />
@@ -4849,8 +4873,8 @@ function AdminView({ listings, users, referrals, reports, feedback, userReports,
       {tab === "archived" && (
         <div style={styles.tableWrap}>
           <div style={styles.infoBox} >📦 Archived listings are stored here for audit purposes and cannot be seen by users.</div>
-          {listings.filter(l => l.status === "archived").length === 0 && <p style={{ color: "#6b7280", marginTop: 16 }}>No archived listings yet.</p>}
-          {listings.filter(l => l.status === "archived").map(l => (
+          {scopedListings.filter(l => l.status === "archived").length === 0 && <p style={{ color: "#6b7280", marginTop: 16 }}>No archived listings yet.</p>}
+          {scopedListings.filter(l => l.status === "archived").map(l => (
             <div key={l.id} style={styles.listingRow} className="app-listing-row">
               <img src={l.image} alt="" style={styles.rowImg} onError={e => { e.target.src = "https://images.unsplash.com/photo-1494976388531-d1058494cdd8?w=300&q=60"; }} />
               <div style={styles.rowInfo} className="app-row-info">
@@ -5135,7 +5159,7 @@ function AdminView({ listings, users, referrals, reports, feedback, userReports,
           ))}
         </div>
       )}
-      {tab === "analytics" && <AnalyticsView listings={listings} referrals={referrals} users={users} />}
+      {tab === "analytics" && <AnalyticsView listings={scopedListings} referrals={referrals} users={users} />}
       {tab === "danger" && <DangerZone onResetData={onResetData} />}
     </div>
   );
