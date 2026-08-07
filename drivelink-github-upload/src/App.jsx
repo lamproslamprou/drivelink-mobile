@@ -1691,7 +1691,27 @@ const denyFlaggedReferral = async (refId) => {
       <style>{css}</style>
       <nav style={styles.nav}>
         <div style={styles.navInner} className="app-nav-inner">
-          <div style={styles.logo} className="app-logo" onClick={() => { setView("home"); setHomeResetKey(k => k + 1); }}>
+          {/* Signed-out visitors go to the marketing landing page at "/" —
+              that's the page the domain resolves to and what they expect from
+              a logo. Signed-in users go to the browse grid instead: sending
+              someone who already has an account back to a "create an account"
+              pitch is a step backwards. Was a div with an onClick, so it was
+              unreachable by keyboard and invisible to screen readers. */}
+          <div
+            style={styles.logo}
+            className="app-logo"
+            role="button"
+            tabIndex={0}
+            aria-label="DriveLink — home"
+            onClick={() => { setView(currentUser ? "home" : "landing"); setHomeResetKey(k => k + 1); }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                setView(currentUser ? "home" : "landing");
+                setHomeResetKey(k => k + 1);
+              }
+            }}
+          >
             <img src={logoIcon} alt="DriveLink" style={styles.logoImg} />
             <span style={styles.logoText}>DriveLink</span>
           </div>
