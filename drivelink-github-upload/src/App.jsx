@@ -1248,7 +1248,14 @@ const denyFlaggedReferral = async (refId) => {
   // VIEW_PATHS / PATH_TO_VIEW / normalizePath live at module scope above, so
   // the initial view can be derived from the URL before the first paint.
   const navigate = (to, { replace = false } = {}) => {
-    if (window.location.pathname === to && !replace) return;
+    // No-op when we are already there, INCLUDING on replace. The old guard
+    // exempted replace, so every redirect-to-current-path still called
+    // replaceState and setPath. Several of the effects below call navigate on
+    // dependency arrays that change on every loadData(), so a redirect that
+    // should have settled instead re-fired on each refresh — enough history
+    // calls in a burst for Chrome to throttle navigation and for the page to
+    // visibly flash.
+    if (normalizePath(window.location.pathname) === normalizePath(to)) return;
     window.history[replace ? "replaceState" : "pushState"](null, "", to);
     setPath(to);
   };
@@ -1353,6 +1360,14 @@ const denyFlaggedReferral = async (refId) => {
       // it is checked here rather than trusted from the address bar. The admin
       // components are also gated on dbUser?.role separately — this only stops
       // the view from being entered at all.
+      // Wait for the profile before judging. dbUser is null for a moment after
+      // sign-in while loadDbUser() runs, and the old check read that null as
+      // "not an admin" — bouncing a real admin off /admin to /browse before
+      // their own record had arrived. Deciding nothing until dbUser resolves
+      // costs one render and makes the answer correct.
+      if (mapped === "admin" && currentUser && !dbUser) {
+        return;
+      }
       if (mapped === "admin" && dbUser?.role !== "admin") {
         navigate(currentUser ? VIEW_PATHS.home : VIEW_PATHS.landing, { replace: true });
       } else {
@@ -1360,7 +1375,9 @@ const denyFlaggedReferral = async (refId) => {
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [path, loading, listings, referrals, users, reviews, offers, currentUser]);
+    // dbUser is a dependency because the admin guard above defers until it
+    // loads — without it here, that early return would strand the view.
+  }, [path, loading, listings, referrals, users, reviews, offers, currentUser, dbUser]);
 
   // ── view → URL ──────────────────────────────────────────────────────────────
   // The other half of the sync. 39 setView() call sites throughout the app stay
