@@ -2099,29 +2099,29 @@ for (const l of allListings.filter(l => l.status === "active")) {
             value={vehicleType}
             onChange={e => { setVehicleType(e.target.value); setMake("all"); }}
           >
-            <option value="all">All types</option>
+            <option value="all">{t("browse.allTypes")}</option>
             {availableTypes.map(vt => (
               <option key={vt.value} value={vt.value}>{vt.emoji} {vt.label}</option>
             ))}
           </select>
         )}
         <select style={styles.selectInput} value={make} onChange={e => setMake(e.target.value)}>
-          <option value="all">All makes</option>
+          <option value="all">{t("browse.allMakes")}</option>
           {makes.map(m => <option key={m} value={m}>{m}</option>)}
         </select>
         <div style={styles.filterGroup}>
-          <label style={styles.filterLabel}>Max price: {fmt(maxPrice)}</label>
+          <label style={styles.filterLabel}>{t("browse.maxPrice")}: {fmt(maxPrice)}</label>
           <input type="range" min={500000} max={20000000} step={100000} value={maxPrice} onChange={e => setMaxPrice(+e.target.value)} style={styles.rangeInput} />
         </div>
         <div style={styles.filterGroup}>
-          <label style={styles.filterLabel}>Max mileage: {maxMileage.toLocaleString()} mi</label>
+          <label style={styles.filterLabel}>{t("browse.maxMileage")}: {maxMileage.toLocaleString()} {t("card.mi")}</label>
           <input type="range" min={0} max={300000} step={5000} value={maxMileage} onChange={e => setMaxMileage(+e.target.value)} style={styles.rangeInput} />
         </div>
-        <input style={{ ...styles.searchInput, minWidth: 140 }} placeholder="City or ZIP…" value={location} onChange={e => setLocation(e.target.value)} />
+        <input style={{ ...styles.searchInput, minWidth: 140 }} placeholder={t("browse.locationPlaceholder")} value={location} onChange={e => setLocation(e.target.value)} />
         <select style={styles.selectInput} value={sort} onChange={e => setSort(e.target.value)}>
-          <option value="newest">Newest first</option>
-          <option value="priceLow">Price: low to high</option>
-          <option value="priceHigh">Price: high to low</option>
+          <option value="newest">{t("browse.sortNewest")}</option>
+          <option value="priceLow">{t("browse.sortPriceLow")}</option>
+          <option value="priceHigh">{t("browse.sortPriceHigh")}</option>
         </select>
         <div style={styles.viewToggle}>
           <button style={{ ...styles.viewToggleBtn, ...(mode === "grid" ? styles.viewToggleBtnActive : {}) }} onClick={() => setMode("grid")}>⊞ Grid</button>
@@ -2144,8 +2144,8 @@ for (const l of allListings.filter(l => l.status === "active")) {
           {filtered.length === 0 && (
             <div style={{ gridColumn: "1/-1", textAlign: "center", padding: "60px 0", color: "#6b7280" }}>
               <div style={{ fontSize: 48, marginBottom: 16 }}>🚗</div>
-              <div style={{ fontSize: 18, fontWeight: 600, marginBottom: 8 }}>No listings match your filters</div>
-              <div style={{ fontSize: 14 }}>Try widening your search.</div>
+              <div style={{ fontSize: 18, fontWeight: 600, marginBottom: 8 }}>{t("browse.noMatch")}</div>
+              <div style={{ fontSize: 14 }}>{t("browse.widenSearch")}</div>
             </div>
           )}
           {filtered.map(l => {
@@ -2216,7 +2216,7 @@ for (const l of allListings.filter(l => l.status === "active")) {
             >
               ⚖️ Compare ({compareIds.length})
             </button>
-            <button type="button" style={styles.compareBarClear} onClick={() => setCompareIds([])}>Clear</button>
+            <button type="button" style={styles.compareBarClear} onClick={() => setCompareIds([])}>{t("browse.clear")}</button>
           </div>
         </div>
       )}
@@ -2267,8 +2267,8 @@ function CarCard({ listing, seller, avgPrice, similarCount, onSeeSimilar, curren
       <div style={{ ...styles.cardImgWrap, cursor: onOpenListing ? "pointer" : "default" }} onClick={() => onOpenListing?.()}>
         <img src={cover} alt={`${listing.make} ${listing.model}`} style={styles.cardImg} onError={e => { e.target.src = "https://images.unsplash.com/photo-1494976388531-d1058494cdd8?w=600&q=80"; }} />
         <div style={styles.cardPrice}>{fmt(listing.price)}</div>
-        {listing.status === "pending" && <div style={styles.pendingRibbon}>Sale Pending</div>}
-        {isStale && <div style={{ ...styles.pendingRibbon, background: "#6b7280", top: listing.status === "pending" ? 40 : 12 }}>Seller Inactive</div>}
+        {listing.status === "pending" && <div style={styles.pendingRibbon}>{t("card.salePending")}</div>}
+        {isStale && <div style={{ ...styles.pendingRibbon, background: "#6b7280", top: listing.status === "pending" ? 40 : 12 }}>{t("card.sellerInactive")}</div>}
         {onToggleFavorite && (
           <button
             type="button"
@@ -2283,12 +2283,12 @@ function CarCard({ listing, seller, avgPrice, similarCount, onSeeSimilar, curren
       <div style={styles.cardBody}>
         <div style={styles.cardTitleRow}>
           <div style={{ ...styles.cardTitle, cursor: onOpenListing ? "pointer" : "default" }} onClick={() => onOpenListing?.()}>{listing.year} {listing.make} {listing.model}</div>
-          {seller?.verified && <span style={styles.verifiedBadge} title="Verified seller">✓ Verified</span>}
-          {!seller?.verified && listing.price >= HIGH_VALUE_LISTING_THRESHOLD && <span style={styles.unverifiedBadge} title="This seller hasn't completed identity verification">🔒 Unverified Seller</span>}
+          {seller?.verified && <span style={styles.verifiedBadge} title={t("card.verifiedTitle")}>✓ {t("card.verified")}</span>}
+          {!seller?.verified && listing.price >= HIGH_VALUE_LISTING_THRESHOLD && <span style={styles.unverifiedBadge} title={t("card.unverifiedTitle")}>🔒 {t("card.unverifiedSeller")}</span>}
           {sellerRating != null && <span style={styles.ratingBadge} title={`${sellerReviewCount} review${sellerReviewCount === 1 ? "" : "s"}`}>⭐ {sellerRating.toFixed(1)} ({sellerReviewCount})</span>}
         </div>
         <div style={styles.cardMeta}>
-          <span>🛣 {listing.mileage?.toLocaleString()} mi</span>
+          <span>🛣 {listing.mileage?.toLocaleString()} {t("card.mi")}</span>
           <span>🎨 {listing.color}</span>
           {listing.location_text && <span>📍 {listing.location_text}</span>}
         </div>
@@ -2326,7 +2326,7 @@ function CarCard({ listing, seller, avgPrice, similarCount, onSeeSimilar, curren
           )}
           {currentUser && !isOwnListing && (
             <button style={{ ...styles.shareBtn, background: copied ? "#16a34a" : "#1d4ed8" }} onClick={handleShare}>
-              {copied ? "✓ Link copied!" : myRef ? "Share Again" : "Share & Earn 1%"}
+              {copied ? "✓ " + t("card.linkCopied") : myRef ? t("card.shareAgain") : t("card.shareEarn")}
             </button>
           )}
           {!currentUser && (
@@ -2336,32 +2336,32 @@ function CarCard({ listing, seller, avgPrice, similarCount, onSeeSimilar, curren
         {currentUser && !isOwnListing && onMakeOffer && (
           myOffer ? (
             <div style={styles.offerStatusRow}>
-              {myOffer.status === "pending" && <span>💰 Your offer of {fmt(myOffer.amount)} is pending</span>}
-              {myOffer.status === "countered" && <span>💰 Seller countered at {fmt(myOffer.counter_amount)}</span>}
+              {myOffer.status === "pending" && <span>💰 {t("card.offerPending", { amount: fmt(myOffer.amount) })}</span>}
+              {myOffer.status === "countered" && <span>💰 {t("card.offerCountered", { amount: fmt(myOffer.counter_amount) })}</span>}
               {myOffer.status === "accepted" && (
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                  <span>✅ Offer of {fmt(myOffer.amount)} accepted!</span>
-                  <button style={styles.buyBtn} onClick={() => onBuy(listing)}>Complete Purchase — {fmt(myOffer.amount)}</button>
+                  <span>✅ {t("card.offerAccepted", { amount: fmt(myOffer.amount) })}</span>
+                  <button style={styles.buyBtn} onClick={() => onBuy(listing)}>{t("card.completePurchase")} — {fmt(myOffer.amount)}</button>
                 </div>
               )}
-              {myOffer.status === "declined" && <span>Offer declined</span>}
-              {myOffer.status === "withdrawn" && <span>Offer withdrawn</span>}
+              {myOffer.status === "declined" && <span>{t("card.offerDeclined")}</span>}
+              {myOffer.status === "withdrawn" && <span>{t("card.offerWithdrawn")}</span>}
             </div>
           ) : (
-            <button style={styles.offerBtn} onClick={() => setOffering(true)}>💰 Make an Offer</button>
+            <button style={styles.offerBtn} onClick={() => setOffering(true)}>💰 {t("card.makeOffer")}</button>
           )
         )}
         {currentUser && !isOwnListing && (
           <div style={styles.cardSecondaryActions}>
-            <button style={styles.messageLink} onClick={() => onMessageSeller(listing)}>💬 Message seller</button>
-            <button style={styles.reportLink} onClick={() => setReporting(true)}>🚩 Report</button>
+            <button style={styles.messageLink} onClick={() => onMessageSeller(listing)}>💬 {t("card.messageSeller")}</button>
+            <button style={styles.reportLink} onClick={() => setReporting(true)}>🚩 {t("card.report")}</button>
             {onToggleBlock && (
               <button style={styles.reportLink} onClick={() => onToggleBlock(listing.seller_id)}>
-                {isBlocked ? "✅ Unblock seller" : "🚫 Block seller"}
+                {isBlocked ? "✅ " + t("card.unblockSeller") : "🚫 " + t("card.blockSeller")}
               </button>
             )}
             {onReportUser && (
-              <button style={styles.reportLink} onClick={() => setReportingUser(true)}>⚠️ Report seller</button>
+              <button style={styles.reportLink} onClick={() => setReportingUser(true)}>⚠️ {t("card.reportSeller")}</button>
             )}
           </div>
         )}
@@ -2517,8 +2517,8 @@ function ListingDetailModal({ data, currentUser, isFavorited, isBlocked, onClose
         <div style={styles.detailBody}>
           <div style={styles.cardTitleRow}>
             <div style={{ fontSize: 24, fontWeight: 800, color: "#0f172a" }}>{listing.year} {listing.make} {listing.model}</div>
-            {seller?.verified && <span style={styles.verifiedBadge} title="Verified seller">✓ Verified</span>}
-            {!seller?.verified && listing.price >= HIGH_VALUE_LISTING_THRESHOLD && <span style={styles.unverifiedBadge} title="This seller hasn't completed identity verification">🔒 Unverified Seller</span>}
+            {seller?.verified && <span style={styles.verifiedBadge} title={t("card.verifiedTitle")}>✓ {t("card.verified")}</span>}
+            {!seller?.verified && listing.price >= HIGH_VALUE_LISTING_THRESHOLD && <span style={styles.unverifiedBadge} title={t("card.unverifiedTitle")}>🔒 {t("card.unverifiedSeller")}</span>}
             {sellerRating != null && <span style={styles.ratingBadge}>⭐ {sellerRating.toFixed(1)} ({sellerReviewCount})</span>}
           </div>
           <div style={{ fontSize: 26, fontWeight: 800, color: "#0f172a", margin: "6px 0 14px" }}>{fmt(listing.price)}</div>
@@ -2549,7 +2549,7 @@ function ListingDetailModal({ data, currentUser, isFavorited, isBlocked, onClose
           )}
 
           <div style={styles.cardMeta}>
-            <span>🛣 {listing.mileage?.toLocaleString()} mi</span>
+            <span>🛣 {listing.mileage?.toLocaleString()} {t("card.mi")}</span>
             <span>🎨 {listing.color}</span>
             {listing.location_text && <span>📍 {listing.location_text}</span>}
             {seller?.name && <span>👤 Sold by {seller.name}</span>}
@@ -2569,7 +2569,7 @@ function ListingDetailModal({ data, currentUser, isFavorited, isBlocked, onClose
             {currentUser && !isOwnListing && payoutsReady && <button style={styles.buyBtn} onClick={() => onBuy(listing)}>💳 {t("action.buyNow")}</button>}
             {currentUser && !isOwnListing && (
               <button style={{ ...styles.shareBtn, background: copied ? "#16a34a" : "#1d4ed8" }} onClick={handleShare}>
-                {copied ? "✓ Link copied!" : myRef ? "Share Again" : "Share & Earn 1%"}
+                {copied ? "✓ " + t("card.linkCopied") : myRef ? t("card.shareAgain") : t("card.shareEarn")}
               </button>
             )}
             {!currentUser && <button style={styles.buyBtn} onClick={onSignIn}>{t("action.signInToBuy")}</button>}
@@ -2595,19 +2595,19 @@ function ListingDetailModal({ data, currentUser, isFavorited, isBlocked, onClose
           {currentUser && !isOwnListing && onMakeOffer && (
             myOffer ? (
               <div style={styles.offerStatusRow}>
-                {myOffer.status === "pending" && <span>💰 Your offer of {fmt(myOffer.amount)} is pending</span>}
-                {myOffer.status === "countered" && <span>💰 Seller countered at {fmt(myOffer.counter_amount)}</span>}
+                {myOffer.status === "pending" && <span>💰 {t("card.offerPending", { amount: fmt(myOffer.amount) })}</span>}
+                {myOffer.status === "countered" && <span>💰 {t("card.offerCountered", { amount: fmt(myOffer.counter_amount) })}</span>}
                 {myOffer.status === "accepted" && (
                   <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                    <span>✅ Offer accepted!</span>
+                    <span>✅ {t("card.offerAcceptedShort")}</span>
                     {payoutsReady
-                      ? <button style={styles.buyBtn} onClick={() => onBuy(listing)}>Complete Purchase — {fmt(myOffer.amount)}</button>
-                      : <span style={{ fontSize: 12, color: "#b45309" }}>Waiting on the seller to finish payout setup before you can pay.</span>}
+                      ? <button style={styles.buyBtn} onClick={() => onBuy(listing)}>{t("card.completePurchase")} — {fmt(myOffer.amount)}</button>
+                      : <span style={{ fontSize: 12, color: "#b45309" }}>{t("card.awaitingPayouts")}</span>}
                   </div>
                 )}
               </div>
             ) : (
-              <button style={styles.offerBtn} onClick={() => setOffering(true)}>💰 Make an Offer</button>
+              <button style={styles.offerBtn} onClick={() => setOffering(true)}>💰 {t("card.makeOffer")}</button>
             )
           )}
 
@@ -2615,11 +2615,11 @@ function ListingDetailModal({ data, currentUser, isFavorited, isBlocked, onClose
 
           {currentUser && !isOwnListing && (
             <div style={styles.cardSecondaryActions}>
-              <button style={styles.messageLink} onClick={() => onMessageSeller(listing)}>💬 Message seller</button>
-              <button style={styles.reportLink} onClick={() => setReporting(true)}>🚩 Report</button>
+              <button style={styles.messageLink} onClick={() => onMessageSeller(listing)}>💬 {t("card.messageSeller")}</button>
+              <button style={styles.reportLink} onClick={() => setReporting(true)}>🚩 {t("card.report")}</button>
               {onToggleBlock && (
                 <button style={styles.reportLink} onClick={() => onToggleBlock(listing.seller_id)}>
-                  {isBlocked ? "✅ Unblock seller" : "🚫 Block seller"}
+                  {isBlocked ? "✅ " + t("card.unblockSeller") : "🚫 " + t("card.blockSeller")}
                 </button>
               )}
             </div>
@@ -2782,6 +2782,7 @@ function SavedSearchesView({ savedSearches, onDelete, onBrowse }) {
 }
 
 function FavoritesView({ favorites, listings, users, referrals, currentUser, onShare, onBuy, onMessageSeller, onReport, onToggleFavorite, onBrowse, onOpenListing }) {
+  const { t } = useLang();
   const favoritedListings = favorites
     .map(f => listings.find(l => l.id === f.listing_id))
     .filter(Boolean);
@@ -2861,7 +2862,7 @@ function FavoritesView({ favorites, listings, users, referrals, currentUser, onS
             >
               ⚖️ Compare ({compareIds.length})
             </button>
-            <button type="button" style={styles.compareBarClear} onClick={() => setCompareIds([])}>Clear</button>
+            <button type="button" style={styles.compareBarClear} onClick={() => setCompareIds([])}>{t("browse.clear")}</button>
           </div>
         </div>
       )}
