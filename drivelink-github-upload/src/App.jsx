@@ -1032,15 +1032,26 @@ const denyFlaggedReferral = async (refId) => {
   };
 
   // ── Remove listing (admin)
+  // The error check is not optional. Without it this reported "Listing
+  // archived." whether or not the write landed — a guard trigger rejection,
+  // an RLS denial and a success all looked identical from the dashboard.
   const archiveListing = async (listingId) => {
-    await supabase.from("listings").update({ status: "archived", archived_at: new Date().toISOString() }).eq("id", listingId);
+    const { error } = await supabase
+      .from("listings")
+      .update({ status: "archived", archived_at: new Date().toISOString() })
+      .eq("id", listingId);
+    if (error) { showToast(error.message || "Couldn't archive that listing.", "error"); return; }
     await loadData();
     showToast("Listing archived.");
   };
 
   // ── Seller toggles their own listing between active/pending (e.g. "sale in progress")
   const setListingStatus = async (listingId, status) => {
-    await supabase.from("listings").update({ status, last_active_at: new Date().toISOString() }).eq("id", listingId);
+    const { error } = await supabase
+      .from("listings")
+      .update({ status, last_active_at: new Date().toISOString() })
+      .eq("id", listingId);
+    if (error) { showToast(error.message || "Couldn't update that listing.", "error"); return; }
     await loadData();
     showToast(status === "pending" ? "Listing marked as pending." : "Listing is active again.");
   };
