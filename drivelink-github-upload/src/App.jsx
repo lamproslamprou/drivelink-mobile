@@ -1273,7 +1273,7 @@ const denyFlaggedReferral = async (refId) => {
 
     // Fire and forget. A failed view count must never interfere with actually
     // showing someone the car — the whole feature is decoration compared to
-    // that. Dedupe (one per viewer per listing per day, seller's own views
+    // that. Dedupe (one row per viewer per listing, ever — seller's own views
     // excluded) happens in record_listing_view, not here.
     try {
       let key = localStorage.getItem("dl_viewer_key");
@@ -1796,8 +1796,13 @@ function SafetyTipsView({ onBack }) {
           <p>Bring a friend or family member if you can. If you're going alone, tell someone where you're headed, who you're meeting, and when you expect to be back.</p>
 
           <h2>Before you hand over the car or the money</h2>
-          <p>Buyers: verify the VIN on the dashboard or door frame matches the listing, and confirm the seller's ID matches the name on the title. Sellers: confirm payment has actually cleared before handing over keys — don't rely on a screenshot of a payment as proof.</p>
-          <p>Only confirm receipt in DriveLink (which finalizes the sale and releases the promoter's commission) after you've actually inspected the car in person and are satisfied.</p>
+          <p>Buyers: verify the VIN on the dashboard or door frame matches the listing, and confirm the seller's ID matches the name on the title. Sellers: your payment is already held by DriveLink before you meet — you don't need to accept a check, a screenshot, or a promise.</p>
+
+          <h2>Your handover code</h2>
+          <p>When a buyer pays, DriveLink gives them a 6-digit handover code. That code is the key to the money: the moment the seller enters it, the funds are released and the sale is final.</p>
+          <p><strong>Buyers — do not give out your code until the car and the signed title are physically in your hands.</strong> Not when you arrive, not while you're inspecting, not as a gesture of good faith. A seller who asks for it early is asking to be paid before you have anything. Read it out in person rather than texting it.</p>
+          <p>Sellers — ask for the code once the buyer has taken the car and the signed title. Entering it pays you immediately.</p>
+          <p>If something isn't right, don't hand over the code. Report a problem in DriveLink instead and we'll hold the funds while we look into it. Nothing is released automatically, so there's no clock forcing you to decide on the spot.</p>
 
           <h2>Trust your instincts</h2>
           <p>If something feels off — pressure to rush, reluctance to meet in public, requests for unusual payment methods — it's okay to walk away. You can always report a listing or a user directly from DriveLink if something seems wrong.</p>
@@ -1840,8 +1845,10 @@ function SuccessView({ onHome }) {
     <div style={{ textAlign: "center", padding: "80px 24px" }}>
       <div style={{ fontSize: 64, marginBottom: 24 }}>🎉</div>
       <h2 style={{ fontSize: 32, fontWeight: 800, color: "#0f172a", marginBottom: 12 }}>Payment Successful!</h2>
-      <p style={{ fontSize: 16, color: "#6b7280", marginBottom: 8 }}>Your purchase is confirmed. The seller will be in touch shortly.</p>
-      <p style={{ fontSize: 14, color: "#6b7280", marginBottom: 32 }}>Referral commissions will be processed within 24 hours.</p>
+      <p style={{ fontSize: 16, color: "#6b7280", marginBottom: 8 }}>Your payment is held safely by DriveLink — the seller has not been paid yet.</p>
+      <p style={{ fontSize: 14, color: "#6b7280", marginBottom: 32, maxWidth: 520, marginLeft: "auto", marginRight: "auto", lineHeight: 1.6 }}>
+        We've emailed you a <strong>6-digit handover code</strong>, and it's on your Purchases page. Give it to the seller only once the car and the signed title are in your hands — that's what releases the money.
+      </p>
       <button style={styles.confirmBtn} onClick={onHome}>Back to Browse</button>
     </div>
   );
@@ -2839,13 +2846,27 @@ function MyListingsView({ listings, referrals, users, offers, stats, onMarkSold,
                     const views = s?.view_count ?? 0;
                     const saves = s?.favorite_count ?? 0;
                     const recent = s?.views_7d ?? 0;
+
+                    // Below this, a precise number does more harm than good. A
+                    // brand-new listing legitimately sitting at 3 views reads as
+                    // failure to the person who just spent twenty minutes
+                    // photographing their car, and the honest signal at that
+                    // point ("too early to tell") is not what "3" communicates.
+                    // Admins see the raw number via listing_stats regardless.
+                    const MIN_VIEWS_TO_SHOW = 10;
+
+                    if (views < MIN_VIEWS_TO_SHOW) {
+                      return (
+                        <div style={{ fontSize: 13, color: "#6b7280", marginTop: 4 }}>
+                          Just listed — not enough activity yet to show numbers. Sharing your link is the fastest way to get eyes on it.
+                        </div>
+                      );
+                    }
+
                     return (
                       <div style={{ fontSize: 13, color: "#6b7280", marginTop: 4, display: "flex", gap: 14, flexWrap: "wrap" }}>
                         <span>👁 {views} view{views === 1 ? "" : "s"}{recent > 0 && views !== recent ? ` (${recent} this week)` : ""}</span>
                         <span>❤️ {saves} save{saves === 1 ? "" : "s"}</span>
-                        {views === 0 && (
-                          <span style={{ color: "#b45309" }}>Not seen yet — share the link to get eyes on it</span>
-                        )}
                       </div>
                     );
                   })()}

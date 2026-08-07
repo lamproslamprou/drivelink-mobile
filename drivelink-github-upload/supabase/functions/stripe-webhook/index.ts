@@ -92,6 +92,7 @@ import {
   corsHeaders,
   jsonResponse,
   notifyAdmin,
+  sendEmail,
   alertHtml,
   money,
   stripeClient,
@@ -388,8 +389,8 @@ Deno.serve(async (req) => {
         : feeWasEstimated
         ? `Stripe's balance_transaction wasn't readable, so the processing fee above is an ESTIMATE. Compare it to the real fee on the payment in Stripe and adjust seller_net before release if it's off.`
         : handoverDate
-        ? `Handover is agreed for ${handoverDate}, so funds auto-release on ${releaseAt.toISOString().slice(0, 10)} — ${AUTO_RELEASE_DAYS} days after the car changes hands, not after payment. The buyer can confirm or dispute before then.`
-        : `Funds auto-release in ${AUTO_RELEASE_DAYS} days unless the buyer confirms or disputes first.`;
+        ? `Handover is agreed for ${handoverDate}. Funds do NOT release on a timer — the buyer confirms receipt, or the seller enters the buyer's handover code. If neither happens by ${releaseAt.toISOString().slice(0, 10)}, the sale is escalated to you for manual review.`
+        : `Funds do NOT release on a timer — the buyer confirms receipt, or the seller enters the buyer's handover code. If neither happens by ${releaseAt.toISOString().slice(0, 10)}, the sale is escalated to you for manual review.`;
 
       notifyAdmin({
         subject,
@@ -402,7 +403,7 @@ Deno.serve(async (req) => {
             ...(handoverDate
               ? [["Handover agreed for", handoverDate] as [string, unknown]]
               : []),
-            ["Funds auto-release", releaseAt.toISOString().slice(0, 10)],
+            ["Escalates to review", releaseAt.toISOString().slice(0, 10)],
             ["Sale price", money(salePrice)],
             ["Platform fee (1%)", money(platformFee)],
             [
@@ -415,12 +416,72 @@ Deno.serve(async (req) => {
             ["Seller net", money(sellerNet)],
             ["Buyer", `${buyerRow?.name ?? "—"} (${buyerRow?.email ?? "—"})`],
             ["Seller", `${sellerRow?.name ?? "—"} (${sellerRow?.email ?? "—"})`],
-            ["Auto-release", todayET(releaseAt)],
+            ["Review deadline", todayET(releaseAt)],
             ["Listing ID", listing_id],
           ],
           footnote,
         ),
       });
+
+      // ── Buyer's handover code + seller's heads-up ────────────────────────
+      // The code is created by trg_issue_handover_code, which fires on the
+      // status flip to pending_confirmation in the UPDATE above — so it exists
+      // by the time this SELECT runs. Read it back rather than generating one
+      // here: two sources of truth for a release credential is how you end up
+      // with a buyer holding a code the seller's entry will never match.
+      //
+      // Sent even though the app shows the code too. Email is the buyer's copy
+      // of record at a parking lot with no signal, which is exactly where this
+      // gets used.
+      //
+      // WARNING FOR THE ACH WORK: this block must move to
+      // checkout.session.async_payment_succeeded before us_bank_account is
+      // added to payment_method_types. On a delayed-notification method,
+      // checkout.session.completed fires days before the money settles, and
+      // mailing the code here would let a buyer take delivery of a car against
+      // a payment that can still fail.
+      if (!listingErr) {
+        const { data: handover } = await supabase
+          .from("escrow_handovers")
+          .select("code")
+          .eq("listing_id", listing_id)
+          .maybeSingle();
+
+        if (handover?.code && buyerRow?.email) {
+          await sendEmail({
+            to: buyerRow.email,
+            subject: `Your handover code for the ${carLabel}`,
+            html: `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;color:#0f172a;max-width:520px;">
+              <h2 style="font-size:18px;margin:0 0 14px;">Payment received — your money is held safely</h2>
+              <p style="font-size:15px;line-height:1.55;">We're holding your ${money(salePrice)} for the <b>${carLabel}</b>. The seller has not been paid.</p>
+              <div style="background:#FFF8E7;border:1px solid #FFB020;border-radius:8px;padding:16px;margin:20px 0;">
+                <div style="font-size:12px;font-weight:700;color:#7c5000;letter-spacing:0.5px;">YOUR HANDOVER CODE</div>
+                <div style="font-size:32px;font-family:monospace;letter-spacing:8px;font-weight:700;margin:8px 0;">${handover.code}</div>
+                <div style="font-size:14px;color:#7c5000;line-height:1.6;">
+                  Give this to the seller <b>only after</b> the car and the signed title are in your hands. The moment they enter it, the money is theirs.<br><br>
+                  <b>Don't text or email it. Read it out in person.</b>
+                </div>
+              </div>
+              <p style="font-size:14px;line-height:1.55;color:#374151;">If something isn't right, don't give out the code — report a problem at <a href="https://drivelink.deals" style="color:#B87300;">drivelink.deals</a> instead and we'll hold the funds while we look into it.</p>
+              <p style="font-size:12px;color:#6b7280;margin-top:24px;">DriveLink · drivelink.deals</p>
+            </div>`,
+          });
+        }
+
+        if (sellerRow?.email) {
+          await sendEmail({
+            to: sellerRow.email,
+            subject: `Payment received for your ${carLabel}`,
+            html: `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;color:#0f172a;max-width:520px;">
+              <h2 style="font-size:18px;margin:0 0 14px;">The buyer has paid — ${money(salePrice)} is in escrow</h2>
+              <p style="font-size:15px;line-height:1.55;">Your net proceeds of <b>${money(sellerNet)}</b> are held by DriveLink and released when the handover is confirmed.</p>
+              <p style="font-size:15px;line-height:1.55;">The buyer has a <b>6-digit handover code</b>. Once they have the car and the signed title, ask them for it and enter it on your listing — that releases your funds straight away. They can also confirm receipt themselves in the app.</p>
+              <p style="font-size:14px;line-height:1.55;color:#374151;">Nothing releases automatically. If neither happens, we'll check in with both of you.</p>
+              <p style="font-size:12px;color:#6b7280;margin-top:24px;">DriveLink · drivelink.deals</p>
+            </div>`,
+          });
+        }
+      }
     }
 
     if (event.type === "account.updated") {

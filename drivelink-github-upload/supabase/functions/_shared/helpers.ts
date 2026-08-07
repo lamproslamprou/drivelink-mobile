@@ -187,7 +187,9 @@ export function alertHtml(title: string, rows: Array<[string, unknown]>, footer?
 //
 // Decides which Scout (if any) earns the commission on a completed sale, and
 // credits them. Lives here because BOTH release paths need identical behavior:
-// release-funds (buyer confirmed) and auto-release-cron (7 days elapsed). They
+// release-funds (buyer confirmed) and confirm-handover (seller entered the
+// buyer's code). auto-release-cron no longer settles anything — as of
+// 2026-08-06 it only escalates silent sales to manual review. They
 // had drifted — auto-release-cron still used .maybeSingle(), which errors when
 // two Scouts shared the same listing, silently paying nobody, and skipped the
 // self-referral check entirely. A sale settling differently depending on
@@ -304,4 +306,9 @@ export async function settleReferral(
 // in App.jsx. Keep these two files in sync if you ever change the percentages.
 export const PLATFORM_FEE = 0.01;
 export const PROMOTER_FEE = 0.01;
+// Days from payment (or from the agreed handover date, whichever is later)
+// before an unconfirmed sale is escalated to manual review. This has NOT
+// released funds since 2026-08-06 — the name is kept because stripe-webhook,
+// create-checkout-session and the guard trigger all reference auto_release_at,
+// and renaming it buys nothing. See auto-release-cron for what it now drives.
 export const AUTO_RELEASE_DAYS = 7;
