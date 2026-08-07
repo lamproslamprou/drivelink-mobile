@@ -5641,8 +5641,22 @@ const css = `
     .app-hero-stats { gap: 20px !important; flex-wrap: wrap; }
     .app-grid { grid-template-columns: 1fr !important; }
     .app-form-grid { grid-template-columns: 1fr !important; }
+    /* The inline style on rowInfo is "flex: 1", and the shorthand expands to
+       flex-basis: 0%. An inline declaration outranks a stylesheet one, so the
+       old "flex-basis: 100%" here silently never applied — the info block kept
+       sharing one line with the image, the status pill and every button, and
+       got crushed into a column a few words wide. "order: 1" was NOT
+       overridden (different property), so the text also rendered AFTER the
+       buttons. Hence: image left, buttons stranded mid-row, title and price
+       squeezed down the right-hand edge.
+
+       Fix is the "flex" shorthand with !important so it beats the inline
+       rule, and dropping "order" so the DOM sequence (image, info, pill, buttons)
+       holds. The basis is calc(100% - 96px) = the row minus the 80px thumbnail
+       and the 16px gap: image and text share line one, everything after wraps
+       to line two. */
     .app-listing-row { flex-wrap: wrap; }
-    .app-row-info { flex-basis: 100%; order: 1; }
+    .app-row-info { flex: 1 1 calc(100% - 96px) !important; }
   }
 
   @media (max-width: 480px) {
