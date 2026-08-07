@@ -81,7 +81,7 @@ const dict = {
 
     // ── Escrow / trust ───────────────────────────────────────────────────
     "escrow.title": "🔒 Escrow protected",
-    "escrow.body": "Your payment is held securely — it isn't released to the seller until you confirm you have the car and the signed title. Both sides are ID verified, and we generate the bill of sale for you.",
+    "escrow.body": "Your payment is held securely — it isn't released to the seller until you confirm you have the car and the signed title. Both sides can verify their identity through Stripe, and verified sellers carry a badge on their listings.",
     "escrow.notReady.title": "⏳ Checkout not available yet",
 
     // ── Selling / fees ───────────────────────────────────────────────────
@@ -169,7 +169,7 @@ const dict = {
     "home.searchPlaceholder": "Busca marca, modelo, año…",
 
     "escrow.title": "🔒 Pago protegido",
-    "escrow.body": "Tu pago se guarda de forma segura — no se le entrega al vendedor hasta que confirmes que tienes el carro y el título firmado. Ambas partes verifican su identidad, y nosotros generamos el contrato de compraventa.",
+    "escrow.body": "Tu pago se guarda de forma segura — no se le entrega al vendedor hasta que confirmes que tienes el carro y el título firmado. Ambas partes pueden verificar su identidad con Stripe, y los vendedores verificados llevan una insignia en sus anuncios.",
     "escrow.notReady.title": "⏳ La compra aún no está disponible",
 
     "sell.pageTitle": "Publica un carro en venta",

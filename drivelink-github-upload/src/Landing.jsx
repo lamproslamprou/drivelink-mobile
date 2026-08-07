@@ -54,8 +54,7 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn }) {
 
           <div style={styles.trustStrip} className="dl-trust-strip">
             <span style={styles.trustItem}>🔒 Funds held by Stripe</span>
-            <span style={styles.trustItem}>🪪 ID verified</span>
-            <span style={styles.trustItem}>📄 Bill of sale included</span>
+            <span style={styles.trustItem}>🪪 ID verification available</span>
             <span style={styles.trustItem}>✅ No fee if the deal falls through</span>
           </div>
 
@@ -191,7 +190,7 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn }) {
               <h4 style={styles.escrowTitle}>Keys change hands, funds release</h4>
               <p style={styles.escrowDesc}>
                 The buyer confirms they have the car and signed title. Funds transfer to the seller,
-                usually same day. We generate the bill of sale for both of you.
+                usually same day. Both of you get a receipt for the completed sale.
               </p>
             </div>
           </div>
@@ -243,7 +242,7 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn }) {
               <ul style={styles.roleList}>
                 <li>✅ Direct from owners</li>
                 <li>✅ Money held until you have the keys</li>
-                <li>✅ Seller ID verified</li>
+                <li>✅ Seller ID verification available</li>
               </ul>
               <button style={styles.roleBtn} onClick={onBrowse}>Browse Cars →</button>
             </div>
@@ -289,7 +288,7 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn }) {
           <h2 style={styles.assureTitle} className="dl-assure-title">You don't have to ask whether it's the safe kind of deal.</h2>
           <p style={styles.assureText}>
             There's no premium tier and nothing to opt into. Every car on DriveLink closes the same
-            way — escrow, verified IDs on both sides, and a bill of sale generated for you. That's
+            way — the buyer's money held in escrow until the keys and title change hands. That's
             the only way to buy or sell here.
           </p>
           <button style={styles.assureBtn} onClick={onBrowse}>Browse cars →</button>
