@@ -284,6 +284,13 @@ export default function App() {
   const [riskFlags, setRiskFlags] = useState({});
   const [viewingListing, setViewingListing] = useState(null); // { listing, seller, myRef, sellerRating, sellerReviewCount, myOffer }
   const [path, setPath] = usePath();
+  // Set by the URL→view effect immediately before it calls setView, and read
+  // by the view→URL effect to suppress the write-back. Both effects run in the
+  // SAME commit after a popstate, and at that moment the second one still
+  // closes over the OLD view — so without this it "corrects" the address bar
+  // straight back to where the user just navigated away from. That fight is
+  // what the flash on back-from-/start-deal was.
+  const syncingFromUrl = useRef(false);
   // Bring-your-own-deal invite links: /d/:token. Kept separate from the main
   // route-resolution effect below because that one waits on `loading`, and the
   // join page fetches its own data through the accept-deal-invite function —
@@ -1469,6 +1476,10 @@ const denyFlaggedReferral = async (refId) => {
       if (mapped === "admin" && dbUser?.role !== "admin") {
         navigate(currentUser ? VIEW_PATHS.home : VIEW_PATHS.landing, { replace: true });
       } else {
+        // The URL is the source of truth for this change. Tell the view→URL
+        // effect to stand down for this commit — it is about to run with the
+        // pre-setView value and would otherwise navigate straight back.
+        syncingFromUrl.current = true;
         setView(mapped);
       }
     }
@@ -1487,6 +1498,13 @@ const denyFlaggedReferral = async (refId) => {
   // /listing/abc to /browse and break sharing the link you are looking at.
   useEffect(() => {
     if (loading) return;
+    // A popstate just drove the view. `view` in this closure is still the old
+    // one, so any navigate() here would undo the user's back button. Clear the
+    // flag and let the next commit — where view and path agree — run normally.
+    if (syncingFromUrl.current) {
+      syncingFromUrl.current = false;
+      return;
+    }
     const target = VIEW_PATHS[view];
     if (!target) return;
     const current = normalizePath(window.location.pathname);
