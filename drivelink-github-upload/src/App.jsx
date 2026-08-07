@@ -1509,27 +1509,32 @@ const denyFlaggedReferral = async (refId) => {
     </>
   );
 
-  if (!currentUser && view === "auth") return (
-    <Auth onAuth={(user) => {
-      setCurrentUser(user);
-      loadDbUser(user);
-      loadData();
-      // Continue to whatever they were trying to reach, else the grid.
-      setView(pendingView && pendingView !== "auth" ? pendingView : "home");
-      setPendingView(null);
-    }} />
-  );
+  // ── Post-sign-in landing ────────────────────────────────────────────────────
+  // setView() alone is not enough here. The address bar still reads /signin at
+  // this moment, and the URL→view effect runs on the next render, reads that
+  // stale path, maps it to "auth" and overwrites whatever we just set. Because
+  // currentUser is populated by then, the `view === "auth"` branch below no
+  // longer matches either — so NO view block renders and the user gets the nav
+  // bar above an empty page, with the two effects trading /signin and /browse
+  // until one of them wins. Moving the URL in the same handler keeps path and
+  // view agreeing, which is what stops it.
+  const completeSignIn = (user) => {
+    setCurrentUser(user);
+    loadDbUser(user);
+    loadData();
+    // Continue to whatever they were trying to reach, else the grid.
+    const target = pendingView && pendingView !== "auth" ? pendingView : "home";
+    setView(target);
+    setPendingView(null);
+    if (VIEW_PATHS[target]) navigate(VIEW_PATHS[target], { replace: true });
+  };
+
+  if (!currentUser && view === "auth") return <Auth onAuth={completeSignIn} />;
 
   if (!currentUser && !PUBLIC_VIEWS.has(view)) return (
     // Belt and braces: the effect above normally converts this case to the
     // sign-in screen before render. This catches the frame in between.
-    <Auth onAuth={(user) => {
-      setCurrentUser(user);
-      loadDbUser(user);
-      loadData();
-      setView(pendingView && pendingView !== "auth" ? pendingView : "home");
-      setPendingView(null);
-    }} />
+    <Auth onAuth={completeSignIn} />
   );
 
   return (
