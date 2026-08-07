@@ -470,7 +470,7 @@ export default function App() {
       const { data } = await supabase.from("users").select("*").eq("id", currentUser.id).single();
       if (data?.stripe_payouts_enabled) {
         setDbUser(data);
-        showToast("Payouts are set up — you're all set to get paid automatically.");
+        showToast("Payouts are set up — you're ready to get paid.");
         return;
       }
       if (attempts < maxAttempts) {
@@ -2838,7 +2838,7 @@ function MyListingsView({ listings, referrals, users, offers, stats, onMarkSold,
         </div>
       )}
       {currentUser && currentUser.stripe_payouts_enabled && (
-        <div style={{ fontSize: 13, color: "#16a34a", marginBottom: 12 }}>✅ Payouts are set up — you'll be paid automatically when a sale is confirmed.</div>
+        <div style={{ fontSize: 13, color: "#16a34a", marginBottom: 12 }}>✅ Payouts are set up — funds reach your bank a few business days after a sale is confirmed.</div>
       )}
       {hasHandoffPending && (
         <div style={styles.safetyBanner}>
