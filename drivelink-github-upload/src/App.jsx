@@ -2053,7 +2053,9 @@ for (const l of allListings.filter(l => l.status === "active")) {
   avgByModel[key].push(l.price);
 }
 
-  const soldCount = allListings.filter(l => l.status === "sold").length;
+  // Public-facing social proof, so internal test sales must not inflate it.
+  // is_test is written only by the platform (trg_guard_listings_test_flag).
+  const soldCount = allListings.filter(l => l.status === "sold" && !l.is_test).length;
 
   return (
     <div>
