@@ -312,3 +312,167 @@ export const PROMOTER_FEE = 0.01;
 // create-checkout-session and the guard trigger all reference auto_release_at,
 // and renaming it buys nothing. See auto-release-cron for what it now drives.
 export const AUTO_RELEASE_DAYS = 7;
+
+// ── Completion emails ────────────────────────────────────────────────────────
+//
+// The last word to a human in the entire flow. Until 2026-08-07 there wasn't
+// one: both release paths ended at settleReferral and returned JSON, so a sale
+// completed, money moved, and neither party was ever told. The only emails on
+// these paths were notifyAdminSync alerts — which fire when something goes
+// WRONG, and go to the admin, not to the two people in the transaction.
+//
+// Lives here rather than in either function for the same reason settleReferral
+// does: release-funds (buyer confirmed receipt) and confirm-handover (seller
+// entered the buyer's code) must behave identically. Two copies drift.
+//
+// ── NEVER THROWS ────────────────────────────────────────────────────────────
+// This runs AFTER stripe.transfers.create has succeeded. The seller has been
+// paid and the transfer is irreversible. A Resend outage or a missing address
+// must not surface to the caller as a failed release — the client would show
+// an error for a sale that actually completed, and the seller might retry.
+// sendEmail() already swallows its own failures; the try/catch here covers the
+// row lookups and formatting around it.
+//
+// ── NO BILL OF SALE ─────────────────────────────────────────────────────────
+// The homepage claimed one until 2026-08-07. It does not exist and cannot be
+// generated from current data: a bill of sale needs both parties' legal names
+// and addresses, and neither is collected anywhere. The claims were removed
+// from Landing.jsx and i18n.jsx rather than papered over. This email does NOT
+// promise a document that is coming — a promise in a receipt is the same
+// exposure as a promise on the homepage. When the generator ships, it attaches
+// here and the copy changes then.
+export async function sendCompletionEmails(
+  // deno-lint-ignore no-explicit-any
+  supabase: any,
+  listing: {
+    id: string;
+    buyer_id?: string | null;
+    seller_id?: string | null;
+    sale_price?: number | null;
+    make?: string | null;
+    model?: string | null;
+    year?: number | string | null;
+  },
+  opts: {
+    transferId: string;
+    /** Cents. The same value handed to Stripe — no conversion anywhere. */
+    amountCents: number;
+    releasedVia: "handover_code" | "buyer_confirm" | "admin";
+  },
+): Promise<{ ok: boolean; sent: string[]; errors: string[] }> {
+  const sent: string[] = [];
+  const errors: string[] = [];
+
+  try {
+    const carLabel =
+      [listing.year, listing.make, listing.model].filter(Boolean).join(" ") || listing.id;
+    const salePrice = money(Number(listing.sale_price));
+    const sellerAmount = money(opts.amountCents);
+    const dateLabel = new Date().toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+      timeZone: "America/New_York",
+    });
+
+    const ids = [listing.buyer_id, listing.seller_id].filter(Boolean) as string[];
+    const { data: people } = await supabase
+      .from("users")
+      .select("id, name, email")
+      .in("id", ids);
+
+    const byId = new Map(
+      ((people ?? []) as Array<{ id: string; name: string | null; email: string | null }>)
+        .map((p) => [String(p.id), p]),
+    );
+    const buyer = listing.buyer_id ? byId.get(String(listing.buyer_id)) : null;
+    const seller = listing.seller_id ? byId.get(String(listing.seller_id)) : null;
+
+    // esc() on everything user-controlled. make/model/name are typed by people.
+    const rows: Array<[string, unknown]> = [
+      ["Vehicle", carLabel],
+      ["Sale price", salePrice],
+      ["Completed", dateLabel],
+      ["Reference", listing.id],
+    ];
+
+    // ── Buyer ────────────────────────────────────────────────────────────
+    if (buyer?.email) {
+      const html = alertHtml(
+        "Your DriveLink purchase is complete",
+        rows,
+        "The escrow on this sale has closed and the funds have been released to the seller. " +
+          "Nothing further is owed through DriveLink. Make sure you have the signed title, then " +
+          "transfer it into your name and register the vehicle with your state motor vehicle " +
+          "agency — there's a filing deadline, so don't sit on it. Keep this email for your records.",
+      );
+      const ok = await sendEmail({
+        to: buyer.email,
+        subject: `Purchase complete — ${carLabel}`,
+        html,
+      });
+      if (ok) sent.push("buyer");
+      else errors.push("buyer: send failed");
+    } else {
+      errors.push("buyer: no email on file");
+    }
+
+    // ── Seller ───────────────────────────────────────────────────────────
+    if (seller?.email) {
+      const html = alertHtml(
+        "Your sale is complete — funds released",
+        [...rows, ["Released to you", sellerAmount], ["Transfer ID", opts.transferId]],
+        "Card payments take a few business days to settle before Stripe pays out to your bank — " +
+          "expect it within about 5–7 business days. First payouts on a new account can take " +
+          "longer. Make sure you've given the buyer the signed title.",
+      );
+      const ok = await sendEmail({
+        to: seller.email,
+        subject: `Sale complete — ${sellerAmount} released`,
+        html,
+      });
+      if (ok) sent.push("seller");
+      else errors.push("seller: send failed");
+    } else {
+      errors.push("seller: no email on file");
+    }
+
+    // A completed sale that told nobody is the exact failure this function
+    // exists to prevent, so a send failure has to reach a human.
+    if (errors.length) {
+      await notifyAdminSync({
+        subject: `⚠️ Completion email failed — ${carLabel}`,
+        html: alertHtml(
+          "Funds released but the parties were not notified",
+          [
+            ["Vehicle", carLabel],
+            ["Listing ID", listing.id],
+            ["Transfer ID", opts.transferId],
+            ["Released via", opts.releasedVia],
+            ["Delivered to", sent.length ? sent.join(", ") : "nobody"],
+            ["Errors", errors.join(" | ")],
+          ],
+          "The money moved correctly. Contact whichever party did not receive their receipt.",
+        ),
+      }).catch(() => {});
+    }
+
+    return { ok: errors.length === 0, sent, errors };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("sendCompletionEmails fatal:", message);
+    await notifyAdminSync({
+      subject: `⚠️ Completion email crashed — listing ${listing.id}`,
+      html: alertHtml(
+        "sendCompletionEmails threw",
+        [
+          ["Listing ID", listing.id],
+          ["Transfer ID", opts.transferId],
+          ["Error", message],
+        ],
+        "Funds were released successfully. Neither party was notified.",
+      ),
+    }).catch(() => {});
+    return { ok: false, sent, errors: [message] };
+  }
+}
