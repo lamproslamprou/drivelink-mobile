@@ -38,6 +38,28 @@ const dict = {
     // needs the Spanish site cannot read an English offer of it.
     "lang.switchPrompt": "¿Prefieres español? Cambia el idioma →",
 
+    // ── Navigation ───────────────────────────────────────────────────────
+    // The nav was hardcoded English until 2026-08-07: switching to Spanish
+    // translated the page body and left every way of getting to another page
+    // in English, which is worse than not translating at all.
+    "nav.browse": "Browse",
+    "nav.myListings": "My Listings",
+    "nav.postListing": "Post a Car",
+    "nav.startDeal": "Secure a Deal",
+    "nav.advertise": "Advertise",
+    "nav.messages": "Messages",
+    "nav.myPurchases": "My Purchases",
+    "nav.myOffers": "My Offers",
+    "nav.favorites": "Saved Cars",
+    "nav.savedSearches": "Saved Searches",
+    "nav.dashboard": "Earnings",
+    "nav.blocked": "Blocked",
+    "nav.profile": "Profile",
+    "nav.admin": "Admin",
+    "nav.signOut": "Sign Out",
+    "nav.member": "member",
+    "nav.adminRole": "admin",
+
     // ── Auth ─────────────────────────────────────────────────────────────
     "auth.signin": "Sign In",
     "auth.createAccount": "Create Account",
@@ -128,6 +150,24 @@ const dict = {
   es: {
     "lang.label": "Idioma",
     "lang.switchPrompt": "Prefer English? Switch language →",
+
+    "nav.browse": "Explorar",
+    "nav.myListings": "Mis anuncios",
+    "nav.postListing": "Publicar un carro",
+    "nav.startDeal": "Asegurar un trato",
+    "nav.advertise": "Anunciarse",
+    "nav.messages": "Mensajes",
+    "nav.myPurchases": "Mis compras",
+    "nav.myOffers": "Mis ofertas",
+    "nav.favorites": "Carros guardados",
+    "nav.savedSearches": "Búsquedas guardadas",
+    "nav.dashboard": "Ganancias",
+    "nav.blocked": "Bloqueados",
+    "nav.profile": "Perfil",
+    "nav.admin": "Administración",
+    "nav.signOut": "Cerrar sesión",
+    "nav.member": "miembro",
+    "nav.adminRole": "administrador",
 
     "auth.signin": "Iniciar sesión",
     "auth.createAccount": "Crear cuenta",

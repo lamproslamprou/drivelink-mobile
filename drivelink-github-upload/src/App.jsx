@@ -1677,11 +1677,11 @@ const denyFlaggedReferral = async (refId) => {
               belongs to "my account" moved into the avatar dropdown, which is
               what let this drop from 13 items to 5 and killed the drag-scroll. */}
           <div style={styles.navLinks} className="app-nav-links">
-            <NavBtn active={view === "home"} onClick={() => { setView("home"); setHomeResetKey(k => k + 1); }}>Browse</NavBtn>
-            {currentUser && <NavBtn active={view === "myListings"} onClick={() => setView("myListings")}>My Listings</NavBtn>}
-            {currentUser && <NavBtn active={view === "postListing"} onClick={() => setView("postListing")}>Post a Car</NavBtn>}
-            <NavBtn active={view === "startDeal"} onClick={() => setView("startDeal")}>Secure a Deal</NavBtn>
-            <NavBtn active={view === "advertise"} onClick={() => setView("advertise")}>Advertise</NavBtn>
+            <NavBtn active={view === "home"} onClick={() => { setView("home"); setHomeResetKey(k => k + 1); }}>{t("nav.browse")}</NavBtn>
+            {currentUser && <NavBtn active={view === "myListings"} onClick={() => setView("myListings")}>{t("nav.myListings")}</NavBtn>}
+            {currentUser && <NavBtn active={view === "postListing"} onClick={() => setView("postListing")}>{t("nav.postListing")}</NavBtn>}
+            <NavBtn active={view === "startDeal"} onClick={() => setView("startDeal")}>{t("nav.startDeal")}</NavBtn>
+            <NavBtn active={view === "advertise"} onClick={() => setView("advertise")}>{t("nav.advertise")}</NavBtn>
           </div>
           <div style={styles.navRight} className="app-nav-right">
             {currentUser ? (
@@ -1690,7 +1690,7 @@ const denyFlaggedReferral = async (refId) => {
                   style={{ ...styles.navBtn, ...(view === "messages" ? styles.navBtnActive : {}), position: "relative", display: "flex", alignItems: "center", gap: 6 }}
                   onClick={() => setView("messages")}
                 >
-                  Messages
+                  {t("nav.messages")}
                   {unreadCount > 0 && (
                     <span style={styles.navUnread}>{unreadCount > 9 ? "9+" : unreadCount}</span>
                   )}
@@ -1711,16 +1711,16 @@ const denyFlaggedReferral = async (refId) => {
                     <div style={styles.menu} role="menu">
                       <div style={styles.menuHeader}>
                         <div style={styles.userName}>{dbUser?.name || currentUser.email}</div>
-                        <div style={styles.userRole}>{dbUser?.role === "admin" ? "admin" : "member"}</div>
+                        <div style={styles.userRole}>{dbUser?.role === "admin" ? t("nav.adminRole") : t("nav.member")}</div>
                       </div>
                       {[
-                        ["myPurchases", "My Purchases"],
-                        ["myOffers", "💰 My Offers"],
-                        ["favorites", "❤️ Saved Cars"],
-                        ["savedSearches", "Saved Searches"],
-                        ["dashboard", "Earnings"],
-                        ["blocked", "🚫 Blocked"],
-                        ["profile", "⚙️ Profile"],
+                        ["myPurchases", t("nav.myPurchases")],
+                        ["myOffers", `💰 ${t("nav.myOffers")}`],
+                        ["favorites", `❤️ ${t("nav.favorites")}`],
+                        ["savedSearches", t("nav.savedSearches")],
+                        ["dashboard", t("nav.dashboard")],
+                        ["blocked", `🚫 ${t("nav.blocked")}`],
+                        ["profile", `⚙️ ${t("nav.profile")}`],
                       ].map(([v, label]) => (
                         <button
                           key={v}
@@ -1739,17 +1739,17 @@ const denyFlaggedReferral = async (refId) => {
                             style={{ ...styles.menuItem, ...(view === "admin" ? styles.menuItemActive : {}) }}
                             onClick={() => { setView("admin"); setAccountMenuOpen(false); }}
                           >
-                            Admin
+                            {t("nav.admin")}
                           </button>
                         </>
                       )}
                       <div style={styles.menuDivider} />
                       <div style={styles.menuRow}>
-                        <span style={styles.menuRowLabel}>Language</span>
+                        <span style={styles.menuRowLabel}>{t("lang.label")}</span>
                         <LangToggle />
                       </div>
                       <div style={styles.menuDivider} />
-                      <button role="menuitem" style={{ ...styles.menuItem, color: "#b91c1c" }} onClick={logout}>Sign out</button>
+                      <button role="menuitem" style={{ ...styles.menuItem, color: "#b91c1c" }} onClick={logout}>{t("nav.signOut")}</button>
                     </div>
                   )}
                 </div>
