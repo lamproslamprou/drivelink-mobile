@@ -235,7 +235,7 @@ function initialViewFromPath() {
 }
 
 export default function App() {
-  const { t } = useLang();
+  const { t, lang } = useLang();
   const [currentUser, setCurrentUser] = useState(null);
   const [dbUser, setDbUser] = useState(null);
   const [listings, setListings] = useState([]);
@@ -646,6 +646,12 @@ export default function App() {
       lat: coords?.lat ?? null,
       lng: coords?.lng ?? null,
       status: "active",
+      // The language the seller was writing in. Used to decide whether to
+      // offer a translation at all — without it, an English reader on an
+      // English listing gets a "Translate to English" button, which reads as
+      // broken. Detecting the language of the text after the fact is guesswork;
+      // the interface they typed it into is not.
+      description_lang: lang || "en",
       created_at: new Date().toISOString(),
       last_active_at: new Date().toISOString(),
     };
@@ -2689,6 +2695,12 @@ function TranslatableDescription({ listing, onTranslate }) {
   const [showing, setShowing] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  // Only offer a translation when the seller wrote in a different language.
+  // Listings created before description_lang existed are treated as English,
+  // which is accurate — the Spanish interface shipped with no Spanish sellers.
+  const sourceLang = listing.description_lang || "en";
+  const canTranslate = Boolean(onTranslate) && sourceLang !== lang;
+
   const run = async () => {
     if (translated) { setShowing(true); return; }
     if (!onTranslate) return;
@@ -2708,7 +2720,7 @@ function TranslatableDescription({ listing, onTranslate }) {
       {showing && translated && (
         <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 4 }}>{t("translate.notice")}</div>
       )}
-      {onTranslate && (
+      {onTranslate && canTranslate && (
         <button
           type="button"
           style={styles.translateLink}
