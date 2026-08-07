@@ -986,6 +986,44 @@ const denyFlaggedReferral = async (refId) => {
     await handleModerationResult(mod, "Listing updated.");
   };
 
+  // ── Seller deletes their own listing ────────────────────────────────────
+  // Soft delete. The row stays because it is the FK anchor for offers,
+  // listing_views, price history, risk flags and message threads — and
+  // because a seller who can erase a listing can erase the evidence of what
+  // they sold. status = 'removed' hides it everywhere public; the seller can
+  // restore it from the Deleted section.
+  //
+  // guard_listing_removal() refuses this transition when a sale is in flight
+  // and expires any open offers on the way out. The check below is for the
+  // error message, not for security.
+  const deleteListing = async (listingId) => {
+    const listing = listings.find(l => l.id === listingId);
+    if (listing && ["pending_confirmation", "sold", "disputed"].includes(listing.status)) {
+      showToast("This car has a sale in progress — it can't be deleted until that settles.", "error");
+      return;
+    }
+    const { error } = await supabase
+      .from("listings")
+      .update({ status: "removed" })
+      .eq("id", listingId)
+      .eq("seller_id", currentUser.id);
+    if (error) { showToast("Couldn't delete that listing — try again.", "error"); return; }
+    await loadData();
+    showToast("Listing deleted. You can restore it from the Deleted section.");
+  };
+
+  // ── Seller restores a deleted listing ───────────────────────────────────
+  const restoreListing = async (listingId) => {
+    const { error } = await supabase
+      .from("listings")
+      .update({ status: "active" })
+      .eq("id", listingId)
+      .eq("seller_id", currentUser.id);
+    if (error) { showToast("Couldn't restore that listing — try again.", "error"); return; }
+    await loadData();
+    showToast("Listing restored — it's live again.");
+  };
+
   // ── Remove listing (admin)
   const archiveListing = async (listingId) => {
     await supabase.from("listings").update({ status: "archived", archived_at: new Date().toISOString() }).eq("id", listingId);
@@ -1711,7 +1749,7 @@ const denyFlaggedReferral = async (refId) => {
       <main style={styles.main} className="app-main">
         {view === "advertise" && <AdvertiseView currentUser={dbUser} onSubmit={createAdCheckout} onSignIn={() => { setPendingView("advertise"); setView("auth"); }} />}
         {view === "home" && <HomeView key={homeResetKey} listings={activeListings} allListings={listings} currentUser={dbUser} users={users} onShare={generateShare} onBuy={handleBuyNow} referrals={referrals} onSignIn={() => setView("auth")} onMessageSeller={messageSeller} onReport={fileReport} onSaveSearch={saveSearch} favorites={favorites} onToggleFavorite={toggleFavorite} onToggleBlock={toggleBlock} onReportUser={reportUserAction} blocks={blocks} reviews={reviews} offers={offers} onMakeOffer={makeOffer} onOpenListing={openListing} />}
-        {view === "myListings" && <MyListingsView listings={listings.filter(l => l.seller_id === currentUser?.id)} referrals={referrals} users={users} offers={offers} stats={listingStats} onMarkSold={markSold} onSetStatus={setListingStatus} onUpdate={updateListing} onRespondToOffer={respondToOffer} onRescindOffer={rescindOffer} onOpenSafety={() => setView("safety")} onConfirmHandover={confirmHandover} currentUser={dbUser} onSetupPayouts={setupPayouts} />}
+        {view === "myListings" && <MyListingsView listings={listings.filter(l => l.seller_id === currentUser?.id)} referrals={referrals} users={users} offers={offers} stats={listingStats} onMarkSold={markSold} onSetStatus={setListingStatus} onUpdate={updateListing} onRespondToOffer={respondToOffer} onRescindOffer={rescindOffer} onOpenSafety={() => setView("safety")} onConfirmHandover={confirmHandover} currentUser={dbUser} onSetupPayouts={setupPayouts} onDelete={deleteListing} onRestore={restoreListing} />}
         {view === "myPurchases" && <MyPurchasesView listings={listings.filter(l => l.buyer_id === currentUser?.id)} users={users} reviews={reviews} currentUser={currentUser} handoverCodes={handoverCodes} onSubmitReview={submitReview} onConfirmReceipt={confirmReceipt} onFileDispute={fileDispute} onBrowse={() => setView("home")} onOpenSafety={() => setView("safety")} />}
         {view === "myOffers" && <MyOffersView offers={offers.filter(o => o.buyer_id === currentUser?.id)} listings={listings} onRespondToCounter={respondToCounter} onBuy={handleBuyNow} onBrowse={() => setView("home")} />}
         {view === "postListing" && <PostListingView onPost={postListing} />}
@@ -2884,10 +2922,16 @@ function HandoverCodeEntry({ listingId, onSubmit }) {
   );
 }
 
-function MyListingsView({ listings, referrals, users, offers, stats, onMarkSold, onSetStatus, onUpdate, onRespondToOffer, onRescindOffer, onOpenSafety, onConfirmHandover, currentUser, onSetupPayouts }) {
+function MyListingsView({ listings, referrals, users, offers, stats, onMarkSold, onSetStatus, onUpdate, onRespondToOffer, onRescindOffer, onOpenSafety, onConfirmHandover, currentUser, onSetupPayouts, onDelete, onRestore }) {
   const [editing, setEditing] = useState(null);
   const [markingSold, setMarkingSold] = useState(null);
+  const [showDeleted, setShowDeleted] = useState(false);
   const hasHandoffPending = listings.some(l => l.status === "pending_confirmation");
+  // Deleted listings live in their own collapsed section rather than the main
+  // list — a seller scanning their cars shouldn't have to read past ones they
+  // removed on purpose.
+  const liveListings = listings.filter(l => l.status !== "removed");
+  const deletedListings = listings.filter(l => l.status === "removed");
   return (
     <div style={styles.pageWrap}>
       <h2 style={styles.pageTitle}>My Listings</h2>
@@ -2905,9 +2949,9 @@ function MyListingsView({ listings, referrals, users, offers, stats, onMarkSold,
           🛡️ Meeting a buyer to hand off a car? <button style={styles.safetyBannerLink} onClick={onOpenSafety}>Review our safety tips</button> before you meet.
         </div>
       )}
-      {listings.length === 0 && <p style={{ color: "#6b7280" }}>You haven't posted any listings yet.</p>}
+      {liveListings.length === 0 && deletedListings.length === 0 && <p style={{ color: "#6b7280" }}>You haven't posted any listings yet.</p>}
       <div style={styles.tableWrap}>
-        {listings.map(l => {
+        {liveListings.map(l => {
           const ref = referrals.find(r => r.listing_id === l.id);
           const promoter = ref ? users.find(u => u.id === ref.promoter_id) : null;
           const cover = (l.images && l.images[0]) || l.image;
@@ -3020,6 +3064,18 @@ function MyListingsView({ listings, referrals, users, offers, stats, onMarkSold,
                     <button style={styles.soldBtn} onClick={() => setMarkingSold(l)}>Mark Sold</button>
                   </>
                 )}
+                {(l.status === "active" || l.status === "pending" || l.status === "archived") && (
+                  <button
+                    style={styles.removeBtn}
+                    onClick={() => {
+                      if (window.confirm(`Delete your ${l.year} ${l.make} ${l.model} listing?\n\nIt will be taken down and any open offers will be closed. You can restore it from the Deleted section.`)) {
+                        onDelete(l.id);
+                      }
+                    }}
+                  >
+                    Delete
+                  </button>
+                )}
               </div>
               {listingOffers.map(o => (
                 <SellerOfferRow key={o.id} offer={o} buyer={users.find(u => u.id === o.buyer_id)} onRespond={onRespondToOffer} />
@@ -3028,6 +3084,31 @@ function MyListingsView({ listings, referrals, users, offers, stats, onMarkSold,
           );
         })}
       </div>
+
+      {deletedListings.length > 0 && (
+        <div style={{ marginTop: 24 }}>
+          <button
+            style={{ ...styles.pendingBtn, marginBottom: 8 }}
+            onClick={() => setShowDeleted(v => !v)}
+          >
+            {showDeleted ? "Hide" : "Show"} deleted ({deletedListings.length})
+          </button>
+          {showDeleted && (
+            <div style={styles.tableWrap}>
+              {deletedListings.map(l => (
+                <div key={l.id} style={{ ...styles.listingRow, opacity: 0.65 }} className="app-listing-row">
+                  <img src={(l.images && l.images[0]) || l.image} alt="" style={styles.rowImg} onError={e => { e.target.src = "https://images.unsplash.com/photo-1494976388531-d1058494cdd8?w=300&q=60"; }} />
+                  <div style={styles.rowInfo} className="app-row-info">
+                    <div style={styles.rowTitle}>{l.year} {l.make} {l.model}</div>
+                    <div style={styles.rowMeta}>{fmt(l.price)} • deleted{l.removed_at ? ` ${new Date(l.removed_at).toLocaleDateString()}` : ""}</div>
+                  </div>
+                  <button style={styles.soldBtn} onClick={() => onRestore(l.id)}>Restore</button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
       {markingSold && (
         <MarkSoldModal
           listing={markingSold}
