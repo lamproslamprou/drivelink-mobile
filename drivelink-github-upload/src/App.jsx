@@ -2303,7 +2303,7 @@ function CarCard({ listing, seller, avgPrice, similarCount, onSeeSimilar, curren
         <p style={styles.cardDesc}>{listing.description}</p>
         {listing.vin && (
           <div style={styles.vinRow}>
-            VIN: {listing.vin} {listing.vin_verified && <span style={styles.verifiedBadge} title="VIN was decoded and matches the make/model/year on this listing">✓ VIN Verified</span>} · <a href={`https://www.carfax.com/vehicle/${listing.vin}`} target="_blank" rel="noreferrer" style={styles.vinLink}>Check Carfax history →</a>
+            VIN: {listing.vin} {listing.vin_verified && <span style={styles.verifiedBadge} title="VIN was decoded and matches the make/model/year on this listing">✓ VIN Verified</span>} · <a href="https://www.carfax.com/vehicle-history-reports/" target="_blank" rel="noreferrer noopener" style={styles.vinLink}>Look up history on Carfax →</a> · <a href="https://www.nicb.org/vincheck" target="_blank" rel="noreferrer noopener" style={styles.vinLink}>Free theft &amp; salvage check →</a>
           </div>
         )}
         {myRef && <div style={styles.refTag}>{myRef.status === "paid" ? `✅ Commission paid: ${fmt(myRef.commission_amount)}` : "🔗 Your Scout link is live — you'll earn 1% if this sells through it"}</div>}
@@ -2546,7 +2546,7 @@ function ListingDetailModal({ data, currentUser, isFavorited, isBlocked, onClose
 
           {listing.vin && (
             <div style={styles.vinRow}>
-              VIN: {listing.vin} {listing.vin_verified && <span style={styles.verifiedBadge}>✓ VIN Verified</span>} · <a href={`https://www.carfax.com/vehicle/${listing.vin}`} target="_blank" rel="noreferrer" style={styles.vinLink}>Check Carfax history →</a>
+              VIN: {listing.vin} {listing.vin_verified && <span style={styles.verifiedBadge}>✓ VIN Verified</span>} · <a href="https://www.carfax.com/vehicle-history-reports/" target="_blank" rel="noreferrer noopener" style={styles.vinLink}>Look up history on Carfax →</a> · <a href="https://www.nicb.org/vincheck" target="_blank" rel="noreferrer noopener" style={styles.vinLink}>Free theft &amp; salvage check →</a>
             </div>
           )}
 
