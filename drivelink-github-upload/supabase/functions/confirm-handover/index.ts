@@ -35,9 +35,10 @@
 //
 // The release path below is deliberately identical to release-funds: same risk
 // gate, same source_transaction sourcing, same idempotencyKey, same
-// settleReferral. It shares idempotencyKey `release_${listing_id}` with BOTH
-// release-funds and auto-release-cron, so a buyer tapping Confirm at the same
-// moment the seller enters the code cannot produce two transfers for one sale.
+// settleReferral, same sendCompletionEmails. It shares idempotencyKey
+// `release_${listing_id}` with BOTH release-funds and auto-release-cron, so a
+// buyer tapping Confirm at the same moment the seller enters the code cannot
+// produce two transfers for one sale.
 import {
   corsHeaders,
   jsonResponse,
@@ -48,6 +49,7 @@ import {
   notifyAdminSync,
   alertHtml,
   money,
+  sendCompletionEmails,
 } from "../_shared/helpers.ts";
 
 const MAX_ATTEMPTS = 5;
@@ -275,8 +277,18 @@ Deno.serve(async (req) => {
 
     const referral = await settleReferral(supabase, listing);
 
+    // Tells the two people in the transaction that it completed. Never throws:
+    // by this point the transfer is irreversible, and reporting an email
+    // failure to the caller would show an error for a sale that succeeded.
+    const notified = await sendCompletionEmails(supabase, listing, {
+      transferId: transfer.id,
+      amountCents: sellerNetCents,
+      releasedVia: "handover_code",
+    });
+
     return jsonResponse({
       released: true,
+      notified: notified.ok,
       transferred: sellerNetCents / 100,
       transferredCents: sellerNetCents,
       transferId: transfer.id,

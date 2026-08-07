@@ -56,6 +56,7 @@ import {
   notifyAdminSync,
   alertHtml,
   money,
+  sendCompletionEmails,
 } from "../_shared/helpers.ts";
 
 Deno.serve(async (req) => {
@@ -207,7 +208,17 @@ Deno.serve(async (req) => {
     // already been paid by the time it runs.
     const referral = await settleReferral(supabase, listing);
 
+    // Tells the two people in the transaction that it completed. Never throws:
+    // by this point the transfer is irreversible, and reporting an email
+    // failure to the caller would show an error for a sale that succeeded.
+    const notified = await sendCompletionEmails(supabase, listing, {
+      transferId: transfer.id,
+      amountCents: sellerNetCents,
+      releasedVia: "buyer_confirm",
+    });
+
     return jsonResponse({
+      notified: notified.ok,
       // Kept in dollars so the existing client-side toast renders unchanged.
       transferred: sellerNetCents / 100,
       transferredCents: sellerNetCents,
