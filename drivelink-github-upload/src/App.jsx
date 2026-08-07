@@ -1780,7 +1780,7 @@ const denyFlaggedReferral = async (refId) => {
         {view === "home" && <HomeView key={homeResetKey} listings={activeListings} allListings={listings} currentUser={dbUser} users={users} onShare={generateShare} onBuy={handleBuyNow} referrals={referrals} onSignIn={() => setView("auth")} onMessageSeller={messageSeller} onReport={fileReport} onSaveSearch={saveSearch} favorites={favorites} onToggleFavorite={toggleFavorite} onToggleBlock={toggleBlock} onReportUser={reportUserAction} blocks={blocks} reviews={reviews} offers={offers} onMakeOffer={makeOffer} onOpenListing={openListing} />}
         {view === "myListings" && <MyListingsView listings={listings.filter(l => l.seller_id === currentUser?.id)} referrals={referrals} users={users} offers={offers} stats={listingStats} onMarkSold={markSold} onSetStatus={setListingStatus} onUpdate={updateListing} onRespondToOffer={respondToOffer} onRescindOffer={rescindOffer} onOpenSafety={() => setView("safety")} onConfirmHandover={confirmHandover} currentUser={dbUser} onSetupPayouts={setupPayouts} onDelete={deleteListing} onRestore={restoreListing} />}
         {view === "myPurchases" && <MyPurchasesView listings={listings.filter(l => l.buyer_id === currentUser?.id)} users={users} reviews={reviews} currentUser={currentUser} handoverCodes={handoverCodes} onSubmitReview={submitReview} onConfirmReceipt={confirmReceipt} onFileDispute={fileDispute} onBrowse={() => setView("home")} onOpenSafety={() => setView("safety")} />}
-        {view === "myOffers" && <MyOffersView offers={offers.filter(o => o.buyer_id === currentUser?.id)} listings={listings} onRespondToCounter={respondToCounter} onBuy={handleBuyNow} onBrowse={() => setView("home")} />}
+        {view === "myOffers" && <MyOffersView offers={offers.filter(o => o.buyer_id === currentUser?.id)} listings={listings} onRespondToCounter={respondToCounter} onBuy={handleBuyNow} onBrowse={() => setView("home")} onOpenListing={(l) => openListing(buildListingPayload(l))} />}
         {view === "postListing" && <PostListingView onPost={postListing} />}
         {view === "messages" && currentUser && <Messages currentUser={{ ...dbUser, id: currentUser.id }} listings={listings} users={users} openThread={openThread} onOpened={() => setOpenThread(null)} />}
         {view === "savedSearches" && <SavedSearchesView savedSearches={savedSearches} onDelete={deleteSavedSearch} onBrowse={() => setView("home")} />}
@@ -3279,7 +3279,7 @@ function MyPurchasesView({ listings, users, reviews, currentUser, handoverCodes,
   );
 }
 
-function MyOffersView({ offers, listings, onRespondToCounter, onBuy, onBrowse }) {
+function MyOffersView({ offers, listings, onRespondToCounter, onBuy, onBrowse, onOpenListing }) {
   return (
     <div style={styles.pageWrap}>
       <h2 style={styles.pageTitle}>💰 My Offers</h2>
@@ -3295,7 +3295,7 @@ function MyOffersView({ offers, listings, onRespondToCounter, onBuy, onBrowse })
                 {o.status === "accepted" && listing?.status === "active" && <div style={{ fontSize: 13, color: "#15803d", marginTop: 2 }}>✅ Accepted — complete your purchase to lock it in</div>}
                 {o.status === "accepted" && listing?.status === "pending_confirmation" && <div style={{ fontSize: 13, color: "#1d4ed8", marginTop: 2 }}>💳 Payment received — awaiting confirmation</div>}
                 {o.status === "accepted" && listing?.status === "sold" && <div style={{ fontSize: 13, color: "#15803d", marginTop: 2 }}>✅ Sale complete</div>}
-                {o.status === "declined" && <div style={{ fontSize: 13, color: "#b91c1c", marginTop: 2 }}>Declined by seller</div>}
+                {o.status === "declined" && <div style={{ fontSize: 13, color: "#b91c1c", marginTop: 2 }}>Declined by seller — you can offer again if the car's still listed</div>}
               </div>
               <span style={{ ...styles.statusPill, background: o.status === "accepted" ? "#dcfce7" : o.status === "countered" ? "#dbeafe" : o.status === "declined" || o.status === "withdrawn" ? "#f1f5f9" : "#fef9c3", color: o.status === "accepted" ? "#15803d" : o.status === "countered" ? "#1d4ed8" : o.status === "declined" || o.status === "withdrawn" ? "#6b7280" : "#854d0e" }}>{o.status}</span>
               {o.status === "countered" && (
@@ -3309,6 +3309,21 @@ function MyOffersView({ offers, listings, onRespondToCounter, onBuy, onBrowse })
               )}
               {o.status === "accepted" && listing?.status === "active" && (
                 <button style={styles.soldBtn} onClick={() => onBuy(listing)}>Complete Purchase</button>
+              )}
+              {/* A declined or withdrawn offer used to be a dead end: the row
+                  said "Declined by seller" and offered nothing to click, even
+                  though the listing itself would happily take a new offer.
+                  Most private car deals close on the second or third number,
+                  so this is the single most valuable button on the page. */}
+              {(o.status === "declined" || o.status === "withdrawn") && listing?.status === "active" && onOpenListing && (
+                <button style={styles.offerBtn} onClick={() => onOpenListing(listing)}>Make another offer</button>
+              )}
+              {(o.status === "declined" || o.status === "withdrawn") && listing && listing.status !== "active" && (
+                <span style={{ fontSize: 12, color: "#6b7280" }}>
+                  {listing.status === "sold" || listing.status === "pending_confirmation"
+                    ? "This car has sold."
+                    : "This car is no longer available."}
+                </span>
               )}
             </div>
           );
