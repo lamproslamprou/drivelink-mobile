@@ -116,6 +116,32 @@ function listingIdFromShareCode(code) {
   return parts.slice(1).join("-").toLowerCase();
 }
 
+// ── Standing Promoter codes (BYOD) ───────────────────────────────────────────
+// Separate from ATTRIB_KEY: that one is per-listing and only applies to the car
+// it was saved against. A standing code isn't tied to anything, so it gets its
+// own slot and applies to whatever deal the visitor starts next.
+const PROMO_KEY = "dl_promoter_code";
+const PROMO_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+
+function savePromoterCode(code) {
+  try {
+    localStorage.setItem(PROMO_KEY, JSON.stringify({ code, at: Date.now() }));
+  } catch { /* private mode / storage disabled — attribution is best-effort */ }
+}
+
+function getPromoterCode() {
+  try {
+    const raw = localStorage.getItem(PROMO_KEY);
+    if (!raw) return null;
+    const p = JSON.parse(raw);
+    if (!p?.code || Date.now() - p.at > PROMO_TTL_MS) {
+      localStorage.removeItem(PROMO_KEY);
+      return null;
+    }
+    return p.code;
+  } catch { return null; }
+}
+
 // ── Share sheet on mobile, clipboard everywhere else ──────────────────────────
 async function shareOrCopy(url, title) {
   if (typeof navigator !== "undefined" && navigator.share) {
@@ -1444,6 +1470,18 @@ const denyFlaggedReferral = async (refId) => {
   // links and /listing/:id deep links; any other path clears the modal.
   useEffect(() => {
     if (loading) return;
+
+    // /p/:code — standing Promoter link. No lookup happens here: promoter_codes
+    // is RLS-scoped to its owner, so a visitor can't read someone else's row.
+    // The code is stored optimistically and validated server-side by create-deal;
+    // an unknown code simply results in no attribution.
+    const standingMatch = path.match(/^\/p\/([^/?#]+)\/?$/);
+    if (standingMatch) {
+      savePromoterCode(decodeURIComponent(standingMatch[1]).toUpperCase());
+      setView("startDeal");
+      navigate(VIEW_PATHS.startDeal, { replace: true });
+      return;
+    }
 
     const promoterMatch = path.match(/^\/s\/([^/?#]+)\/?$/);
     if (promoterMatch) {
