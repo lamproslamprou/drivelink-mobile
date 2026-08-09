@@ -228,7 +228,7 @@ const dict = {
 
     "fee.youReceive": "You'll receive about {amount}",
     "fee.breakdown": "Sale price {price} − DriveLink fee 1% ({platform}) − card processing ({processing})",
-    "fee.scoutNote": "If the buyer arrives through a Scout's shared link, a further 1% ({promoter}) goes to that Scout and you'd receive about {netWithPromoter}. Processing is charged by our payment provider, not by DriveLink, and is an estimate until the sale completes.",
+    "fee.promoterNote": "If the buyer arrives through a Promoter's shared link, a further 1% ({promoter}) goes to that Promoter and you'd receive about {netWithPromoter}. Processing is charged by our payment provider, not by DriveLink, and is an estimate until the sale completes.",
 
     // ── Payout timing ────────────────────────────────────────────────────
     "payout.held": "The buyer's payment is held safely. Once they confirm they've received the car, {amount} is released to you — or automatically after 7 days if they don't. Bank arrival typically takes another few business days after that.",
@@ -419,7 +419,7 @@ const dict = {
 
     "fee.youReceive": "Recibirás aproximadamente {amount}",
     "fee.breakdown": "Precio de venta {price} − comisión DriveLink 1% ({platform}) − procesamiento de tarjeta ({processing})",
-    "fee.scoutNote": "Si el comprador llega por el enlace de un Scout, un 1% adicional ({promoter}) va para esa persona y tú recibirías aproximadamente {netWithPromoter}. El procesamiento lo cobra nuestro proveedor de pagos, no DriveLink, y es un estimado hasta que se complete la venta.",
+    "fee.promoterNote": "Si el comprador llega por el enlace de un Promoter, un 1% adicional ({promoter}) va para esa persona y tú recibirías aproximadamente {netWithPromoter}. El procesamiento lo cobra nuestro proveedor de pagos, no DriveLink, y es un estimado hasta que se complete la venta.",
 
     "payout.held": "El pago del comprador está resguardado. Cuando confirme que recibió el carro, se te entregan {amount} — o automáticamente a los 7 días si no lo hace. Después de eso, el dinero suele tardar unos días hábiles más en llegar a tu banco.",
     "payout.released": "💸 Se te entregaron {amount} a tu cuenta de Stripe. Los pagos con tarjeta tardan unos días hábiles en liquidarse antes de que Stripe los deposite en tu banco — cuenta con unos 5 a 7 días hábiles desde la venta. Las cuentas nuevas pueden tardar más en el primer depósito.",

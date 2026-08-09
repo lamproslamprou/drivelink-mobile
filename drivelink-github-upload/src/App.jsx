@@ -78,16 +78,16 @@ const ACCEPTANCE_WINDOW_MS = 48 * 60 * 60 * 1000;    // buyer has 48h to close b
 // ── Shareable URLs ────────────────────────────────────────────────────────────
 // Every listing now has a real, linkable URL. Two shapes exist:
 //   /listing/:id  — canonical listing page (ads, SEO, direct sharing)
-//   /s/:code      — Scout referral link; records attribution, then forwards
+//   /s/:code      — Promoter referral link; records attribution, then forwards
 //                   to the canonical /listing/:id for that code.
 const SITE_ORIGIN = typeof window !== "undefined" ? window.location.origin : "https://drivelink.deals";
 const listingUrl = (id) => `${SITE_ORIGIN}/listing/${id}`;
-const scoutUrl = (code) => `${SITE_ORIGIN}/s/${code}`;
+const promoterUrl = (code) => `${SITE_ORIGIN}/s/${code}`;
 
-// ── Scout attribution ─────────────────────────────────────────────────────────
+// ── Promoter attribution ─────────────────────────────────────────────────────────
 // When someone lands via /s/:code we remember the code locally for 30 days so a
-// purchase made later still credits the Scout who sent them.
-const ATTRIB_KEY = "dl_scout_ref";
+// purchase made later still credits the Promoter who sent them.
+const ATTRIB_KEY = "dl_promoter_ref";
 const ATTRIB_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
 function saveAttribution(code, listingId) {
@@ -109,7 +109,7 @@ function getAttribution(listingId) {
 
 // Share codes are built as FIRSTNAME-LISTINGID, so the listing can be recovered
 // from the code alone. This is the fallback when the referrals table isn't
-// readable (e.g. a signed-out visitor opening a Scout link).
+// readable (e.g. a signed-out visitor opening a Promoter link).
 function listingIdFromShareCode(code) {
   const parts = (code || "").split("-");
   if (parts.length < 2) return null;
@@ -719,7 +719,7 @@ export default function App() {
     }
     await loadData();
     if (data?.referral === "flagged_ambiguous") {
-      showToast("Sale confirmed. Several Scouts shared this listing, so the commission is flagged for review before it's paid.", "info");
+      showToast("Sale confirmed. Several Promoters shared this listing, so the commission is flagged for review before it's paid.", "info");
     } else if (data?.referral === "flagged_self_referral") {
       showToast("Sale confirmed. The referral looks like a self-purchase and has been flagged for review.", "info");
     } else if (listing.stripe_payment_intent_id) {
@@ -746,7 +746,7 @@ export default function App() {
     if (data?.heldForReview) {
       showToast("Handover confirmed. This sale is under a short review before funds are released.", "info");
     } else if (data?.referral === "flagged_ambiguous" || data?.referral === "flagged_self_referral") {
-      showToast("Handover confirmed and funds released. The Scout commission is flagged for review before it's paid.", "info");
+      showToast("Handover confirmed and funds released. The Promoter commission is flagged for review before it's paid.", "info");
     } else {
       showToast("Handover confirmed — funds released to your Stripe account. Expect them in your bank within a few business days.");
     }
@@ -928,7 +928,7 @@ const denyFlaggedReferral = async (refId) => {
     showToast(accept ? "Counter-offer accepted — the seller will follow up to close the sale." : "Offer withdrawn.");
   };
 
-  // ── Scout retracts their own pending referral ───────────────────────────────
+  // ── Promoter retracts their own pending referral ───────────────────────────────
   // Deletes the row so the /s/:code link stops resolving. Guarded three ways:
   // status must still be pending, the car must not have a sale in flight, and
   // the delete is scoped by promoter_id so it can only ever hit your own row.
@@ -964,16 +964,16 @@ const denyFlaggedReferral = async (refId) => {
   const generateShare = async (listingId) => {
   const listing = listings.find(l => l.id === listingId);
   if (listing?.seller_id === currentUser.id) {
-    showToast("You can't generate a Scout link for your own listing.", "error");
+    showToast("You can't generate a Promoter link for your own listing.", "error");
     return null;
   }
   const existing = referrals.find(r => r.listing_id === listingId && r.promoter_id === currentUser.id);
-  if (existing) { showToast("Your Scout link is ready — " + scoutUrl(existing.share_code), "info"); return existing.share_code; }
+  if (existing) { showToast("Your Promoter link is ready — " + promoterUrl(existing.share_code), "info"); return existing.share_code; }
     const code = (dbUser?.name || "USER").split(" ")[0].toUpperCase() + "-" + listingId.toUpperCase();
     const newRef = { id: "r" + Date.now(), promoter_id: currentUser.id, listing_id: listingId, share_code: code, status: "pending", commission_amount: 0 };
     await supabase.from("referrals").insert(newRef);
     await loadData();
-    showToast("Scout link created — " + scoutUrl(code), "info");
+    showToast("Promoter link created — " + promoterUrl(code), "info");
     return code;
   };
 
@@ -1440,14 +1440,14 @@ const denyFlaggedReferral = async (refId) => {
   };
 
   // ── Route resolution ────────────────────────────────────────────────────────
-  // Runs whenever the path or the loaded data changes. Handles /s/:code Scout
+  // Runs whenever the path or the loaded data changes. Handles /s/:code Promoter
   // links and /listing/:id deep links; any other path clears the modal.
   useEffect(() => {
     if (loading) return;
 
-    const scoutMatch = path.match(/^\/s\/([^/?#]+)\/?$/);
-    if (scoutMatch) {
-      const code = decodeURIComponent(scoutMatch[1]).toUpperCase();
+    const promoterMatch = path.match(/^\/s\/([^/?#]+)\/?$/);
+    if (promoterMatch) {
+      const code = decodeURIComponent(promoterMatch[1]).toUpperCase();
       const ref = referrals.find(r => (r.share_code || "").toUpperCase() === code);
       const targetId = ref?.listing_id || listingIdFromShareCode(code);
       if (targetId && listings.some(l => l.id === targetId)) {
@@ -2285,7 +2285,7 @@ function CarCard({ listing, seller, avgPrice, similarCount, onSeeSimilar, curren
   const handleShare = async () => {
     const code = await onShare(listing.id);
     if (!code) return; // blocked (own listing) or failed — onShare already explained why
-    const result = await shareOrCopy(scoutUrl(code), `${listing.year} ${listing.make} ${listing.model} on DriveLink`);
+    const result = await shareOrCopy(promoterUrl(code), `${listing.year} ${listing.make} ${listing.model} on DriveLink`);
     if (result === "cancelled" || result === "failed") return;
     setCopied(true);
     setTimeout(() => setCopied(false), 2500);
@@ -2362,7 +2362,7 @@ function CarCard({ listing, seller, avgPrice, similarCount, onSeeSimilar, curren
             VIN: {listing.vin} {listing.vin_verified && <span style={styles.verifiedBadge} title="VIN was decoded and matches the make/model/year on this listing">✓ VIN Verified</span>} · <a href="https://www.carfax.com/vehicle-history-reports/" target="_blank" rel="noreferrer noopener" style={styles.vinLink}>{t("detail.carfax")} →</a> · <a href="https://www.nicb.org/vincheck" target="_blank" rel="noreferrer noopener" style={styles.vinLink}>{t("detail.nicb")} →</a>
           </div>
         )}
-        {myRef && <div style={styles.refTag}>{myRef.status === "paid" ? `✅ Commission paid: ${fmt(myRef.commission_amount)}` : "🔗 Your Scout link is live — you'll earn 1% if this sells through it"}</div>}
+        {myRef && <div style={styles.refTag}>{myRef.status === "paid" ? `✅ Commission paid: ${fmt(myRef.commission_amount)}` : "🔗 Your Promoter link is live — you'll earn 1% if this sells through it"}</div>}
         <div style={styles.cardActions}>
           {currentUser && !isOwnListing && (
             <button style={styles.buyBtn} onClick={() => onBuy(listing)}>💳 {t("action.buyNow")}</button>
@@ -2520,7 +2520,7 @@ function ListingDetailModal({ data, currentUser, isFavorited, isBlocked, onClose
   const handleShare = async () => {
     const code = await onShare(listing.id);
     if (!code) return; // blocked (own listing) or failed — onShare already explained why
-    const result = await shareOrCopy(scoutUrl(code), `${listing.year} ${listing.make} ${listing.model} on DriveLink`);
+    const result = await shareOrCopy(promoterUrl(code), `${listing.year} ${listing.make} ${listing.model} on DriveLink`);
     if (result === "cancelled" || result === "failed") return;
     setCopied(true);
     setTimeout(() => setCopied(false), 2500);
@@ -2611,7 +2611,7 @@ function ListingDetailModal({ data, currentUser, isFavorited, isBlocked, onClose
             </div>
           )}
 
-          {myRef && <div style={styles.refTag}>{myRef.status === "paid" ? `✅ Commission paid: ${fmt(myRef.commission_amount)}` : "🔗 Your Scout link is live — you'll earn 1% if this sells through it"}</div>}
+          {myRef && <div style={styles.refTag}>{myRef.status === "paid" ? `✅ Commission paid: ${fmt(myRef.commission_amount)}` : "🔗 Your Promoter link is live — you'll earn 1% if this sells through it"}</div>}
 
           <div style={styles.cardActions}>
             {currentUser && !isOwnListing && payoutsReady && <button style={styles.buyBtn} onClick={() => onBuy(listing)}>💳 {t("action.buyNow")}</button>}
@@ -2622,7 +2622,7 @@ function ListingDetailModal({ data, currentUser, isFavorited, isBlocked, onClose
             )}
             {!currentUser && <button style={styles.buyBtn} onClick={onSignIn}>{t("action.signInToBuy")}</button>}
             {/* Plain link to this car, no commission attached. Only shown when
-                the Scout button isn't available — sellers on their own listing,
+                the Promoter button isn't available — sellers on their own listing,
                 and signed-out visitors — so there's never more than one share
                 button competing for the same tap. */}
             {(isOwnListing || !currentUser) && (
@@ -4414,7 +4414,7 @@ function SellerNetPreview({ price }) {
         {t("fee.breakdown", { price: fmt(b.price), platform: fmt(b.platformFee), processing: fmt(b.processing) })}
       </div>
       <div style={{ fontSize: 12, color: "#6b7280", marginTop: 6 }}>
-        {t("fee.scoutNote", { promoter: fmt(b.promoter), netWithPromoter: fmt(b.netWithPromoter) })}
+        {t("fee.promoterNote", { promoter: fmt(b.promoter), netWithPromoter: fmt(b.netWithPromoter) })}
       </div>
     </div>
   );
@@ -4783,9 +4783,9 @@ function PromoterDashboard({ currentUser, referrals, listings, payouts, onSetupP
 
 // Shows the actual shareable URL with working Copy / Share buttons. The raw code
 // is kept visible but secondary — it's a reference, not the thing you send.
-function ScoutLinkRow({ code, listing }) {
+function PromoterLinkRow({ code, listing }) {
   const [state, setState] = useState(null); // "copied" | "shared"
-  const url = scoutUrl(code);
+  const url = promoterUrl(code);
   const title = listing ? `${listing.year} ${listing.make} ${listing.model} on DriveLink` : "A car on DriveLink";
 
   const doShare = async () => {
@@ -4817,7 +4817,7 @@ function ScoutLinkRow({ code, listing }) {
   );
 }
 
-// One row in the Scout's referral list. Pending referrals show the shareable
+// One row in the Promoter's referral list. Pending referrals show the shareable
 // link and can be retracted; settled ones are read-only history.
 function ReferralRow({ referral: r, listing, onRetract }) {
   const [confirming, setConfirming] = useState(false);
@@ -4842,7 +4842,7 @@ function ReferralRow({ referral: r, listing, onRetract }) {
       <div style={styles.rowInfo} className="app-row-info">
         <div style={styles.rowTitle}>{listing ? `${listing.year} ${listing.make} ${listing.model}` : "Listing no longer available"}</div>
 
-        {r.status === "pending" && <ScoutLinkRow code={r.share_code} listing={listing} />}
+        {r.status === "pending" && <PromoterLinkRow code={r.share_code} listing={listing} />}
 
         {r.status === "paid" && <div style={styles.soldBadge}>✅ Commission: {fmt(r.commission_amount)} on {r.paid_at}</div>}
         {r.status === "pending" && (
@@ -5316,7 +5316,7 @@ function AdminView({ listings, users, referrals, reports, feedback, userReports,
 
 // ── Analytics tab (Admin). Starts with make/model demand — which cars get
 // listed most, sell most, and how fast they move — since this is computable
-// entirely from data we already have (no new tracking needed). Scout
+// entirely from data we already have (no new tracking needed). Promoter
 // leaderboard and time-series trend sections get added here next.
 function AnalyticsView({ listings, referrals, users }) {
   const nonArchived = listings.filter(l => l.status !== "archived");
@@ -5350,7 +5350,7 @@ function AnalyticsView({ listings, referrals, users }) {
 
   const chartData = modelRows.slice(0, 10).map(r => ({ name: `${r.make} ${r.model}`, listings: r.count, sold: r.soldCount }));
 
-  // Scout leaderboard: group referrals by promoter, rank by commission earned
+  // Promoter leaderboard: group referrals by promoter, rank by commission earned
   // (the number that actually reflects revenue-driving impact, not just
   // activity). Conversion rate = paid ÷ total shares generated.
   const byPromoter = {};
@@ -5361,7 +5361,7 @@ function AnalyticsView({ listings, referrals, users }) {
     if (r.status === "paid") { row.paidCount++; row.totalCommission += r.commission_amount || 0; }
     if (r.status === "flagged") row.flaggedCount++;
   }
-  const scoutRows = Object.values(byPromoter)
+  const promoterRows = Object.values(byPromoter)
     .map(r => ({
       ...r,
       name: users.find(u => u.id === r.promoter_id)?.name || "Unknown",
@@ -5436,7 +5436,7 @@ function AnalyticsView({ listings, referrals, users }) {
         </>
       )}
 
-      <h3 style={{ ...styles.sectionTitle, marginTop: 40 }}>Scout Leaderboard</h3>
+      <h3 style={{ ...styles.sectionTitle, marginTop: 40 }}>Promoter Leaderboard</h3>
       {referrals.length === 0 ? (
         <p style={{ color: "#6b7280" }}>No referral activity yet.</p>
       ) : (
@@ -5445,7 +5445,7 @@ function AnalyticsView({ listings, referrals, users }) {
             <b>{totalShares}</b> total shares generated → <b>{totalPaid}</b> resulted in a paid sale ({overallConversion}% overall conversion rate)
           </div>
           <div style={{ ...styles.tableWrap, marginTop: 16 }}>
-            {scoutRows.map((s, i) => (
+            {promoterRows.map((s, i) => (
               <div key={s.promoter_id} style={styles.listingRow} className="app-listing-row">
                 <div style={{ fontSize: 13, color: "#94a3b8", fontWeight: 700, minWidth: 24, textAlign: "right" }}>{i + 1}</div>
                 <div style={styles.rowInfo} className="app-row-info">

@@ -2,7 +2,7 @@
 // Called when the buyer clicks "Confirm Receipt", or by an admin pressing
 // Force Confirm on the listing in the dashboard. Transfers the seller's net
 // proceeds out of the platform's Stripe balance into the seller's connected
-// account, then settles any attributed Scout referral.
+// account, then settles any attributed Promoter referral.
 //
 // NOT called by auto-release-cron. That job stopped moving money on
 // 2026-08-06 when buyer silence ceased to count as consent; it now only warns

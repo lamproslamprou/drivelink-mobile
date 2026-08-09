@@ -102,7 +102,7 @@ Deno.serve(async (req) => {
     }
     const userId = authData.user.id;
 
-    // Mirrors the self-referral block on Scout.
+    // Mirrors the self-referral block on Promoter.
     if (userId === invite.created_by) {
       return jsonResponse(
         { error: "You cannot join your own deal. Send this link to the other party." },

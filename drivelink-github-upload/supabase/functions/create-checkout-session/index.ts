@@ -70,7 +70,7 @@ Deno.serve(async (req) => {
       ? buyer.email
       : undefined;
 
-    // ── Scout attribution ────────────────────────────────────────────────────
+    // ── Promoter attribution ────────────────────────────────────────────────────
     // The client sends whatever share_code it stored when the buyer arrived via
     // a /s/:code link. That value is fully under the buyer's control, so it is
     // never written as-is: it has to name a real PENDING referral on THIS
@@ -78,7 +78,7 @@ Deno.serve(async (req) => {
     // as organic — an unverifiable code should cost nobody a commission, and
     // should never let a buyer redirect one to an account of their choosing.
     //
-    // Private deals are never Scout-attributed: nobody referred a car the two
+    // Private deals are never Promoter-attributed: nobody referred a car the two
     // parties found themselves, and there is no listing page to share.
     let attributedCode: string | null = null;
 
@@ -101,7 +101,7 @@ Deno.serve(async (req) => {
         console.error("referral lookup failed:", share_code, refErr);
       } else if (ref) {
         if (ref.promoter_id === buyerId) {
-          // A Scout buying through their own link earns nothing. Record no
+          // A Promoter buying through their own link earns nothing. Record no
           // attribution rather than creating a self-referral to be flagged later.
           console.log("self-referral ignored at checkout:", ref.share_code, buyerId);
         } else {
@@ -245,7 +245,7 @@ Deno.serve(async (req) => {
       cancel_url: `${origin}/?purchase=cancelled&listing=${listing.id}`,
     });
 
-    // Stamp the session and the attributed Scout code together. referral_code is
+    // Stamp the session and the attributed Promoter code together. referral_code is
     // written with the service role key (RLS bypassed) — buyers must never have
     // update access to listings, or they could rewrite attribution directly.
     const listingPatch: Record<string, string> = { stripe_checkout_session_id: session.id };

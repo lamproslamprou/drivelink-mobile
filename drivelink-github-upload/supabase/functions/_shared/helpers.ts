@@ -185,13 +185,13 @@ export function alertHtml(title: string, rows: Array<[string, unknown]>, footer?
 
 // ── Referral settlement ──────────────────────────────────────────────────────
 //
-// Decides which Scout (if any) earns the commission on a completed sale, and
+// Decides which Promoter (if any) earns the commission on a completed sale, and
 // credits them. Lives here because BOTH release paths need identical behavior:
 // release-funds (buyer confirmed) and confirm-handover (seller entered the
 // buyer's code). auto-release-cron no longer settles anything — as of
 // 2026-08-06 it only escalates silent sales to manual review. They
 // had drifted — auto-release-cron still used .maybeSingle(), which errors when
-// two Scouts shared the same listing, silently paying nobody, and skipped the
+// two Promoters shared the same listing, silently paying nobody, and skipped the
 // self-referral check entirely. A sale settling differently depending on
 // whether the buyer happened to click a button is not acceptable.
 //
@@ -218,7 +218,7 @@ export async function settleReferral(
   const commission = Math.round(Number(listing.sale_price ?? 0) * PROMOTER_FEE);
 
   // Fetch ALL pending referrals rather than using .maybeSingle(): a listing
-  // shared by several Scouts returns multiple rows, and maybeSingle() errors
+  // shared by several Promoters returns multiple rows, and maybeSingle() errors
   // on that. Reading only `data` and discarding the error means a contested
   // listing silently pays nobody at all.
   const { data: pendingRefs, error: refsErr } = await supabase
@@ -240,7 +240,7 @@ export async function settleReferral(
 
   // listings.referral_code is written at checkout from the buyer's stored
   // attribution, after being validated against a real pending referral. It
-  // names one specific Scout, so it wins whenever it's present.
+  // names one specific Promoter, so it wins whenever it's present.
   if (listing.referral_code) {
     ref = refs.find(
       (r) => (r.share_code ?? "").toUpperCase() === String(listing.referral_code).toUpperCase(),
@@ -252,7 +252,7 @@ export async function settleReferral(
   } else if (refs.length === 1) {
     ref = refs[0]; // only one candidate — nothing to guess between
   } else {
-    ambiguous = true; // several Scouts shared this car, no attribution recorded
+    ambiguous = true; // several Promoters shared this car, no attribution recorded
   }
 
   if (ambiguous) {
@@ -262,7 +262,7 @@ export async function settleReferral(
       .from("referrals")
       .update({ status: "flagged", commission_amount: commission })
       .in("id", refs.map((r) => r.id));
-    console.warn("ambiguous referral on listing:", listing.id, refs.length, "competing scouts");
+    console.warn("ambiguous referral on listing:", listing.id, refs.length, "competing promoters");
     return { outcome: "flagged_ambiguous", commission };
   }
 

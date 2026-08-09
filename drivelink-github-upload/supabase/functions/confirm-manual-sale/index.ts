@@ -97,7 +97,7 @@ Deno.serve(async (req) => {
       return jsonResponse({ alreadyConfirmed: true });
     }
 
-    // ── Resolve which Scout earned this, same rules as release-funds ──────────
+    // ── Resolve which Promoter earned this, same rules as release-funds ──────────
     const { data: pendingRefs, error: refsErr } = await supabase
       .from("referrals")
       .select("id, promoter_id, share_code")
@@ -132,7 +132,7 @@ Deno.serve(async (req) => {
         .update({ status: "flagged", commission_amount: commission })
         .in("id", refs.map((r) => r.id));
       referralOutcome = "flagged_ambiguous";
-      console.warn("ambiguous referral on listing:", listing.id, refs.length, "competing scouts");
+      console.warn("ambiguous referral on listing:", listing.id, refs.length, "competing promoters");
     } else if (ref) {
       if (ref.promoter_id === listing.buyer_id) {
         await supabase
