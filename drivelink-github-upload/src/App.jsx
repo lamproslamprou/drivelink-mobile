@@ -121,7 +121,7 @@ function listingIdFromShareCode(code) {
 // it was saved against. A standing code isn't tied to anything, so it gets its
 // own slot and applies to whatever deal the visitor starts next.
 const PROMO_KEY = "dl_promoter_code";
-const PROMO_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+const PROMO_TTL_MS = 3 * 24 * 60 * 60 * 1000;
 
 function savePromoterCode(code) {
   try {

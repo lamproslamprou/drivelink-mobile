@@ -15,11 +15,11 @@ import { supabase } from "./supabase";
 
 const currentYear = new Date().getFullYear();
 
-// Standing Promoter attribution. The key and TTL mirror App.jsx — duplicated
-// rather than imported because App.jsx imports this file, and pulling the other
-// way would make the cycle.
+// Standing Promoter attribution, 3-day window. Key and TTL mirror App.jsx —
+// duplicated rather than imported because App.jsx imports this file, and
+// pulling the other way would make the cycle.
 const PROMO_KEY = "dl_promoter_code";
-const PROMO_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+const PROMO_TTL_MS = 3 * 24 * 60 * 60 * 1000;
 
 function readPromoterCode() {
   try {
