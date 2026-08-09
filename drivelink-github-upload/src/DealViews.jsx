@@ -15,6 +15,25 @@ import { supabase } from "./supabase";
 
 const currentYear = new Date().getFullYear();
 
+// Standing Promoter attribution. The key and TTL mirror App.jsx — duplicated
+// rather than imported because App.jsx imports this file, and pulling the other
+// way would make the cycle.
+const PROMO_KEY = "dl_promoter_code";
+const PROMO_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+
+function readPromoterCode() {
+  try {
+    const raw = localStorage.getItem(PROMO_KEY);
+    if (!raw) return null;
+    const p = JSON.parse(raw);
+    if (!p?.code || Date.now() - p.at > PROMO_TTL_MS) {
+      localStorage.removeItem(PROMO_KEY);
+      return null;
+    }
+    return p.code;
+  } catch { return null; }
+}
+
 // ============================================================================
 // StartDealView
 // ============================================================================
@@ -30,6 +49,25 @@ export function StartDealView({ currentUser, onBack, onNavigate, showToast }) {
   const [error, setError] = useState(null);
   const [result, setResult] = useState(null);
   const [copied, setCopied] = useState(false);
+  const [referrer, setReferrer] = useState(null);
+
+  // Who sent them here, if anyone. promoter_codes is RLS-scoped to its owner,
+  // so this has to go through an Edge Function rather than a direct select.
+  // A failed lookup is not an error worth showing — the deal works either way.
+  useEffect(() => {
+    const code = readPromoterCode();
+    if (!code) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data } = await supabase.functions.invoke("resolve-promoter-code", {
+          body: { code },
+        });
+        if (!cancelled && data?.name) setReferrer(data.name);
+      } catch { /* no referrer shown */ }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
@@ -109,11 +147,59 @@ export function StartDealView({ currentUser, onBack, onNavigate, showToast }) {
     return (
       <div style={dealStyles.page}>
         <div style={dealStyles.inner}>
-          <h1 style={dealStyles.title}>Start a secure deal</h1>
-          <p style={dealStyles.sub}>Sign in to set one up.</p>
+          {referrer && (
+            <div style={dealStyles.inviteEyebrow}>Referred by {referrer}</div>
+          )}
+          <h1 style={dealStyles.title}>Buying a car from someone you've never met?</h1>
+          <p style={dealStyles.sub}>
+            DriveLink holds the money until the car is actually handed over, so
+            neither side has to go first.
+          </p>
+
+          <div style={dealStyles.stepsWrap}>
+            <ol style={dealStyles.steps}>
+              <li style={dealStyles.step}>
+                The buyer pays into escrow. The seller can see the funds are
+                secured, but can't touch them yet.
+              </li>
+              <li style={dealStyles.step}>
+                The seller ships or delivers the car.
+              </li>
+              <li style={dealStyles.step}>
+                At handover the buyer gives the seller a 6-digit code. Entering
+                it releases the money. No code, no payout.
+              </li>
+            </ol>
+          </div>
+
+          <div style={dealStyles.priceCard}>
+            <div style={dealStyles.eyebrow}>What it costs</div>
+            <div style={dealStyles.priceRow}>
+              <span style={dealStyles.priceLabel}>DriveLink escrow fee</span>
+              <span style={dealStyles.vinValue}>1%</span>
+            </div>
+            {referrer && (
+              <div style={{ ...dealStyles.priceRow, marginTop: 10 }}>
+                <span style={dealStyles.priceLabel}>
+                  Referral fee — goes to {referrer}
+                </span>
+                <span style={dealStyles.vinValue}>1%</span>
+              </div>
+            )}
+            {referrer && (
+              <div style={{ fontSize: 12, color: "#6b7280", lineHeight: 1.6, marginTop: 12 }}>
+                The referral fee is how {referrer} is paid for sending you here.
+                You can also start a deal directly at drivelink.deals without one.
+              </div>
+            )}
+          </div>
+
           <button style={dealStyles.primaryBtn} onClick={() => onNavigate?.("auth")}>
-            Sign in
+            Create an account to start
           </button>
+          <p style={{ fontSize: 13, color: "#6b7280", marginTop: 12, textAlign: "center" }}>
+            Free to set up. You're only charged when a deal goes through.
+          </p>
         </div>
       </div>
     );
