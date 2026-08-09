@@ -183,6 +183,70 @@ export function alertHtml(title: string, rows: Array<[string, unknown]>, footer?
   </div>`;
 }
 
+// ── Finding the referral attached to a sale ──────────────────────────────────
+//
+// Two kinds of referral point at the same sale from different columns:
+//   marketplace — referrals.listing_id, created when someone shares a listing
+//   BYOD        — referrals.deal_id, created by create-deal from a standing
+//                 Promoter code. There is no listing at that moment, so the
+//                 invite token is the only stable handle.
+//
+// Every caller here starts from a listing, so the deal side needs one hop
+// through deal_invites to recover the token. Both create-deal and
+// accept-deal-invite set deal_invites.listing_id, so an accepted deal always
+// resolves.
+//
+// Returns pending referrals only. Never throws: a lookup failure must not fail
+// a payment or a payout.
+export async function findPendingReferrals(
+  // deno-lint-ignore no-explicit-any
+  supabase: any,
+  listingId: string,
+): Promise<
+  { ok: boolean; refs: Array<{ id: string; promoter_id: string; share_code: string | null }> }
+> {
+  const out: Array<{ id: string; promoter_id: string; share_code: string | null }> = [];
+
+  const { data: byListing, error: listErr } = await supabase
+    .from("referrals")
+    .select("id, promoter_id, share_code")
+    .eq("listing_id", listingId)
+    .eq("status", "pending");
+
+  if (listErr) {
+    console.error("referral lookup by listing failed:", listingId, listErr);
+    return { ok: false, refs: [] };
+  }
+  out.push(...(byListing ?? []));
+
+  const { data: invite, error: inviteErr } = await supabase
+    .from("deal_invites")
+    .select("token")
+    .eq("listing_id", listingId)
+    .maybeSingle();
+
+  if (inviteErr) {
+    console.error("deal_invites lookup failed:", listingId, inviteErr);
+    return { ok: false, refs: [] };
+  }
+
+  if (invite?.token) {
+    const { data: byDeal, error: dealErr } = await supabase
+      .from("referrals")
+      .select("id, promoter_id, share_code")
+      .eq("deal_id", invite.token)
+      .eq("status", "pending");
+
+    if (dealErr) {
+      console.error("referral lookup by deal failed:", invite.token, dealErr);
+      return { ok: false, refs: [] };
+    }
+    out.push(...(byDeal ?? []));
+  }
+
+  return { ok: true, refs: out };
+}
+
 // ── Referral settlement ──────────────────────────────────────────────────────
 //
 // Decides which Promoter (if any) earns the commission on a completed sale, and
@@ -221,18 +285,16 @@ export async function settleReferral(
   // shared by several Promoters returns multiple rows, and maybeSingle() errors
   // on that. Reading only `data` and discarding the error means a contested
   // listing silently pays nobody at all.
-  const { data: pendingRefs, error: refsErr } = await supabase
-    .from("referrals")
-    .select("id, promoter_id, share_code")
-    .eq("listing_id", listing.id)
-    .eq("status", "pending");
+  //
+  // findPendingReferrals covers both marketplace (listing_id) and BYOD
+  // (deal_id) rows. Before it did, a broker's BYOD referral was never found
+  // here, so the buyer paid the surcharge and nobody was credited.
+  const { ok: refsOk, refs } = await findPendingReferrals(supabase, listing.id);
 
-  if (refsErr) {
-    console.error("referral lookup failed for listing:", listing.id, refsErr);
+  if (!refsOk) {
     return { outcome: "lookup_failed" };
   }
 
-  const refs = (pendingRefs ?? []) as Array<{ id: string; promoter_id: string; share_code: string | null }>;
   if (refs.length === 0) return { outcome: "none" };
 
   let ref: { id: string; promoter_id: string; share_code: string | null } | null = null;

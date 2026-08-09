@@ -4,7 +4,7 @@
 // PLATFORM's Stripe balance first (separate-charges-and-transfers, not a
 // destination charge) — that's what makes the hold-then-release flow work.
 // The seller is paid out later by release-funds or auto-release-cron.
-import { corsHeaders, jsonResponse, requireUser, stripeClient, supabaseAdmin } from "../_shared/helpers.ts";
+import { corsHeaders, jsonResponse, PROMOTER_FEE, requireUser, stripeClient, supabaseAdmin } from "../_shared/helpers.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -71,19 +71,65 @@ Deno.serve(async (req) => {
       : undefined;
 
     // ── Promoter attribution ────────────────────────────────────────────────────
-    // The client sends whatever share_code it stored when the buyer arrived via
-    // a /s/:code link. That value is fully under the buyer's control, so it is
-    // never written as-is: it has to name a real PENDING referral on THIS
-    // listing. Anything that doesn't verify is dropped and the sale is recorded
-    // as organic — an unverifiable code should cost nobody a commission, and
-    // should never let a buyer redirect one to an account of their choosing.
+    // Two shapes reach this point.
     //
-    // Private deals are never Promoter-attributed: nobody referred a car the two
-    // parties found themselves, and there is no listing page to share.
+    // MARKETPLACE. The client sends whatever share_code it stored when the
+    // buyer arrived via a /s/:code link. That value is fully under the buyer's
+    // control, so it is never written as-is: it has to name a real PENDING
+    // referral on THIS listing. Anything that doesn't verify is dropped and the
+    // sale is recorded as organic — an unverifiable code should cost nobody a
+    // commission, and should never let a buyer redirect one to an account of
+    // their choosing.
+    //
+    // BYOD. Nothing is read from the request at all. create-deal already wrote
+    // the referral server-side when the deal was created, keyed on the invite
+    // token, from a code the initiator's browser was carrying. The buyer at
+    // checkout cannot influence it. This used to be blocked outright on the
+    // grounds that "nobody referred a car the two parties found themselves" —
+    // true of a shared listing, false of a broker who sent both parties here.
     let attributedCode: string | null = null;
+    let attributedPromoterId: string | null = null;
+    let dealCreatorRole: string | null = null;
 
-    if (
-      !listing.is_private &&
+    if (listing.is_private) {
+      const { data: invite, error: inviteErr } = await supabase
+        .from("deal_invites")
+        .select("token, creator_role")
+        .eq("listing_id", listing_id)
+        .maybeSingle();
+
+      if (inviteErr) {
+        console.error("deal_invites lookup failed at checkout:", listing_id, inviteErr);
+      } else if (invite?.token) {
+        dealCreatorRole = invite.creator_role ?? null;
+
+        const { data: ref, error: refErr } = await supabase
+          .from("referrals")
+          .select("id, promoter_id, share_code")
+          .eq("deal_id", invite.token)
+          .eq("status", "pending")
+          .maybeSingle();
+
+        if (refErr) {
+          console.error("BYOD referral lookup failed:", invite.token, refErr);
+        } else if (ref) {
+          if (ref.promoter_id === buyerId || ref.promoter_id === listing.seller_id) {
+            // Neither party to the deal can earn on it.
+            console.log("self-referral ignored on deal:", ref.share_code, invite.token);
+          } else {
+            // Stays null: BYOD referral rows carry no share_code (see
+            // create-deal for why). Do NOT be tempted to fill this from
+            // promoter_codes — listings.referral_code is matched against
+            // referrals.share_code in settleReferral, so a stamped code with a
+            // null share_code returns "attributed_not_pending" and pays the
+            // broker nothing. With one referral per deal, settlement's
+            // single-candidate path resolves it correctly.
+            attributedCode = ref.share_code;
+            attributedPromoterId = ref.promoter_id;
+          }
+        }
+      }
+    } else if (
       typeof share_code === "string" &&
       share_code.length > 0 &&
       share_code.length <= 64
@@ -106,6 +152,7 @@ Deno.serve(async (req) => {
           console.log("self-referral ignored at checkout:", ref.share_code, buyerId);
         } else {
           attributedCode = ref.share_code;
+          attributedPromoterId = ref.promoter_id;
         }
       }
     }
@@ -131,6 +178,23 @@ Deno.serve(async (req) => {
       // either mispriced or a units bug — fail loudly rather than charge.
       throw new Error("This listing's price is not valid for checkout");
     }
+
+    // ── Who pays the Promoter's 1% ──────────────────────────────────────────
+    // Whoever STARTED the deal pays it, additively. They are the one who chose
+    // to come through a broker, so the cost lands on them rather than on a
+    // counterparty who never met that broker.
+    //
+    //   buyer-initiated  → added to the charge. The buyer pays price + 1%, and
+    //                      the seller's proceeds are untouched.
+    //   seller-initiated → nothing added here. The webhook deducts it from the
+    //                      seller's net instead, exactly as a marketplace sale
+    //                      has always worked.
+    //
+    // Marketplace sales never reach the first branch: dealCreatorRole is only
+    // set for private deals, so promoterSurcharge stays 0 and the arithmetic is
+    // bit-for-bit what it was before this existed.
+    const buyerPaysPromoter = attributedPromoterId !== null && dealCreatorRole === "buyer";
+    const promoterSurcharge = buyerPaysPromoter ? Math.round(priceCents * PROMOTER_FEE) : 0;
     // ── Handover date ────────────────────────────────────────────────────────
     // The day the seller hands the car over. Read from the LISTING, server-side,
     // never from the request body — same rule as buyerEmail above. A buyer who
@@ -188,6 +252,9 @@ Deno.serve(async (req) => {
         ? `The seller hands over this vehicle on ${new Date(`${handoverDate}T12:00:00Z`)
             .toLocaleDateString("en-US", { timeZone: "UTC", month: "long", day: "numeric", year: "numeric" })}. `
         : "") +
+      (promoterSurcharge > 0
+        ? `This total includes a 1% referral fee paid to the broker who referred you. `
+        : "") +
       `DriveLink holds your payment — the seller is not paid at checkout. ` +
       `You'll get a 6-digit handover code. Give it to the seller only after the vehicle and the signed title are in your hands; ` +
       `entering it releases the funds. You can also confirm receipt yourself in the app, or report a problem instead. ` +
@@ -205,6 +272,9 @@ Deno.serve(async (req) => {
       // Creates a persistent Stripe Customer from that email, so repeat
       // purchases by the same person group together in the dashboard.
       customer_creation: "always",
+      // Two line items rather than one inflated total. The buyer already saw
+      // this split on the deal screen; hiding it on the payment page is where
+      // a surprise fee turns into a chargeback.
       line_items: [
         {
           price_data: {
@@ -214,6 +284,16 @@ Deno.serve(async (req) => {
           },
           quantity: 1,
         },
+        ...(promoterSurcharge > 0
+          ? [{
+            price_data: {
+              currency: "usd",
+              unit_amount: promoterSurcharge,
+              product_data: { name: "Referral fee (1%)" },
+            },
+            quantity: 1,
+          }]
+          : []),
       ],
       // No transfer_data/on_behalf_of on purpose — funds stay on the
       // platform balance until release-funds explicitly transfers them.
@@ -228,6 +308,14 @@ Deno.serve(async (req) => {
         // Mirrored into Stripe so attribution is visible in the dashboard and
         // survives a webhook replay even if the listings row is later touched.
         referral_code: attributedCode ?? "",
+        // What the CAR sold for, independent of what was charged. The webhook
+        // computes every fee from this, not from amount_total — otherwise a
+        // referral surcharge would inflate both fees and get deducted from the
+        // seller on top of the buyer having already paid it.
+        agreed_price: String(priceCents),
+        // How much of the charge was the referral surcharge. "0" means the
+        // seller is paying the commission out of proceeds.
+        promoter_surcharge: String(promoterSurcharge),
       },
       custom_text: { submit: { message: escrowNotice.slice(0, 1200) } },
       // Copied onto the PaymentIntent as well as the session. Refunds and

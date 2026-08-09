@@ -89,7 +89,15 @@ async function recordPromoterReferral(
       promoter_id: pc.user_id,
       listing_id: null,
       deal_id: token,
-      share_code: pc.code,
+      // Deliberately null. referrals.share_code carries a UNIQUE index from the
+      // marketplace design, where every code encoded one listing and could
+      // therefore only appear once. A standing Promoter code is reused across
+      // every deal that broker refers, so writing it here lets the first deal
+      // through and rejects every one after it with a duplicate key error.
+      //
+      // Nothing needs it: promoter_id identifies who earns, and the code itself
+      // is recoverable from promoter_codes.
+      share_code: null,
       status: "pending",
       commission_amount: 0,
     });

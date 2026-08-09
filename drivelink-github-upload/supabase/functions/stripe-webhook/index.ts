@@ -97,6 +97,7 @@ import {
   money,
   stripeClient,
   supabaseAdmin,
+  findPendingReferrals,
   PLATFORM_FEE,
   PROMOTER_FEE,
   AUTO_RELEASE_DAYS,
@@ -264,9 +265,28 @@ Deno.serve(async (req) => {
 
       const { listing_id, buyer_id } = meta;
 
-      // Cents throughout. Stripe's amount_total IS the sale_price now — no
-      // conversion, no rounding, no lost precision.
-      const salePrice = session.amount_total ?? 0;
+      // ── What the car actually sold for ────────────────────────────────────
+      // NOT amount_total. On a buyer-initiated BYOD deal with a Promoter
+      // referral, the buyer is charged the agreed price PLUS a 1% referral
+      // surcharge, so amount_total overstates the sale. Deriving fees from it
+      // would take 1% of the inflated figure and — worse — still deduct the
+      // promoter cut from the seller, charging the commission twice.
+      //
+      // create-checkout-session stamps both numbers. Fall back to amount_total
+      // for sessions created before this existed, where the two are equal.
+      const agreedPriceMeta = Number(session.metadata?.agreed_price);
+      const salePrice = Number.isFinite(agreedPriceMeta) && agreedPriceMeta > 0
+        ? agreedPriceMeta
+        : (session.amount_total ?? 0);
+
+      // How much of amount_total was the referral surcharge the BUYER paid.
+      // Zero on marketplace sales and on seller-initiated deals, where the
+      // commission comes out of the seller's proceeds instead.
+      const surchargeMeta = Number(session.metadata?.promoter_surcharge);
+      const promoterSurcharge = Number.isFinite(surchargeMeta) && surchargeMeta > 0
+        ? surchargeMeta
+        : 0;
+
       const platformFee = Math.round(salePrice * PLATFORM_FEE);
 
       // ── Stripe's actual processing fee ────────────────────────────────────
@@ -275,8 +295,12 @@ Deno.serve(async (req) => {
       // The fallback still rounds UP: overestimating the fee we don't control
       // keeps seller_net at or below the real balance. The old ceil-to-dollars
       // is gone — this is the exact cent figure Stripe reports.
+      // Estimated against what was actually CHARGED, not the agreed price —
+      // Stripe's fee applies to amount_total, which includes any referral
+      // surcharge.
+      const chargedTotal = session.amount_total ?? salePrice;
       const stripeFee = realFeeCents ??
-        (Math.ceil(salePrice * FALLBACK_FEE_PERCENT) + FALLBACK_FEE_FIXED_CENTS);
+        (Math.ceil(chargedTotal * FALLBACK_FEE_PERCENT) + FALLBACK_FEE_FIXED_CENTS);
       const effectiveFeeCents = stripeFee;
 
       if (feeWasEstimated) {
@@ -287,20 +311,36 @@ Deno.serve(async (req) => {
         );
       }
 
-      // Only reserve a promoter cut if a pending referral actually exists —
-      // this is the bug fix mentioned above.
-      const { data: pendingRef } = await supabase
-        .from("referrals")
-        .select("id, promoter_id")
-        .eq("listing_id", listing_id)
-        .eq("status", "pending")
-        .maybeSingle();
+      // Only reserve a promoter cut if a pending referral actually exists.
+      // findPendingReferrals covers marketplace rows (listing_id) and BYOD
+      // rows (deal_id) — the plain listing_id filter used here before could
+      // never see a broker's referral.
+      const { refs: pendingRefs } = await findPendingReferrals(supabase, listing_id);
+      const hasPendingRef = pendingRefs.length > 0;
 
-      const promoterFeeReserved = pendingRef ? Math.round(salePrice * PROMOTER_FEE) : 0;
+      // Who absorbs the commission.
+      //
+      // Buyer paid it (promoterSurcharge > 0): it is already sitting in
+      // amount_total on top of the agreed price. Reserving it again from the
+      // seller would charge it twice, so the seller's deduction is zero.
+      //
+      // Seller pays it (surcharge 0): the marketplace behaviour, and what a
+      // seller-initiated BYOD deal does. Comes out of their proceeds.
+      const promoterFeeReserved = hasPendingRef && promoterSurcharge === 0
+        ? Math.round(salePrice * PROMOTER_FEE)
+        : 0;
 
       // Clamp at zero. On a sale small enough that fees exceed the price, a
       // negative seller_net would become a negative transfer amount and throw
       // inside release-funds. Record zero and let the alert flag it.
+      // The seller nets the agreed price less DriveLink's cut, less Stripe's
+      // processing fee, less the promoter cut ONLY when they are the one
+      // paying it.
+      //
+      // Deliberate: when the buyer paid the surcharge, Stripe's fee was
+      // charged on the larger total, so the seller absorbs processing on the
+      // broker's commission too — roughly $9 on a $30,000 car. Judged not
+      // worth the complexity of splitting; revisit if a seller queries it.
       const rawSellerNet = salePrice - platformFee - promoterFeeReserved - stripeFee;
       const sellerNet = Math.max(0, rawSellerNet);
       const netWasClamped = rawSellerNet !== sellerNet;
