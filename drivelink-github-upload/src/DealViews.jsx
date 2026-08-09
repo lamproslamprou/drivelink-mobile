@@ -8,7 +8,9 @@
 // StartDealView  → /deals/new   the person creating the deal
 // JoinDealView   → /d/:token    the counterparty opening the link
 //
-// Prices are whole dollars throughout, matching listings.price.
+// The price field is typed in whole dollars and posted that way. create-deal
+// converts to cents at the door; everything that comes BACK from the server
+// (car.price on a preview) is cents, so it is divided before display.
 
 import { useState, useEffect } from "react";
 import { supabase } from "./supabase";
@@ -436,7 +438,7 @@ export function JoinDealView({ token, currentUser, onNavigate, onJoined, showToa
         <div style={dealStyles.priceCard}>
           <div style={dealStyles.priceRow}>
             <span style={dealStyles.priceLabel}>Agreed price</span>
-            <span style={dealStyles.priceValue}>${Number(car.price).toLocaleString()}</span>
+            <span style={dealStyles.priceValue}>${(Number(car.price) / 100).toLocaleString()}</span>
           </div>
           {car.vin && (
             <div style={dealStyles.vinRowSmall}>

@@ -73,7 +73,7 @@ Deno.serve(async (req) => {
       mileage: invite.mileage,
       vin: invite.vin,
       note: invite.note,
-      price: invite.price, // whole dollars
+      price: invite.price, // CENTS — create-deal converted once at the door
     };
     const carLabel = `${invite.year} ${invite.make} ${invite.model}`;
 
@@ -161,10 +161,10 @@ Deno.serve(async (req) => {
         .eq("status", "pending");
 
       notifyAdmin({
-        subject: `BYOD deal matched — ${carLabel} (${dollars(car.price)})`,
+        subject: `BYOD deal matched — ${carLabel} (${dollars(car.price / 100)})`,
         html: alertHtml("A buyer joined a bring-your-own-deal", [
           ["Vehicle", carLabel],
-          ["Price", dollars(car.price)],
+          ["Price", dollars(car.price / 100)],
           ["Buyer", `${joiner?.name ?? "—"} (${joiner?.email ?? "—"})`],
           ["Listing ID", invite.listing_id],
         ], "Both parties are attached. The buyer can now fund escrow."),
@@ -198,6 +198,7 @@ Deno.serve(async (req) => {
       year: invite.year,
       make: invite.make,
       model: invite.model,
+      // Already cents. Copied straight across — listings.price is cents.
       price: invite.price,
       mileage: invite.mileage,
       vin: invite.vin,
@@ -232,10 +233,10 @@ Deno.serve(async (req) => {
     }
 
     notifyAdmin({
-      subject: `BYOD deal matched — ${carLabel} (${dollars(car.price)})`,
+      subject: `BYOD deal matched — ${carLabel} (${dollars(car.price / 100)})`,
       html: alertHtml("A seller joined a bring-your-own-deal", [
         ["Vehicle", carLabel],
-        ["Price", dollars(car.price)],
+        ["Price", dollars(car.price / 100)],
         ["Seller", `${joiner?.name ?? "—"} (${joiner?.email ?? "—"})`],
         ["Listing ID", listingId],
       ], "Both parties are attached. The buyer can now fund escrow."),

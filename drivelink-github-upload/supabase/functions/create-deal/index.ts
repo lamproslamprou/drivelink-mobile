@@ -13,8 +13,11 @@
 // seller, because create-checkout-session and the transfer key off it, so the
 // car details park on deal_invites until the seller joins and onboards.
 //
-// Prices are WHOLE DOLLARS throughout, matching listings.price and the
-// salePrice arithmetic in stripe-webhook.
+// Prices are CENTS in storage, matching listings.price (migration
+// 20260803_05_money_to_cents) and offers.amount. The client posts whole
+// dollars, which is what a human types; this function is the single place
+// that converts. deal_invites.price is cents too, so accept-deal-invite can
+// copy it into listings.price without touching it.
 
 import {
   corsHeaders,
@@ -26,6 +29,8 @@ import {
 } from "../_shared/helpers.ts";
 
 const SITE_URL = Deno.env.get("SITE_URL") ?? "https://drivelink.deals";
+// Whole dollars — compared against the dollar figure the client posts, before
+// the conversion to cents below.
 const MAX_PRICE = 250_000;
 
 function makeToken(): string {
@@ -146,7 +151,11 @@ Deno.serve(async (req) => {
     if (priceInput > MAX_PRICE) {
       return jsonResponse({ error: `Deals above ${dollars(MAX_PRICE)} need to be arranged manually.` }, 400);
     }
-    const price = Math.round(priceInput);
+    // Stored in cents. This is the ONLY conversion point: everything
+    // downstream (deal_invites, listings, create-checkout-session, Stripe)
+    // reads cents. Getting this wrong charges the buyer 1/100th of the agreed
+    // price and pays the seller the same, after they have shipped a car.
+    const priceCents = Math.round(priceInput * 100);
 
     const mileageInput = Number(body.mileage);
     const mileage = Number.isFinite(mileageInput) && mileageInput >= 0
@@ -183,7 +192,7 @@ Deno.serve(async (req) => {
         year,
         make,
         model,
-        price,
+        price: priceCents,
         mileage,
         vin,
         description: note,
@@ -206,7 +215,8 @@ Deno.serve(async (req) => {
         created_by: userId,
         creator_role: "seller",
         listing_id: listingId,
-        year, make, model, mileage, vin, note, price,
+        year, make, model, mileage, vin, note,
+        price: priceCents,
       });
 
       if (inviteErr) {
@@ -218,10 +228,10 @@ Deno.serve(async (req) => {
       await recordPromoterReferral(supabase, token, body.promoter_code, userId);
 
       notifyAdmin({
-        subject: `New BYOD deal started (seller) — ${carLabel} (${dollars(price)})`,
+        subject: `New BYOD deal started (seller) — ${carLabel} (${dollars(priceCents / 100)})`,
         html: alertHtml("Bring-your-own-deal created by a seller", [
           ["Vehicle", carLabel],
-          ["Price", dollars(price)],
+          ["Price", dollars(priceCents / 100)],
           ["Seller", `${caller?.name ?? "—"} (${caller?.email ?? "—"})`],
           ["Listing ID", listingId],
           ["Link", `${SITE_URL}/d/${token}`],
@@ -244,7 +254,8 @@ Deno.serve(async (req) => {
       created_by: userId,
       creator_role: "buyer",
       listing_id: null,
-      year, make, model, mileage, vin, note, price,
+      year, make, model, mileage, vin, note,
+      price: priceCents,
     });
 
     if (inviteErr) {
@@ -255,10 +266,10 @@ Deno.serve(async (req) => {
     await recordPromoterReferral(supabase, token, body.promoter_code, userId);
 
     notifyAdmin({
-      subject: `New BYOD deal started (buyer) — ${carLabel} (${dollars(price)})`,
+      subject: `New BYOD deal started (buyer) — ${carLabel} (${dollars(priceCents / 100)})`,
       html: alertHtml("Bring-your-own-deal created by a buyer", [
         ["Vehicle", carLabel],
-        ["Price", dollars(price)],
+        ["Price", dollars(priceCents / 100)],
         ["Buyer", `${caller?.name ?? "—"} (${caller?.email ?? "—"})`],
         ["Link", `${SITE_URL}/d/${token}`],
       ], "No listing exists yet. It is created when the seller joins and completes Connect onboarding."),
