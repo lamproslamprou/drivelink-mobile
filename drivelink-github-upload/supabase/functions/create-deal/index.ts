@@ -41,6 +41,60 @@ function makeListingId(): string {
   return `l${Date.now()}`;
 }
 
+// Records a standing-Promoter referral against a BYOD deal.
+//
+// Best-effort by design: a deal that succeeds must not be rolled back because
+// attribution failed. An unknown or inactive code, or a promoter referring
+// themselves, simply records nothing.
+//
+// referrals rows carry either listing_id or deal_id, never both — enforced by
+// the referrals_one_target check constraint. BYOD rows use deal_id, holding the
+// invite token.
+async function recordPromoterReferral(
+  supabase: ReturnType<typeof supabaseAdmin>,
+  token: string,
+  rawCode: unknown,
+  initiatorId: string,
+): Promise<void> {
+  if (typeof rawCode !== "string" || !rawCode || rawCode.length > 64) return;
+
+  try {
+    const { data: pc, error: pcErr } = await supabase
+      .from("promoter_codes")
+      .select("code, user_id")
+      .ilike("code", rawCode)
+      .eq("active", true)
+      .maybeSingle();
+
+    if (pcErr) {
+      console.error("promoter code lookup failed:", rawCode, pcErr.message);
+      return;
+    }
+    if (!pc) return;
+
+    // Referring yourself pays nothing. Mirrors the self-referral block in
+    // create-checkout-session.
+    if (pc.user_id === initiatorId) {
+      console.log("self-referral ignored on deal:", pc.code, initiatorId);
+      return;
+    }
+
+    const { error: refErr } = await supabase.from("referrals").insert({
+      id: `r${Date.now()}`,
+      promoter_id: pc.user_id,
+      listing_id: null,
+      deal_id: token,
+      share_code: pc.code,
+      status: "pending",
+      commission_amount: 0,
+    });
+
+    if (refErr) console.error("BYOD referral insert failed:", token, refErr.message);
+  } catch (err) {
+    console.error("recordPromoterReferral threw:", err);
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return jsonResponse({ error: "Method not allowed" }, 405);
@@ -161,6 +215,8 @@ Deno.serve(async (req) => {
         return jsonResponse({ error: "Could not create the deal." }, 500);
       }
 
+      await recordPromoterReferral(supabase, token, body.promoter_code, userId);
+
       notifyAdmin({
         subject: `New BYOD deal started (seller) — ${carLabel} (${dollars(price)})`,
         html: alertHtml("Bring-your-own-deal created by a seller", [
@@ -195,6 +251,8 @@ Deno.serve(async (req) => {
       console.error("create-deal invite insert failed:", inviteErr.message);
       return jsonResponse({ error: "Could not create the deal." }, 500);
     }
+
+    await recordPromoterReferral(supabase, token, body.promoter_code, userId);
 
     notifyAdmin({
       subject: `New BYOD deal started (buyer) — ${carLabel} (${dollars(price)})`,

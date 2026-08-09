@@ -119,6 +119,7 @@ export function StartDealView({ currentUser, onBack, onNavigate, showToast }) {
           mileage: form.mileage || 0,
           price: form.price,
           note: form.note || null,
+          promoter_code: readPromoterCode(),
         },
       });
 
