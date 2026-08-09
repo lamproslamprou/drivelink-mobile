@@ -34,6 +34,10 @@ function readPromoterCode() {
   } catch { return null; }
 }
 
+function clearPromoterCode() {
+  try { localStorage.removeItem(PROMO_KEY); } catch { /* nothing to clear */ }
+}
+
 // ============================================================================
 // StartDealView
 // ============================================================================
@@ -126,6 +130,11 @@ export function StartDealView({ currentUser, onBack, onNavigate, showToast }) {
       if (fnErr) { setError("Could not create the deal. Try again."); return; }
       if (data?.error) { setError(data.error); return; }
       if (data?.needs_onboarding) { setNeedsOnboarding(true); return; }
+
+      // Attribution is spent. The promoter earns on the deal they referred, not
+      // on everything this person does for the next 30 days — and the signed-out
+      // screen promises they can start a later deal without a referral fee.
+      clearPromoterCode();
 
       setResult(data);
       showToast?.("Deal created — send the link to the other party.");
