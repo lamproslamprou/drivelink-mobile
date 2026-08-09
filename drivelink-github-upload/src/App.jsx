@@ -243,7 +243,7 @@ const normalizePath = (p) => (p || "/").replace(/[?#].*$/, "").replace(/\/+$/, "
 // and resumes afterwards. Browsing without an account is deliberate — asking
 // someone to register before they have seen a single car loses them.
 const PUBLIC_VIEWS = new Set([
-  "landing", "auth", "home", "advertise", "terms", "privacy", "safety", "about",
+  "landing", "auth", "home", "advertise", "terms", "privacy", "safety", "about", "startDeal",
 ]);
 
 // The view to paint on first render, read from the address bar.
