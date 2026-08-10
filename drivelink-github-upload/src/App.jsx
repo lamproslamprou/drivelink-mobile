@@ -83,6 +83,24 @@ const ACCEPTANCE_WINDOW_MS = 48 * 60 * 60 * 1000;    // buyer has 48h to close b
 const SITE_ORIGIN = typeof window !== "undefined" ? window.location.origin : "https://drivelink.deals";
 const listingUrl = (id) => `${SITE_ORIGIN}/listing/${id}`;
 const promoterUrl = (code) => `${SITE_ORIGIN}/s/${code}`;
+// Standing Promoter link. Unlike promoterUrl() this points at no particular car:
+// /p/:code stores the code and drops the visitor straight into Start a Deal,
+// which is the path a transport broker's customer actually takes.
+const standingUrl = (code) => `${SITE_ORIGIN}/p/${code}`;
+
+// ── Promoter code generation ─────────────────────────────────────────────────
+// O/0 and I/1 are left out on purpose: these codes get read aloud on the phone
+// and typed off a business card, and that pair is where transcription fails.
+const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+const randomSuffix = (n = 6) => {
+  const buf = new Uint32Array(n);
+  crypto.getRandomValues(buf);
+  return Array.from(buf, v => CODE_ALPHABET[v % CODE_ALPHABET.length]).join("");
+};
+const slugFromName = (name) => {
+  const s = (name || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 10);
+  return s || "PROMO";
+};
 
 // ── Promoter attribution ─────────────────────────────────────────────────────────
 // When someone lands via /s/:code we remember the code locally for 30 days so a
@@ -220,6 +238,7 @@ const VIEW_PATHS = {
   savedSearches: "/saved-searches",
   favorites:     "/favorites",
   dashboard:     "/dashboard",
+  promoter:      "/promoter",
   profile:       "/profile",
   blocked:       "/blocked",
   postListing:   "/sell",
@@ -275,6 +294,7 @@ export default function App() {
   const [userReports, setUserReports] = useState([]);
   const [reviews, setReviews] = useState([]);
   const [payouts, setPayouts] = useState([]);
+  const [promoterCode, setPromoterCode] = useState(null);
   const [disputes, setDisputes] = useState([]);
   const [offers, setOffers] = useState([]);
   const [openThread, setOpenThread] = useState(null);
@@ -377,6 +397,39 @@ export default function App() {
     setTimeout(() => setToast(null), 3500);
   };
 
+  // ── Mint a standing Promoter code ──────────────────────────────────────────
+  // Self-serve by design: brokers get a link without us in the loop. The insert
+  // is RLS-scoped to the caller, and the partial unique index on (user_id) where
+  // active is what actually stops a double-tap producing two live codes — the
+  // guard below just turns that race into a silent re-read instead of an error.
+  const mintPromoterCode = async () => {
+    if (!currentUser) { setView("auth"); return null; }
+    const slug = slugFromName(dbUser?.name);
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const code = `${slug}-${randomSuffix()}`;
+      const { data, error } = await supabase
+        .from("promoter_codes")
+        .insert({ code, user_id: currentUser.id, active: true })
+        .select()
+        .single();
+      if (!error) {
+        setPromoterCode(data);
+        showToast("Your Promoter code is live.");
+        return data;
+      }
+      if (error.code === "23505" && /one_active_per_user/.test(error.message || "")) {
+        const { data: existing } = await supabase.from("promoter_codes").select("*").eq("active", true).limit(1);
+        if (existing?.[0]) { setPromoterCode(existing[0]); return existing[0]; }
+        break;
+      }
+      if (error.code === "23505") continue; // code collision — reroll the suffix
+      showToast(error.message || "Couldn't create your code — try again.", "error");
+      return null;
+    }
+    showToast("Couldn't create your code — try again.", "error");
+    return null;
+  };
+
   const loadData = async () => {
     const { data: listingsData } = await supabase.from("listings").select("*").order("created_at", { ascending: false });
     const { data: referralsData } = await supabase.from("referrals").select("*");
@@ -391,6 +444,9 @@ export default function App() {
     const { data: userReportsData } = await supabase.from("user_reports").select("*").order("created_at", { ascending: false });
     const { data: reviewsData } = await supabase.from("reviews").select("*").order("created_at", { ascending: false });
     const { data: payoutsData } = await supabase.from("payouts").select("*").order("paid_at", { ascending: false });
+    // RLS on promoter_codes is SELECT-scoped to the owner, so this returns your
+    // own row or nothing at all — no filter on user_id is needed or trusted.
+    const { data: promoterCodeData } = await supabase.from("promoter_codes").select("*").eq("active", true).limit(1);
     const { data: disputesData } = await supabase.from("disputes").select("*").order("created_at", { ascending: false });
     const { data: offersData } = await supabase.from("offers").select("*").order("created_at", { ascending: false });
     // Two sources on purpose. public_ads is a display-only view any visitor can
@@ -426,6 +482,7 @@ export default function App() {
     if (userReportsData) setUserReports(userReportsData);
     if (reviewsData) setReviews(reviewsData);
     if (payoutsData) setPayouts(payoutsData);
+    setPromoterCode(promoterCodeData?.[0] || null);
     if (disputesData) setDisputes(disputesData);
     if (offersData) setOffers(offersData);
 
@@ -1799,6 +1856,7 @@ const denyFlaggedReferral = async (refId) => {
                         ["favorites", `❤️ ${t("nav.favorites")}`],
                         ["savedSearches", t("nav.savedSearches")],
                         ["dashboard", t("nav.dashboard")],
+                        ["promoter", "\ud83c\udfab Promoter code"],
                         ["blocked", `🚫 ${t("nav.blocked")}`],
                         ["profile", `⚙️ ${t("nav.profile")}`],
                       ].map(([v, label]) => (
@@ -1866,7 +1924,8 @@ const denyFlaggedReferral = async (refId) => {
         {view === "savedSearches" && <SavedSearchesView savedSearches={savedSearches} onDelete={deleteSavedSearch} onBrowse={() => setView("home")} />}
         {view === "favorites" && <FavoritesView favorites={favorites} listings={listings} users={users} referrals={referrals} currentUser={dbUser} onShare={generateShare} onBuy={handleBuyNow} onMessageSeller={messageSeller} onReport={fileReport} onToggleFavorite={toggleFavorite} onBrowse={() => setView("home")} onOpenListing={openListing} />}
         {view === "blocked" && <BlockedUsersView blocks={blocks} users={users} onToggleBlock={toggleBlock} onBrowse={() => setView("home")} />}
-        {view === "dashboard" && <PromoterDashboard currentUser={dbUser} referrals={referrals.filter(r => r.promoter_id === currentUser?.id)} listings={listings} payouts={payouts} onSetupPayouts={setupPayouts} onRetract={retractReferral} />}
+        {view === "dashboard" && <PromoterDashboard currentUser={dbUser} referrals={referrals.filter(r => r.promoter_id === currentUser?.id)} listings={listings} payouts={payouts} standingCode={promoterCode?.code || null} onSetupPayouts={setupPayouts} onRetract={retractReferral} onGetCode={() => setView("promoter")} />}
+        {view === "promoter" && <PromoterCodeView currentUser={dbUser} promoterCode={promoterCode} onMint={mintPromoterCode} onSetupPayouts={setupPayouts} onViewEarnings={() => setView("dashboard")} />}
         {view === "profile" && <ProfileView dbUser={dbUser} authEmail={currentUser?.email} onUpdateProfile={updateProfile} onChangeEmail={changeEmail} onChangePassword={changePassword} onSetupPayouts={setupPayouts} onStartIdentityVerification={startIdentityVerification} />}
        {view === "admin" && <AdminView listings={listings} users={users} riskFlags={riskFlags} onResolveRiskFlag={resolveRiskFlag} referrals={referrals} reports={reports} feedback={feedback} userReports={userReports} reviews={reviews} payouts={payouts} disputes={disputes} adPlacements={adPlacements} onDeleteAd={deleteAdPlacement} onArchive={archiveListing} onMarkSold={markSold} onConfirmReceipt={confirmReceipt} onResolveReport={resolveReport} onResolveUserReport={resolveUserReport} onToggleVerified={toggleVerified} onResetData={resetTestData} onRecordPayout={recordPayout} onPayoutViaStripe={payoutPromoterViaStripe} onResolveDispute={resolveDispute} onDeleteUser={deleteUser} onApproveFlaggedReferral={approveFlaggedReferral} onDenyFlaggedReferral={denyFlaggedReferral} />}
         {view === "success" && <SuccessView onHome={() => setView("home")} />}
@@ -4765,7 +4824,7 @@ function YearField({ value, onChange }) {
   );
 }
 
-function PromoterDashboard({ currentUser, referrals, listings, payouts, onSetupPayouts, onRetract }) {
+function PromoterDashboard({ currentUser, referrals, listings, payouts, standingCode, onSetupPayouts, onRetract, onGetCode }) {
   const pending = referrals.filter(r => r.status === "pending");
   const lifetimeEarned = referrals.filter(r => r.status === "paid").reduce((s, r) => s + (r.commission_amount || 0), 0);
   const myPayouts = (payouts || []).filter(p => p.user_id === currentUser?.id);
@@ -4787,6 +4846,12 @@ function PromoterDashboard({ currentUser, referrals, listings, payouts, onSetupP
         <StatBox label="Shares Active" value={pending.length} color="#1d4ed8" />
         <StatBox label="Sales Converted" value={referrals.filter(r => r.status === "paid").length} color="#7c3aed" />
       </div>
+      {!standingCode && (
+        <div style={styles.safetyBanner}>
+          🎫 You don't have a Promoter code yet — that's the link you share to earn on deals you bring in.{" "}
+          <button style={styles.safetyBannerLink} onClick={onGetCode}>Get your code</button>
+        </div>
+      )}
       <h3 style={styles.sectionTitle}>Your Referrals</h3>
       {referrals.length === 0 && <p style={{ color: "#6b7280" }}>No referrals yet. Browse listings and share to earn 1% commission on sales.</p>}
       <div style={styles.tableWrap}>
@@ -4795,6 +4860,7 @@ function PromoterDashboard({ currentUser, referrals, listings, payouts, onSetupP
             key={r.id}
             referral={r}
             listing={listings.find(l => l.id === r.listing_id)}
+            standingCode={standingCode}
             onRetract={onRetract}
           />
         ))}
@@ -4821,10 +4887,10 @@ function PromoterDashboard({ currentUser, referrals, listings, payouts, onSetupP
 
 // Shows the actual shareable URL with working Copy / Share buttons. The raw code
 // is kept visible but secondary — it's a reference, not the thing you send.
-function PromoterLinkRow({ code, listing }) {
+function PromoterLinkRow({ code, listing, standing = false }) {
   const [state, setState] = useState(null); // "copied" | "shared"
-  const url = promoterUrl(code);
-  const title = listing ? `${listing.year} ${listing.make} ${listing.model} on DriveLink` : "A car on DriveLink";
+  const url = standing ? standingUrl(code) : promoterUrl(code);
+  const title = listing ? `${listing.year} ${listing.make} ${listing.model} on DriveLink` : "Buy or sell safely on DriveLink";
 
   const doShare = async () => {
     const result = await shareOrCopy(url, title);
@@ -4855,9 +4921,117 @@ function PromoterLinkRow({ code, listing }) {
   );
 }
 
+// ── Promoter code page ───────────────────────────────────────────────────────
+// The self-serve mint. This exists so a broker can go from "sure, send it over"
+// to a working link without anyone at DriveLink touching a console. Everything
+// on this page is one screen and one button on purpose — it gets opened on a
+// phone, between calls, by someone who has not read anything about us.
+function PromoterCodeView({ currentUser, promoterCode, onMint, onSetupPayouts, onViewEarnings }) {
+  const [working, setWorking] = useState(false);
+  const [copied, setCopied] = useState(null); // "copied" | "shared"
+
+  const code = promoterCode?.code || null;
+  const url = code ? standingUrl(code) : null;
+
+  const doMint = async () => {
+    setWorking(true);
+    await onMint();
+    setWorking(false);
+  };
+
+  const doShare = async () => {
+    const result = await shareOrCopy(url, "Buy or sell safely on DriveLink");
+    if (result === "cancelled" || result === "failed") return;
+    setCopied(result);
+    setTimeout(() => setCopied(null), 2500);
+  };
+
+  return (
+    <div style={styles.pageWrap}>
+      <h2 style={styles.pageTitle}>Your Promoter Code</h2>
+
+      {!code && (
+        <>
+          <p style={{ color: "#475569", fontSize: 15, lineHeight: 1.6, maxWidth: 640 }}>
+            Send your link to anyone buying or selling a car privately. When they
+            complete a deal through DriveLink, you earn <b>1% of the sale price</b>.
+            That 1% is added to the deal — it doesn't come out of the buyer's or
+            seller's pocket at your expense, and it doesn't reduce what the seller
+            receives beyond the fee they already agreed to.
+          </p>
+          <button
+            onClick={doMint}
+            disabled={working}
+            style={{
+              marginTop: 20, background: working ? "#93c5fd" : "#1d4ed8", color: "#fff",
+              border: "none", borderRadius: 10, padding: "14px 22px", fontSize: 15,
+              fontWeight: 700, cursor: working ? "default" : "pointer",
+            }}
+          >
+            {working ? "Creating\u2026" : "Create my Promoter code"}
+          </button>
+        </>
+      )}
+
+      {code && (
+        <>
+          <div style={{ fontSize: 13, color: "#6b7280", marginBottom: 6 }}>Your code</div>
+          <div style={{
+            fontSize: 24, fontWeight: 800, letterSpacing: "0.04em", color: "#0f172a",
+            fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", marginBottom: 18,
+          }}>{code}</div>
+
+          <div style={{ fontSize: 13, color: "#6b7280", marginBottom: 6 }}>Your link</div>
+          <div style={{
+            fontSize: 14, color: "#1d4ed8", wordBreak: "break-all",
+            background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 8,
+            padding: "10px 12px", fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+          }}>{url}</div>
+
+          <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
+            <button
+              onClick={doShare}
+              style={{
+                background: copied ? "#16a34a" : "#1d4ed8", color: "#fff", border: "none",
+                borderRadius: 8, padding: "10px 16px", fontSize: 14, fontWeight: 600, cursor: "pointer",
+              }}
+            >
+              {copied === "copied" ? "\u2713 Link copied!" : copied === "shared" ? "\u2713 Shared!" : "\ud83d\udd17 Copy / Share link"}
+            </button>
+            <button
+              onClick={onViewEarnings}
+              style={{
+                background: "#fff", color: "#1d4ed8", border: "1px solid #bfdbfe",
+                borderRadius: 8, padding: "10px 16px", fontSize: 14, fontWeight: 600, cursor: "pointer",
+              }}
+            >
+              View earnings
+            </button>
+          </div>
+
+          {currentUser && !currentUser.stripe_payouts_enabled && (
+            <div style={{ ...styles.safetyBanner, marginTop: 20 }}>
+              💳 Set up payouts so your commission can be sent to you directly.{" "}
+              <button style={styles.safetyBannerLink} onClick={onSetupPayouts}>Set up payouts</button>
+            </div>
+          )}
+        </>
+      )}
+
+      <div style={styles.infoBox}>
+        <b>How it works:</b> Anyone who opens your link and starts a deal is
+        credited to you for 3 days. The commission is confirmed once the sale
+        completes and the buyer confirms the handover, then it lands in your
+        balance. You can share the same link as many times as you like — it
+        doesn't expire and it isn't tied to any one car.
+      </div>
+    </div>
+  );
+}
+
 // One row in the Promoter's referral list. Pending referrals show the shareable
 // link and can be retracted; settled ones are read-only history.
-function ReferralRow({ referral: r, listing, onRetract }) {
+function ReferralRow({ referral: r, listing, standingCode, onRetract }) {
   const [confirming, setConfirming] = useState(false);
   const [working, setWorking] = useState(false);
 
@@ -4880,7 +5054,16 @@ function ReferralRow({ referral: r, listing, onRetract }) {
       <div style={styles.rowInfo} className="app-row-info">
         <div style={styles.rowTitle}>{listing ? `${listing.year} ${listing.make} ${listing.model}` : "Listing no longer available"}</div>
 
-        {r.status === "pending" && <PromoterLinkRow code={r.share_code} listing={listing} />}
+        {/* A BYOD referral has no share_code — it was attributed by the promoter's
+            standing /p/ code, not by a per-listing /s/ link. Rendering the
+            per-listing row here produced a link to /s/null. */}
+        {r.status === "pending" && r.share_code && <PromoterLinkRow code={r.share_code} listing={listing} />}
+        {r.status === "pending" && !r.share_code && standingCode && <PromoterLinkRow code={standingCode} listing={null} standing />}
+        {r.status === "pending" && !r.share_code && !standingCode && (
+          <div style={{ fontSize: 13, color: "#6b7280", marginTop: 6 }}>
+            Attributed to your Promoter code.
+          </div>
+        )}
 
         {r.status === "paid" && <div style={styles.soldBadge}>✅ Commission: {fmt(r.commission_amount)} on {r.paid_at}</div>}
         {r.status === "pending" && (
