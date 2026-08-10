@@ -37,19 +37,18 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn }) {
         </div>
         <div style={styles.heroInner}>
           <h1 style={styles.heroTitle} className="dl-hero-title">
-            Buy &amp; sell cars directly.<br />
-            <span style={styles.heroAccent}>Get paid like a dealership.</span>
+            The safe way to pay for a used car.<br />
+            <span style={styles.heroAccent}>Wherever you found it.</span>
           </h1>
           <p style={styles.heroSub} className="dl-hero-sub">
-            Every deal on DriveLink closes through escrow — the buyer's money is held until the keys
-            and title change hands. Browse what's listed, list your own, bring a car you found{" "}
-            <b>somewhere else</b>, or share a listing and earn{" "}
-            <b style={{ color: "#60a5fa" }}>1% of the sale price</b>.
+            Found a car on Facebook Marketplace, Craigslist, or through a friend? Start a deal on{" "}
+            <b>that car</b> — the buyer's money is held until the keys and title change hands. You can
+            also browse what's listed here, or list your own.
           </p>
           <div style={styles.heroActions} className="dl-hero-actions">
-            <button style={styles.ctaPrimary} onClick={onBrowse}>Browse Cars →</button>
-            <button style={styles.ctaSecondary} onClick={handleCta}>List My Car</button>
-            <button style={styles.ctaByod} onClick={handleStartDeal}>Already found a car?</button>
+            <button style={styles.ctaPrimary} onClick={handleStartDeal}>Already found a car? →</button>
+            <button style={styles.ctaSecondary} onClick={onBrowse}>Browse Cars</button>
+            <button style={styles.ctaByod} onClick={handleCta}>List My Car</button>
           </div>
 
           <div style={styles.trustStrip} className="dl-trust-strip">

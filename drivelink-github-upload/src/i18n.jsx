@@ -212,9 +212,9 @@ const dict = {
 
     // ── Home / hero ──────────────────────────────────────────────────────
     "home.badge": "Peer-to-peer • Commission-backed",
-    "home.title": "Find your next car.",
-    "home.titleAccent": "Share and earn 1%.",
-    "home.sub": "Buy directly from owners. Promote listings to your network and earn 1% of every sale you unlock.",
+    "home.title": "Buying from a stranger?",
+    "home.titleAccent": "Don't wire the money.",
+    "home.sub": "DriveLink holds the payment until the keys and title change hands. Browse what's listed, or start a deal on a car you found anywhere else.",
     "home.statListings": "Active listings",
     "home.statSold": "Cars sold",
     "home.statPromoter": "Promoter cut",
@@ -431,9 +431,9 @@ const dict = {
 
 
     "home.badge": "De persona a persona • Con comisión",
-    "home.title": "Encuentra tu próximo carro.",
-    "home.titleAccent": "Comparte y gana 1%.",
-    "home.sub": "Compra directamente a los dueños. Comparte anuncios con tu gente y gana 1% de cada venta que logres.",
+    "home.title": "¿Le compras a un desconocido?",
+    "home.titleAccent": "No envíes el dinero.",
+    "home.sub": "DriveLink retiene el pago hasta que se entreguen las llaves y el título. Explora los anuncios, o abre un trato por un carro que encontraste en otro lado.",
     "home.statListings": "Anuncios activos",
     "home.statSold": "Carros vendidos",
     "home.statPromoter": "Comisión",

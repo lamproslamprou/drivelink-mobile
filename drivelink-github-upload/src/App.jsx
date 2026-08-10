@@ -4887,7 +4887,7 @@ function PromoterDashboard({ currentUser, referrals, listings, payouts, standing
           />
         ))}
       </div>
-      <div style={styles.infoBox}><b>How commissions work:</b> When you share a listing and a buyer completes the purchase, 1% of the sale price is automatically credited to your account.</div>
+      <div style={styles.infoBox}><b>How commissions work:</b> Share a listing, or send your Promoter link to someone doing a deal they found elsewhere. Either way, 1% of the sale price is credited to you once the sale completes.</div>
       <h3 style={{ ...styles.sectionTitle, marginTop: 32 }}>Payout History</h3>
       {myPayouts.length === 0 ? (
         <p style={{ color: "#6b7280" }}>No payouts yet — your available balance above is what's owed to you.</p>
