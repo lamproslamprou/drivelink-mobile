@@ -276,6 +276,11 @@ function initialViewFromPath() {
   if (typeof window === "undefined") return "landing";
   const p = normalizePath(window.location.pathname);
   if (/^\/(listing|s|d)\//.test(p)) return "home";
+  // /p/:code is consumed on arrival and replaced with /start-deal. Painting
+  // "landing" here first meant a broker's customer saw the marketing page
+  // flash before the deal form — and left `view` stale for the view→URL
+  // effect, which then navigated back to "/" and threw the code away.
+  if (/^\/p\//.test(p)) return "startDeal";
   return PATH_TO_VIEW[p] || "landing";
 }
 
@@ -1535,6 +1540,11 @@ const denyFlaggedReferral = async (refId) => {
     const standingMatch = path.match(/^\/p\/([^/?#]+)\/?$/);
     if (standingMatch) {
       savePromoterCode(decodeURIComponent(standingMatch[1]).toUpperCase());
+      // This navigate is the URL becoming correct, not the user moving. Without
+      // the flag the view→URL effect runs next with the pre-setView value and
+      // navigates to whatever that stale view maps to — which is how /p/:code
+      // ended up redirecting to the landing page.
+      syncingFromUrl.current = true;
       setView("startDeal");
       navigate(VIEW_PATHS.startDeal, { replace: true });
       return;
