@@ -84,9 +84,35 @@ Deno.serve(async (req) => {
     const buyerId = String(listing.buyer_id ?? "").trim().toLowerCase();
     const caller = String(callerId ?? "").trim().toLowerCase();
 
-    // Only the actual buyer can manually release funds — the cron job bypasses
-    // this by calling with the service role, not a user token.
-    if (!buyerId || buyerId !== caller) {
+    // Normally only the buyer releases funds. Admins can too, via Force Confirm
+    // in the dashboard — the recourse when the buyer has the car and simply
+    // stops responding.
+    //
+    // FIXED 2026-08-09. The header of this file has always claimed Force
+    // Confirm worked, and the held-release email tells the admin to press it.
+    // Neither was true: the button calls this same function, and this check
+    // rejected anyone who wasn't the buyer. Every held release was
+    // unrecoverable through the UI.
+    //
+    // The risk gate below still runs for admins. Force Confirm is a way to act
+    // on a silent buyer, not a way to skip fraud checks — an admin who hasn't
+    // resolved the open flags gets the same hold the buyer would.
+    let callerIsAdmin = false;
+    if (buyerId !== caller) {
+      const { data: callerRow, error: callerErr } = await supabase
+        .from("users")
+        .select("role")
+        .eq("id", callerId)
+        .maybeSingle();
+
+      if (callerErr) {
+        console.error("caller role lookup failed:", callerId, callerErr);
+        throw new Error("Could not verify your account");
+      }
+      callerIsAdmin = callerRow?.role === "admin";
+    }
+
+    if (!callerIsAdmin && (!buyerId || buyerId !== caller)) {
       throw new Error("Only the buyer can confirm receipt for this listing");
     }
     if (listing.status !== "pending_confirmation") {
@@ -214,7 +240,7 @@ Deno.serve(async (req) => {
     const notified = await sendCompletionEmails(supabase, listing, {
       transferId: transfer.id,
       amountCents: sellerNetCents,
-      releasedVia: "buyer_confirm",
+      releasedVia: callerIsAdmin ? "admin_force_confirm" : "buyer_confirm",
     });
 
     return jsonResponse({
