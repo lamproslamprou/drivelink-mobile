@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "./supabase.js";
 import Auth from "./Auth.jsx";
+import ResetPassword from "./ResetPassword.jsx";
 import { useLang, LangToggle, LangSwitchLink } from "./i18n.jsx";
 import Landing from "./Landing.jsx";
 import ImageUpload from "./ImageUpload.jsx";
@@ -239,6 +240,7 @@ const VIEW_PATHS = {
   favorites:     "/favorites",
   dashboard:     "/dashboard",
   promoter:      "/promoter",
+  resetPassword: "/reset-password",
   profile:       "/profile",
   blocked:       "/blocked",
   postListing:   "/sell",
@@ -263,6 +265,8 @@ const normalizePath = (p) => (p || "/").replace(/[?#].*$/, "").replace(/\/+$/, "
 // someone to register before they have seen a single car loses them.
 const PUBLIC_VIEWS = new Set([
   "landing", "auth", "home", "advertise", "terms", "privacy", "safety", "about", "startDeal",
+  // Arrived at from an emailed recovery link, necessarily signed out.
+  "resetPassword",
 ]);
 
 // The view to paint on first render, read from the address bar.
@@ -281,6 +285,7 @@ function initialViewFromPath() {
   // flash before the deal form — and left `view` stale for the view→URL
   // effect, which then navigated back to "/" and threw the code away.
   if (/^\/p\//.test(p)) return "startDeal";
+  if (p === "/reset-password") return "resetPassword";
   return PATH_TO_VIEW[p] || "landing";
 }
 
@@ -1783,6 +1788,13 @@ const denyFlaggedReferral = async (refId) => {
     if (VIEW_PATHS[target]) navigate(VIEW_PATHS[target], { replace: true });
   };
 
+  // Checked before everything else. Supabase turns the recovery token into a
+  // real session, so by the time the app renders the visitor looks signed in —
+  // any later gate would route them to Browse and they would never be asked
+  // for a new password.
+  if (view === "resetPassword") {
+    return <ResetPassword onDone={() => { setView(currentUser ? "home" : "auth"); navigate(currentUser ? VIEW_PATHS.home : VIEW_PATHS.auth, { replace: true }); }} />;
+  }
   if (!currentUser && view === "auth") return <Auth onAuth={completeSignIn} />;
 
   if (!currentUser && !PUBLIC_VIEWS.has(view)) return (

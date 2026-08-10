@@ -87,6 +87,9 @@ export default function Auth({ onAuth }) {
   const [success, setSuccess] = useState("");
   const [awaitingConfirmation, setAwaitingConfirmation] = useState(false);
   const [resendStatus, setResendStatus] = useState("");
+  // "form" | "sent". Kept separate from `tab` so backing out of the reset flow
+  // returns to sign-in with the typed email still in place.
+  const [forgotStage, setForgotStage] = useState(null);
 
   const handleSignIn = async () => {
     setError(""); setLoading(true);
@@ -130,12 +133,74 @@ export default function Auth({ onAuth }) {
     setAwaitingConfirmation(true);
   };
 
+  // Supabase mails the link; we never learn whether the address exists, and we
+  // deliberately do not tell the visitor either. Confirming which emails have
+  // accounts is an enumeration gift on a marketplace where the account holder's
+  // name is public.
+  const handleForgot = async () => {
+    setError("");
+    if (!email.trim()) { setError(t("auth.forgot.needEmail")); return; }
+    setLoading(true);
+    await supabase.auth.resetPasswordForEmail(email.trim(), {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+    setLoading(false);
+    setForgotStage("sent");
+  };
+
   const handleResend = async () => {
     setResendStatus("sending");
     const { error } = await supabase.auth.resend({ type: "signup", email, options: { emailRedirectTo: window.location.origin } });
     setResendStatus(error ? "error" : "sent");
     setTimeout(() => setResendStatus(""), 4000);
   };
+
+  if (forgotStage === "sent") {
+    return (
+      <div style={styles.overlay}>
+        <div style={styles.card}>
+          <div style={styles.checkEmailIcon}>\ud83d\udce8</div>
+          <div style={styles.checkEmailTitle}>{t("auth.forgot.sentTitle")}</div>
+          <p style={styles.checkEmailText}>{t("auth.forgot.sentTo")}</p>
+          <p style={{ ...styles.checkEmailText, marginBottom: 16 }}><span style={styles.checkEmailAddr}>{email}</span></p>
+          <p style={styles.checkEmailText}>{t("auth.forgot.sentRest")}</p>
+          <button style={styles.backLink} onClick={() => { setForgotStage(null); setTab("signin"); setError(""); }}>
+            {t("auth.forgot.back")}
+          </button>
+          <p style={styles.checkEmailHint}>{t("auth.confirm.spam")}</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (forgotStage === "form") {
+    return (
+      <div style={styles.overlay}>
+        <div style={styles.card}>
+          <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}><LangToggle /></div>
+          <div style={styles.logo}>
+            <img src={logoFull} alt="DriveLink" style={styles.logoImg} />
+          </div>
+          <div style={styles.checkEmailTitle}>{t("auth.forgot.title")}</div>
+          <p style={{ ...styles.checkEmailText, marginBottom: 20 }}>{t("auth.forgot.intro")}</p>
+          {error && <div style={styles.error}>{error}</div>}
+          <label style={styles.label}>{t("auth.email")}</label>
+          <input
+            style={styles.input} type="email" autoFocus
+            placeholder={t("auth.emailPlaceholder")}
+            value={email} onChange={e => setEmail(e.target.value)}
+            onKeyDown={e => e.key === "Enter" && handleForgot()}
+          />
+          <button style={{ ...styles.btn, opacity: loading ? 0.6 : 1 }} onClick={handleForgot} disabled={loading}>
+            {loading ? t("auth.forgot.sending") : t("auth.forgot.send")}
+          </button>
+          <button style={styles.backLink} onClick={() => { setForgotStage(null); setError(""); }}>
+            {t("auth.forgot.back")}
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (awaitingConfirmation) {
     return (
@@ -205,6 +270,12 @@ export default function Auth({ onAuth }) {
         <button style={{ ...styles.btn, opacity: loading ? 0.6 : 1 }} onClick={tab === "signin" ? handleSignIn : handleSignUp} disabled={loading}>
           {loading ? t("auth.pleaseWait") : tab === "signin" ? t("auth.signin") : t("auth.createAccountCta")}
         </button>
+
+        {tab === "signin" && (
+          <button style={styles.backLink} onClick={() => { setForgotStage("form"); setError(""); }}>
+            {t("auth.forgot.link")}
+          </button>
+        )}
       </div>
     </div>
   );
