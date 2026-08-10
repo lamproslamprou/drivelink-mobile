@@ -5035,12 +5035,21 @@ function ReferralRow({ referral: r, listing, standingCode, onRetract }) {
   const [confirming, setConfirming] = useState(false);
   const [working, setWorking] = useState(false);
 
+  // listing_id is the discriminator, not share_code. A standing-code referral
+  // has no listing at all: it was created by /p/:code before any car existed.
+  // Some of these carry the standing code in share_code and some carry null,
+  // so keying off share_code misclassifies them — and rendering either shape
+  // through the per-listing path produced a dead /s/ link.
+  const isStanding = !r.listing_id;
+
   // A referral can only be pulled back while it's still pending AND the car
   // hasn't entered a sale. Once a buyer is in checkout the attribution is
   // already recorded and money is moving — retracting then would quietly
-  // forfeit a commission that's arguably already earned.
+  // forfeit a commission that's arguably already earned. A standing referral
+  // isn't retractable at all: there is no listing to withdraw it from, and the
+  // code keeps working regardless.
   const saleInFlight = listing && listing.status !== "active";
-  const canRetract = r.status === "pending" && !saleInFlight;
+  const canRetract = r.status === "pending" && !saleInFlight && !isStanding;
 
   const doRetract = async () => {
     setWorking(true);
@@ -5052,23 +5061,30 @@ function ReferralRow({ referral: r, listing, standingCode, onRetract }) {
   return (
     <div style={styles.listingRow} className="app-listing-row">
       <div style={styles.rowInfo} className="app-row-info">
-        <div style={styles.rowTitle}>{listing ? `${listing.year} ${listing.make} ${listing.model}` : "Listing no longer available"}</div>
+        <div style={styles.rowTitle}>
+          {isStanding
+            ? "Direct deal \u2014 your Promoter code"
+            : listing ? `${listing.year} ${listing.make} ${listing.model}` : "Listing no longer available"}
+        </div>
 
-        {/* A BYOD referral has no share_code — it was attributed by the promoter's
-            standing /p/ code, not by a per-listing /s/ link. Rendering the
-            per-listing row here produced a link to /s/null. */}
-        {r.status === "pending" && r.share_code && <PromoterLinkRow code={r.share_code} listing={listing} />}
-        {r.status === "pending" && !r.share_code && standingCode && <PromoterLinkRow code={standingCode} listing={null} standing />}
-        {r.status === "pending" && !r.share_code && !standingCode && (
+        {/* Standing referrals get the /p/ link, which is the one that actually
+            works: /s/ resolves a code to a listing and there is none here. */}
+        {r.status === "pending" && isStanding && (r.share_code || standingCode) && (
+          <PromoterLinkRow code={r.share_code || standingCode} listing={null} standing />
+        )}
+        {r.status === "pending" && isStanding && !r.share_code && !standingCode && (
           <div style={{ fontSize: 13, color: "#6b7280", marginTop: 6 }}>
             Attributed to your Promoter code.
           </div>
+        )}
+        {r.status === "pending" && !isStanding && r.share_code && (
+          <PromoterLinkRow code={r.share_code} listing={listing} />
         )}
 
         {r.status === "paid" && <div style={styles.soldBadge}>✅ Commission: {fmt(r.commission_amount)} on {r.paid_at}</div>}
         {r.status === "pending" && (
           <div style={styles.promoterTag}>
-            ⏳ Pending — you'll earn {listing ? fmt(Math.round(listing.price * 0.01)) : "1%"} when it sells
+            ⏳ Pending — you'll earn {listing ? fmt(Math.round(listing.price * 0.01)) : "1%"} when {isStanding ? "a deal completes" : "it sells"}
           </div>
         )}
         {r.status === "flagged" && (
