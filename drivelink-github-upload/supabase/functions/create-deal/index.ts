@@ -175,6 +175,42 @@ Deno.serve(async (req) => {
 
     const note = String(body.note ?? "").trim().slice(0, 500) || null;
 
+    // --- handover date (optional) ------------------------------------------
+    // The date the car actually changes hands. auto_release_at is computed as
+    // max(payment + 7d, handover_date + 7d), so on a deal shipping across the
+    // country this is the difference between escalating a week after payment —
+    // while the car is still on a truck — and a week after it arrives.
+    //
+    // Validated here rather than trusted from the client because the client is
+    // not the only caller this function will ever have, and because the same
+    // value is written to two tables on two different code paths.
+    let handoverDate: string | null = null;
+    if (body.handover_date != null && String(body.handover_date).trim() !== "") {
+      const raw = String(body.handover_date).trim();
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+        return jsonResponse({ error: "Enter the handover date as YYYY-MM-DD." }, 400);
+      }
+      // Parsed as UTC midnight on purpose. `new Date("2026-08-20")` is already
+      // UTC, but comparing it against a local-timezone `today` would let a
+      // deal created in the evening in New Jersey reject its own same-day date.
+      const parsed = new Date(`${raw}T00:00:00Z`);
+      if (Number.isNaN(parsed.getTime())) {
+        return jsonResponse({ error: "That handover date is not a real date." }, 400);
+      }
+      const todayUtc = new Date();
+      const todayMidnight = Date.UTC(todayUtc.getUTCFullYear(), todayUtc.getUTCMonth(), todayUtc.getUTCDate());
+      if (parsed.getTime() < todayMidnight) {
+        return jsonResponse({ error: "The handover date cannot be in the past." }, 400);
+      }
+      // Matches HANDOVER_MAX_DAYS in App.jsx and the deal_invites check
+      // constraint. All three have to agree or a deal fails at insert with a
+      // database error the buyer cannot act on.
+      if (parsed.getTime() > todayMidnight + 90 * 86400000) {
+        return jsonResponse({ error: "Handover dates more than 90 days out need to be arranged manually." }, 400);
+      }
+      handoverDate = raw;
+    }
+
     const token = makeToken();
     const carLabel = `${year} ${make} ${model}`;
 
@@ -211,6 +247,7 @@ Deno.serve(async (req) => {
         moderation_status: "approved",
         moderated_at: new Date().toISOString(),
         images: [],
+        handover_date: handoverDate,
       });
 
       if (listingErr) {
@@ -225,6 +262,7 @@ Deno.serve(async (req) => {
         listing_id: listingId,
         year, make, model, mileage, vin, note,
         price: priceCents,
+        handover_date: handoverDate,
       });
 
       if (inviteErr) {
@@ -264,6 +302,7 @@ Deno.serve(async (req) => {
       listing_id: null,
       year, make, model, mileage, vin, note,
       price: priceCents,
+      handover_date: handoverDate,
     });
 
     if (inviteErr) {
