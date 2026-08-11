@@ -399,7 +399,7 @@ const styles = {
   heroTitle: { fontSize: 52, fontWeight: 800, color: "#0f172a", lineHeight: 1.1, letterSpacing: "-0.03em", marginBottom: 20 },
   heroAccent: { color: "#3b82f6" },
   heroSub: { fontSize: 18, color: "#4b5563", lineHeight: 1.7, marginBottom: 28 },
-  heroActions: { display: "flex", gap: 12, marginBottom: 24, flexWrap: "wrap" },
+  heroActions: { display: "flex", gap: 12, rowGap: 12, marginBottom: 24, flexWrap: "wrap", alignItems: "flex-start" },
   ctaPrimary: { background: "#0f172a", color: "#fff", border: "none", padding: "14px 28px", borderRadius: 12, cursor: "pointer", fontSize: 16, fontWeight: 700 },
   ctaSecondary: { background: "none", border: "2px solid #e5e7eb", padding: "14px 28px", borderRadius: 12, cursor: "pointer", fontSize: 16, fontWeight: 700, color: "#374151" },
   trustStrip: { display: "flex", flexWrap: "wrap", gap: "8px 18px", marginBottom: 32, paddingTop: 20, borderTop: "1px solid #e5e7eb" },
