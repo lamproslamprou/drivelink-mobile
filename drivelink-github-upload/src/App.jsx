@@ -1939,7 +1939,7 @@ const denyFlaggedReferral = async (refId) => {
         {view === "advertise" && <AdvertiseView currentUser={dbUser} onSubmit={createAdCheckout} onSignIn={() => { setPendingView("advertise"); setView("auth"); }} />}
         {view === "home" && <HomeView key={homeResetKey} listings={activeListings} allListings={listings} currentUser={dbUser} users={users} onShare={generateShare} onBuy={handleBuyNow} referrals={referrals} onSignIn={() => setView("auth")} onMessageSeller={messageSeller} onReport={fileReport} onSaveSearch={saveSearch} favorites={favorites} onToggleFavorite={toggleFavorite} onToggleBlock={toggleBlock} onReportUser={reportUserAction} blocks={blocks} reviews={reviews} offers={offers} onMakeOffer={makeOffer} onOpenListing={openListing} />}
         {view === "myListings" && <MyListingsView listings={listings.filter(l => l.seller_id === currentUser?.id)} referrals={referrals} users={users} offers={offers} stats={listingStats} onMarkSold={markSold} onSetStatus={setListingStatus} onUpdate={updateListing} onRespondToOffer={respondToOffer} onRescindOffer={rescindOffer} onOpenSafety={() => setView("safety")} onConfirmHandover={confirmHandover} currentUser={dbUser} onSetupPayouts={setupPayouts} onDelete={deleteListing} onRestore={restoreListing} />}
-        {view === "myPurchases" && <MyPurchasesView listings={listings.filter(l => l.buyer_id === currentUser?.id)} users={users} reviews={reviews} currentUser={currentUser} handoverCodes={handoverCodes} onSubmitReview={submitReview} onConfirmReceipt={confirmReceipt} onFileDispute={fileDispute} onBrowse={() => setView("home")} onOpenSafety={() => setView("safety")} />}
+        {view === "myPurchases" && <MyPurchasesView listings={listings.filter(l => l.buyer_id === currentUser?.id)} users={users} reviews={reviews} currentUser={currentUser} handoverCodes={handoverCodes} onSubmitReview={submitReview} onConfirmReceipt={confirmReceipt} onFileDispute={fileDispute} onBuy={handleBuyNow} onBrowse={() => setView("home")} onOpenSafety={() => setView("safety")} />}
         {view === "myOffers" && <MyOffersView offers={offers.filter(o => o.buyer_id === currentUser?.id)} listings={listings} onRespondToCounter={respondToCounter} onBuy={handleBuyNow} onBrowse={() => setView("home")} onOpenListing={(l) => openListing(buildListingPayload(l))} />}
         {view === "postListing" && <PostListingView onPost={postListing} />}
         {view === "messages" && currentUser && <Messages currentUser={{ ...dbUser, id: currentUser.id }} listings={listings} users={users} openThread={openThread} onOpened={() => setOpenThread(null)} />}
@@ -3424,7 +3424,7 @@ function SellerOfferRow({ offer, buyer, onRespond }) {
   );
 }
 
-function MyPurchasesView({ listings, users, reviews, currentUser, handoverCodes, onSubmitReview, onConfirmReceipt, onFileDispute, onBrowse, onOpenSafety }) {
+function MyPurchasesView({ listings, users, reviews, currentUser, handoverCodes, onSubmitReview, onConfirmReceipt, onFileDispute, onBuy, onBrowse, onOpenSafety }) {
   const [reviewing, setReviewing] = useState(null);
   const [disputing, setDisputing] = useState(null);
   const hasHandoffPending = listings.some(l => l.status === "pending_confirmation");
@@ -3436,7 +3436,7 @@ function MyPurchasesView({ listings, users, reviews, currentUser, handoverCodes,
           🛡️ Picking up a car soon? <button style={styles.safetyBannerLink} onClick={onOpenSafety}>Review our safety tips</button> before you meet the seller.
         </div>
       )}
-      {listings.length === 0 && <p style={{ color: "#6b7280" }}>No purchases linked to your account yet. When a seller marks a sale complete with your email, it'll show up here.</p>}
+      {listings.length === 0 && <p style={{ color: "#6b7280" }}>Nothing here yet. Cars you buy — or deals you start with a seller — will show up here.</p>}
       <div style={styles.tableWrap}>
         {listings.map(l => {
           const seller = users.find(u => u.id === l.seller_id);
@@ -3444,12 +3444,20 @@ function MyPurchasesView({ listings, users, reviews, currentUser, handoverCodes,
           const cover = (l.images && l.images[0]) || l.image;
           const awaitingConfirmation = l.status === "pending_confirmation";
           const disputed = l.status === "disputed";
+          // A BYOD deal sits here as an active, unpaid listing from the moment
+          // the seller joins until the buyer funds escrow. This view was built
+          // for purchases already paid for, so that window had no action on it
+          // at all — the buyer's only route to checkout was the listing modal,
+          // which nothing links to from here.
+          const awaitingPayment = l.status === "active" && !l.sold_at;
           return (
             <div key={l.id} style={styles.listingRow} className="app-listing-row">
               <img src={cover} alt="" style={styles.rowImg} onError={e => { e.target.src = "https://images.unsplash.com/photo-1494976388531-d1058494cdd8?w=300&q=60"; }} />
               <div style={styles.rowInfo} className="app-row-info">
                 <div style={styles.rowTitle}>{l.year} {l.make} {l.model}</div>
-                <div style={styles.rowMeta}>{fmt(l.sale_price || l.price)} • Sold by {seller?.name || "seller"} on {l.sold_at}</div>
+                <div style={styles.rowMeta}>
+                  {fmt(l.sale_price || l.price)} • {awaitingPayment ? `Seller: ${seller?.name || "seller"}` : `Sold by ${seller?.name || "seller"} on ${l.sold_at}`}
+                </div>
                 {awaitingConfirmation && (
                   <div style={{ marginTop: 6 }}>
                     <div style={{ fontSize: 13, color: "#1d4ed8", fontWeight: 600 }}>
@@ -3476,6 +3484,18 @@ function MyPurchasesView({ listings, users, reviews, currentUser, handoverCodes,
                     )}
                   </div>
                 )}
+                {awaitingPayment && (
+                  <div style={{ marginTop: 6 }}>
+                    <div style={{ fontSize: 13, color: "#1d4ed8", fontWeight: 600 }}>
+                      The seller has joined and is ready. Your payment is held by DriveLink until you confirm you have the car and the signed title.
+                    </div>
+                    {l.handover_date && (
+                      <div style={{ fontSize: 13, color: "#6b7280", marginTop: 4 }}>
+                        Handover agreed for {new Date(`${l.handover_date}T00:00:00`).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })}.
+                      </div>
+                    )}
+                  </div>
+                )}
                 {disputed && (
                   <div style={{ fontSize: 13, color: "#b91c1c", fontWeight: 600, marginTop: 4 }}>
                     ⚠️ Dispute filed — our team is reviewing this sale. We'll follow up with you directly.
@@ -3483,6 +3503,9 @@ function MyPurchasesView({ listings, users, reviews, currentUser, handoverCodes,
                 )}
                 {myReview && <div style={styles.promoterTag}>{"⭐".repeat(myReview.rating)} — you reviewed this purchase</div>}
               </div>
+              {awaitingPayment && (
+                <button style={styles.confirmBtn} onClick={() => onBuy(l)}>💳 Pay securely</button>
+              )}
               {awaitingConfirmation && (
                 <>
                   <button style={styles.soldBtn} onClick={() => onConfirmReceipt(l.id)}>✅ Confirm Receipt</button>
