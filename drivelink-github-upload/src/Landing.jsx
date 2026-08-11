@@ -215,10 +215,10 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn }) {
             <div style={{ ...styles.roleCard, ...styles.roleCardFeatured }}>
               <div style={styles.roleEmoji}>🔗</div>
               <h3 style={{ ...styles.roleTitle, color: "#fff" }}>Promoters</h3>
-              <p style={{ fontSize: 13, fontWeight: 700, color: "#60a5fa", marginBottom: 10 }}>Send deals our way, earn 1%.</p>
-              <p style={{ ...styles.roleDesc, color: "#94a3b8" }}>If you move cars for a living — transport, repairs, sales — your customers are already sending money to strangers. Point them here and earn 1% of the sale. The 1% is added to the deal, so it costs them nothing extra at your expense.</p>
+              <p style={{ fontSize: 13, fontWeight: 700, color: "#60a5fa", marginBottom: 10 }}>Know someone buying or selling a car?</p>
+              <p style={{ ...styles.roleDesc, color: "#94a3b8" }}>Share a listing from here, or send your own link to two people doing a deal on a car we've never seen. Either way you earn 1% when it closes. The 1% is added to the deal, so it never comes out of their pocket at your expense.</p>
               <ul style={{ ...styles.roleList, color: "#94a3b8" }}>
-                <li>✅ 1% of every referred sale</li>
+                <li>✅ Works on any car, listed here or not</li>
                 <li>✅ One standing link, no expiry</li>
                 <li>✅ Paid out to your bank</li>
               </ul>
@@ -245,7 +245,7 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn }) {
       <section style={{ ...styles.section, background: "#f1f5f9" }} className="dl-section">
         <div style={styles.sectionInner}>
           <div style={styles.sectionBadge}>Referral system</div>
-          <h2 style={styles.sectionTitle} className="dl-section-title">Earn money sharing cars you don't own</h2>
+          <h2 style={styles.sectionTitle} className="dl-section-title">Earn on any car — listed here or not</h2>
           <div style={styles.steps} className="dl-steps">
             <div style={styles.step}>
               <div style={styles.stepNum}>1</div>
@@ -256,7 +256,7 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn }) {
             <div style={styles.step}>
               <div style={styles.stepNum}>2</div>
               <h4 style={styles.stepTitle}>Share your link</h4>
-              <p style={styles.stepDesc}>Click "Share &amp; Earn 1%" to get your unique referral code. Share it anywhere.</p>
+              <p style={styles.stepDesc}>Click "Share &amp; Earn 1%" on any listing — or use your standing link, which works on a car we've never seen.</p>
             </div>
             <div style={styles.stepArrow} className="dl-step-arrow">→</div>
             <div style={styles.step}>
@@ -265,20 +265,6 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn }) {
               <p style={styles.stepDesc}>When someone buys through your link, 1% of the sale is credited to your account instantly.</p>
             </div>
           </div>
-          {/* The one route in from the landing page for someone who moves cars
-              for a living. Deliberately a single line rather than a card: a
-              consumer skims past it, and a broker stops. /promoter is not in
-              the nav or footer — this and the outreach email are the ways in. */}
-          <p style={{ textAlign: "center", fontSize: 15, color: "#475569", marginTop: 4, marginBottom: 28 }}>
-            Move cars for a living? Transport brokers, mechanics, and dealers earn the same 1%.{" "}
-            <button
-              onClick={() => onNavigate?.("promoter")}
-              style={{ background: "none", border: "none", padding: 0, color: "#1d4ed8", fontWeight: 700, fontSize: 15, cursor: "pointer", textDecoration: "underline" }}
-            >
-              See how it works →
-            </button>
-          </p>
-
           <div style={styles.exampleBox}>
             <b>Example:</b> A $30,000 Honda CR-V sells through your referral → You earn <span style={{ color: "#16a34a", fontWeight: 800 }}>$300</span> automatically.
           </div>
