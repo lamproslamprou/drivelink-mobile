@@ -74,6 +74,10 @@ Deno.serve(async (req) => {
       vin: invite.vin,
       note: invite.note,
       price: invite.price, // CENTS — create-deal converted once at the door
+      // Shown on the preview screen on purpose. Agreeing to a handover three
+      // weeks out is a term of the deal, not a detail — whoever did not set it
+      // needs to see it before they join, not after they have funded escrow.
+      handover_date: invite.handover_date ?? null,
     };
     const carLabel = `${invite.year} ${invite.make} ${invite.model}`;
 
@@ -203,6 +207,11 @@ Deno.serve(async (req) => {
       mileage: invite.mileage,
       vin: invite.vin,
       description: invite.note,
+      // Copied from the invite for the same reason price is: the buyer set it
+      // days ago, and this listing row is the only thing auto_release_at is
+      // computed from. Dropping it here would silently revert the deal to
+      // payment + 7d after the buyer was shown a later date.
+      handover_date: invite.handover_date ?? null,
       status: "active",
       moderation_status: "approved",
       moderated_at: new Date().toISOString(),
