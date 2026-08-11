@@ -1805,7 +1805,7 @@ const denyFlaggedReferral = async (refId) => {
     return (
       <div style={styles.app}>
         <style>{css}</style>
-        <PromoterSignedOut onSignUp={() => { setPendingView("promoter"); setView("auth"); navigate(VIEW_PATHS.auth); }} />
+        <PromoterSignedOut onSignUp={() => { setPendingView("promoter"); setView("auth"); navigate(VIEW_PATHS.auth); }} onBack={() => { setView("landing"); navigate(VIEW_PATHS.landing); }} />
       </div>
     );
   }
@@ -4988,9 +4988,18 @@ function PromoterLinkRow({ code, listing, standing = false }) {
 // What a signed-out visitor sees at /promoter. This page is not linked from the
 // nav — people reach it from an outreach email or a direct link — so it has to
 // carry the whole pitch itself rather than assuming any context.
-function PromoterSignedOut({ onSignUp }) {
+function PromoterSignedOut({ onSignUp, onBack }) {
   return (
     <div style={{ ...styles.pageWrap, maxWidth: 720 }}>
+      {/* This view renders outside the app shell, so there is no nav to fall
+          back on. Without this, someone who is not ready to sign up has no way
+          off the page. */}
+      <button
+        onClick={onBack}
+        style={{ background: "none", border: "none", padding: 0, color: "#6b7280", fontSize: 14, fontWeight: 600, cursor: "pointer", marginBottom: 20 }}
+      >
+        ← Back to DriveLink
+      </button>
       <h2 style={styles.pageTitle}>Earn 1% on cars you already move</h2>
 
       <p style={{ color: "#334155", fontSize: 16, lineHeight: 1.7 }}>
