@@ -46,9 +46,9 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn }) {
             also browse what's listed here, or list your own.
           </p>
           <div style={styles.heroActions} className="dl-hero-actions">
-            <button style={styles.ctaPrimary} onClick={handleStartDeal}>Already found a car? →</button>
-            <button style={styles.ctaSecondary} onClick={onBrowse}>Browse Cars</button>
-            <button style={styles.ctaByod} onClick={handleCta}>List My Car</button>
+            <button style={styles.ctaByodDark} onClick={handleStartDeal}>Already found a car? →</button>
+            <button style={styles.ctaPrimary} onClick={onBrowse}>Browse Cars</button>
+            <button style={styles.ctaSecondary} onClick={handleCta}>List My Car</button>
           </div>
 
           <div style={styles.trustStrip} className="dl-trust-strip">
