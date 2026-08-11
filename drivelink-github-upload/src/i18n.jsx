@@ -212,6 +212,20 @@ const dict = {
 
     // ── Home / hero ──────────────────────────────────────────────────────
     "home.badge": "Peer-to-peer • Commission-backed",
+
+    "lp.badge": "Nationwide \u00a0\u2022\u00a0 Escrow protected \u00a0\u2022\u00a0 Peer-to-peer",
+    "lp.title": "The safe way to pay for a used car.",
+    "lp.titleAccent": "Wherever you found it.",
+    "lp.sub": "Found a car on Facebook Marketplace, Craigslist, or through a friend? Start a deal on **that car** \u2014 the buyer's money is held until the keys and title change hands. You can also browse what's listed here, or list your own.",
+    "lp.ctaByod": "Already found a car? \u2192",
+    "lp.ctaBrowse": "Browse Cars",
+    "lp.ctaList": "List My Car",
+    "lp.trustStripe": "\ud83d\udd12 Funds held by Stripe",
+    "lp.trustId": "\ud83e\udeaa ID verification available",
+    "lp.trustNoFee": "\u2705 No fee if the deal falls through",
+    "lp.statFee": "Platform fee",
+    "lp.statList": "To list your car",
+    "lp.statPromoter": "If sold via promoter referral",
     "home.title": "Buying from a stranger?",
     "home.titleAccent": "Don't wire the money.",
     "home.sub": "DriveLink holds the payment until the keys and title change hands. Browse what's listed, or start a deal on a car you found anywhere else.",
@@ -431,6 +445,20 @@ const dict = {
 
 
     "home.badge": "De persona a persona • Con comisión",
+
+    "lp.badge": "En todo el pa\u00eds \u00a0\u2022\u00a0 Pago protegido \u00a0\u2022\u00a0 Entre particulares",
+    "lp.title": "La forma segura de pagar un carro usado.",
+    "lp.titleAccent": "Lo hayas encontrado donde lo hayas encontrado.",
+    "lp.sub": "\u00bfEncontraste un carro en Facebook Marketplace, Craigslist o por un amigo? Abre un trato por **ese carro** \u2014 el dinero del comprador queda retenido hasta que se entreguen las llaves y el t\u00edtulo. Tambi\u00e9n puedes explorar los anuncios de aqu\u00ed, o publicar el tuyo.",
+    "lp.ctaByod": "\u00bfYa encontraste un carro? \u2192",
+    "lp.ctaBrowse": "Ver carros",
+    "lp.ctaList": "Publicar mi carro",
+    "lp.trustStripe": "\ud83d\udd12 Fondos retenidos por Stripe",
+    "lp.trustId": "\ud83e\udeaa Verificaci\u00f3n de identidad disponible",
+    "lp.trustNoFee": "\u2705 Sin cargo si el trato no se concreta",
+    "lp.statFee": "Comisi\u00f3n de la plataforma",
+    "lp.statList": "Para publicar tu carro",
+    "lp.statPromoter": "Si se vende por referencia de un promotor",
     "home.title": "¿Le compras a un desconocido?",
     "home.titleAccent": "No envíes el dinero.",
     "home.sub": "DriveLink retiene el pago hasta que se entreguen las llaves y el título. Explora los anuncios, o abre un trato por un carro que encontraste en otro lado.",

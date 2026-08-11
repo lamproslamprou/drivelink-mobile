@@ -1,8 +1,10 @@
 import { useState } from "react";
 import { supabase } from "./supabase.js";
+import { useLang, Rich, LangToggle } from "./i18n.jsx";
 import logoIcon from "./assets/logo-icon.png";
 
 export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn }) {
+  const { t } = useLang();
   const handleCta = signedIn ? onBrowse : onSignIn;
   // Signed-out visitors go to auth first — StartDealView needs an account to
   // attach the deal to. This is the one CTA that works with zero inventory.
@@ -20,6 +22,9 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn }) {
             <span style={styles.logoText}>DriveLink</span>
           </div>
           <div style={styles.navRight} className="dl-nav-right">
+            {/* Without this, a Spanish speaker landing on "/" has no way to
+                switch — the toggle only existed once they were inside the app. */}
+            <LangToggle />
             <button style={styles.byodNavBtn} onClick={handleStartDeal} className="dl-byod-nav">🔒 Secure a Deal</button>
             <button style={styles.browseBtn} onClick={onBrowse}>Browse Cars</button>
             <button style={styles.signInBtn} onClick={signedIn ? onBrowse : onSignIn}>{signedIn ? "Go to App →" : "Sign In"}</button>
@@ -32,45 +37,43 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn }) {
         <div style={styles.heroBannerWrap} className="dl-hero-banner-wrap">
           <div style={styles.heroBanner} className="dl-hero-banner">
             <span style={styles.heroBannerDot} />
-            Nationwide&nbsp;&nbsp;•&nbsp;&nbsp;Escrow protected&nbsp;&nbsp;•&nbsp;&nbsp;Peer-to-peer
+            {t("lp.badge")}
           </div>
         </div>
         <div style={styles.heroInner}>
           <h1 style={styles.heroTitle} className="dl-hero-title">
-            The safe way to pay for a used car.<br />
-            <span style={styles.heroAccent}>Wherever you found it.</span>
+            {t("lp.title")}<br />
+            <span style={styles.heroAccent}>{t("lp.titleAccent")}</span>
           </h1>
           <p style={styles.heroSub} className="dl-hero-sub">
-            Found a car on Facebook Marketplace, Craigslist, or through a friend? Start a deal on{" "}
-            <b>that car</b> — the buyer's money is held until the keys and title change hands. You can
-            also browse what's listed here, or list your own.
+            <Rich text={t("lp.sub")} />
           </p>
           <div style={styles.heroActions} className="dl-hero-actions">
-            <button style={styles.ctaByodDark} onClick={handleStartDeal}>Already found a car? →</button>
-            <button style={styles.ctaPrimary} onClick={onBrowse}>Browse Cars</button>
-            <button style={styles.ctaSecondary} onClick={handleCta}>List My Car</button>
+            <button style={styles.ctaByodDark} onClick={handleStartDeal}>{t("lp.ctaByod")}</button>
+            <button style={styles.ctaPrimary} onClick={onBrowse}>{t("lp.ctaBrowse")}</button>
+            <button style={styles.ctaSecondary} onClick={handleCta}>{t("lp.ctaList")}</button>
           </div>
 
           <div style={styles.trustStrip} className="dl-trust-strip">
-            <span style={styles.trustItem}>🔒 Funds held by Stripe</span>
-            <span style={styles.trustItem}>🪪 ID verification available</span>
-            <span style={styles.trustItem}>✅ No fee if the deal falls through</span>
+            <span style={styles.trustItem}>{t("lp.trustStripe")}</span>
+            <span style={styles.trustItem}>{t("lp.trustId")}</span>
+            <span style={styles.trustItem}>{t("lp.trustNoFee")}</span>
           </div>
 
           <div style={styles.heroStats} className="dl-hero-stats">
             <div style={styles.heroStat}>
               <span style={styles.heroStatNum}>1%</span>
-              <span style={styles.heroStatLabel}>Platform fee</span>
+              <span style={styles.heroStatLabel}>{t("lp.statFee")}</span>
             </div>
             <div style={styles.heroStatDiv} />
             <div style={styles.heroStat}>
               <span style={styles.heroStatNum}>$0</span>
-              <span style={styles.heroStatLabel}>To list your car</span>
+              <span style={styles.heroStatLabel}>{t("lp.statList")}</span>
             </div>
             <div style={styles.heroStatDiv} />
             <div style={styles.heroStat}>
               <span style={styles.heroStatNum}>2% max</span>
-              <span style={styles.heroStatLabel}>If sold via promoter referral</span>
+              <span style={styles.heroStatLabel}>{t("lp.statPromoter")}</span>
             </div>
           </div>
         </div>
