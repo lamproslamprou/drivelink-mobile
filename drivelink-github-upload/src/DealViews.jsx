@@ -48,6 +48,7 @@ export function StartDealView({ currentUser, onBack, onNavigate, showToast }) {
   const [role, setRole] = useState("seller");
   const [form, setForm] = useState({
     vin: "", year: "", make: "", model: "", mileage: "", price: "", note: "",
+    handover_date: "",
   });
   const [decoding, setDecoding] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -125,6 +126,7 @@ export function StartDealView({ currentUser, onBack, onNavigate, showToast }) {
           mileage: form.mileage || 0,
           price: form.price,
           note: form.note || null,
+          handover_date: form.handover_date || null,
           promoter_code: readPromoterCode(),
         },
       });
@@ -252,6 +254,11 @@ export function StartDealView({ currentUser, onBack, onNavigate, showToast }) {
   }
 
   // ---- form ---------------------------------------------------------------
+  // Mirrors HANDOVER_MAX_DAYS in App.jsx, the create-deal validator, and the
+  // deal_invites check constraint. All four have to agree.
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const maxHandoverIso = new Date(Date.now() + 90 * 86400000).toISOString().slice(0, 10);
+
   const canSubmit =
     form.make.trim() && form.model.trim() && Number(form.year) > 1900 && Number(form.price) > 0;
 
@@ -302,6 +309,21 @@ export function StartDealView({ currentUser, onBack, onNavigate, showToast }) {
         <div style={dealStyles.grid2}>
           <Field label="Agreed price" value={form.price} onChange={set("price")} placeholder="18500" prefix="$" />
           <Field label="Trim or notes" value={form.note} onChange={set("note")} placeholder="SR5, one owner" />
+        </div>
+
+        <div style={dealStyles.fieldLabel}>Handover date (optional)</div>
+        <input
+          type="date"
+          value={form.handover_date}
+          min={todayIso}
+          max={maxHandoverIso}
+          onChange={set("handover_date")}
+          style={dealStyles.input}
+        />
+        <div style={{ fontSize: 13, color: "#6b7280", marginTop: 6, marginBottom: 18, lineHeight: 1.5 }}>
+          {form.handover_date
+            ? "The other party sees this date before they join. Escrow stays funded until the handover \u2014 set it if the car is shipping."
+            : "If the car is being transported, put the date it should arrive. Without one, an unconfirmed deal is flagged for review a week after payment \u2014 which can be while the car is still on a truck."}
         </div>
 
         {error && <div style={dealStyles.errorBox}>{error}</div>}
@@ -444,6 +466,16 @@ export function JoinDealView({ token, currentUser, onNavigate, onJoined, showToa
             <div style={dealStyles.vinRowSmall}>
               <span style={dealStyles.priceLabel}>VIN</span>
               <span style={dealStyles.vinValue}>{car.vin}</span>
+            </div>
+          )}
+          {car.handover_date && (
+            <div style={dealStyles.vinRowSmall}>
+              <span style={dealStyles.priceLabel}>Handover</span>
+              <span style={dealStyles.vinValue}>
+                {new Date(`${car.handover_date}T00:00:00`).toLocaleDateString(undefined, {
+                  year: "numeric", month: "short", day: "numeric",
+                })}
+              </span>
             </div>
           )}
         </div>
