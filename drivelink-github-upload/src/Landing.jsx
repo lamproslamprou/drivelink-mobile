@@ -25,9 +25,9 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn }) {
             {/* Without this, a Spanish speaker landing on "/" has no way to
                 switch — the toggle only existed once they were inside the app. */}
             <LangToggle />
-            <button style={styles.byodNavBtn} onClick={handleStartDeal} className="dl-byod-nav">🔒 Secure a Deal</button>
-            <button style={styles.browseBtn} onClick={onBrowse}>Browse Cars</button>
-            <button style={styles.signInBtn} onClick={signedIn ? onBrowse : onSignIn}>{signedIn ? "Go to App →" : "Sign In"}</button>
+            <button style={styles.byodNavBtn} onClick={handleStartDeal} className="dl-byod-nav">{t("lp.nav.secure")}</button>
+            <button style={styles.browseBtn} onClick={onBrowse}>{t("lp.nav.browse")}</button>
+            <button style={styles.signInBtn} onClick={signedIn ? onBrowse : onSignIn}>{signedIn ? t("lp.nav.app") : t("lp.nav.signin")}</button>
           </div>
         </div>
       </nav>
@@ -85,72 +85,63 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn }) {
       {/* THE PROBLEM */}
       <section style={{ ...styles.section, background: "#f8fafc", paddingTop: 64, paddingBottom: 64 }} className="dl-section">
         <div style={styles.sectionInner}>
-          <div style={styles.sectionBadge}>Why escrow</div>
+          <div style={styles.sectionBadge}>{t("lp.why.badge")}</div>
           <h2 style={{ ...styles.sectionTitle, marginBottom: 32 }} className="dl-section-title">
-            Everything about a private sale is fine until the money moves.
+            {t("lp.why.title")}
           </h2>
           <div style={styles.problemGrid} className="dl-problem-grid">
             <div style={styles.problemCard}>
-              <div style={styles.problemLabel}>The buyer's problem</div>
+              <div style={styles.problemLabel}>{t("lp.why.buyerLabel")}</div>
               <p style={styles.problemText}>
-                You're about to send five figures to someone you met online, for a car you can't take
-                with you until the title clears. If they vanish, you have a text thread and a name
-                that might not be real.
+                {t("lp.why.buyerText")}
               </p>
             </div>
             <div style={styles.problemCard}>
-              <div style={styles.problemLabel}>The seller's problem</div>
+              <div style={styles.problemLabel}>{t("lp.why.sellerLabel")}</div>
               <p style={styles.problemText}>
-                The cashier's check looks perfect. Cashier's checks always look perfect. You find out
-                in ten days whether it was — and by then the car is in another state.
+                {t("lp.why.sellerText")}
               </p>
             </div>
             <div style={styles.problemCard}>
-              <div style={styles.problemLabel}>Both of your problem</div>
+              <div style={styles.problemLabel}>{t("lp.why.bothLabel")}</div>
               <p style={styles.problemText}>
-                Neither of you knows how to sign over a title. Neither of you has a bill of sale.
-                So the deal drags, one of you gets nervous, and it dies.
+                {t("lp.why.bothText")}
               </p>
             </div>
           </div>
-          <p style={styles.problemClose}>This is the part nobody built for. So we did.</p>
+          <p style={styles.problemClose}>{t("lp.why.close")}</p>
         </div>
       </section>
 
       {/* BRING YOUR OWN DEAL */}
       <section style={styles.byodBand} className="dl-section">
         <div style={styles.byodInner}>
-          <div style={styles.byodBadge}>Bring your own deal</div>
+          <div style={styles.byodBadge}>{t("lp.byod.badge")}</div>
           <h2 style={styles.byodTitle} className="dl-byod-title">
-            Already found the car? You don't need our listings.
+            {t("lp.byod.title")}
           </h2>
           <p style={styles.byodText}>
-            Found it on Facebook Marketplace, Craigslist, or through a friend of a friend? Start a
-            secure deal, send the other person a link, and DriveLink handles the money exactly the
-            same way — held until the keys and the signed title change hands. No listing to create,
-            nothing to browse, nobody to wait for.
+            {t("lp.byod.text")}
           </p>
 
           <div style={styles.byodSplit} className="dl-byod-split">
             <div style={styles.byodCol}>
-              <div style={styles.byodColLabel}>If you're buying</div>
+              <div style={styles.byodColLabel}>{t("lp.byod.buyLabel")}</div>
               <p style={styles.byodColText}>
-                Enter the car and the price you already agreed on. Send the link. Pay into escrow
-                instead of wiring five figures to someone you met online.
+                {t("lp.byod.buyText")}
               </p>
             </div>
             <div style={styles.byodCol}>
-              <div style={styles.byodColLabel}>If you're selling</div>
+              <div style={styles.byodColLabel}>{t("lp.byod.sellLabel")}</div>
               <p style={styles.byodColText}>
-                Send the link before you hand over anything. You'll see the buyer's money is real
-                and held — no cashier's check that clears in ten days, or doesn't.
+                {t("lp.byod.sellText")}
               </p>
             </div>
           </div>
 
-          <button style={styles.byodBtn} onClick={handleStartDeal}>Start a secure deal →</button>
+          <button style={styles.byodBtn} onClick={handleStartDeal}>{t("lp.byod.btn")}</button>
           <p style={styles.byodFine}>
-            Takes about two minutes. 1% seller fee on completion — nothing if the deal falls through.
+            {t("lp.byod.fine")}
           </p>
         </div>
       </section>
@@ -158,48 +149,42 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn }) {
       {/* HOW ESCROW WORKS */}
       <section style={styles.section} className="dl-section">
         <div style={styles.sectionInner}>
-          <div style={styles.sectionBadge}>How escrow works</div>
+          <div style={styles.sectionBadge}>{t("lp.esc.badge")}</div>
           <h2 style={{ ...styles.sectionTitle, marginBottom: 32 }} className="dl-section-title">
-            Four steps. About ten minutes of actual work.
+            {t("lp.esc.title")}
           </h2>
           <div style={styles.escrowSteps} className="dl-escrow-steps">
             <div style={styles.escrowStep}>
               <div style={styles.escrowNum}>01</div>
-              <h4 style={styles.escrowTitle}>Agree on the car</h4>
+              <h4 style={styles.escrowTitle}>{t("lp.esc.t1")}</h4>
               <p style={styles.escrowDesc}>
-                Either the buyer finds a listing here and you settle on a price through offers, or
-                you already agreed on a car somewhere else and start a secure deal with a link.
+                {t("lp.esc.d1")}
               </p>
             </div>
             <div style={styles.escrowStep}>
               <div style={styles.escrowNum}>02</div>
-              <h4 style={styles.escrowTitle}>Both sides verify</h4>
+              <h4 style={styles.escrowTitle}>{t("lp.esc.t2")}</h4>
               <p style={styles.escrowDesc}>
-                Government ID check on both parties through Stripe Identity. You find out who you're
-                dealing with before any money moves.
+                {t("lp.esc.d2")}
               </p>
             </div>
             <div style={styles.escrowStep}>
               <div style={styles.escrowNum}>03</div>
-              <h4 style={styles.escrowTitle}>Buyer funds escrow</h4>
+              <h4 style={styles.escrowTitle}>{t("lp.esc.t3")}</h4>
               <p style={styles.escrowDesc}>
-                The money goes to a secured Stripe account — not to the seller, not yet. The seller
-                can see it's there and hand over the car with confidence.
+                {t("lp.esc.d3")}
               </p>
             </div>
             <div style={styles.escrowStep}>
               <div style={styles.escrowNum}>04</div>
-              <h4 style={styles.escrowTitle}>Keys change hands, funds release</h4>
+              <h4 style={styles.escrowTitle}>{t("lp.esc.t4")}</h4>
               <p style={styles.escrowDesc}>
-                The buyer confirms they have the car and signed title. Funds transfer to the seller,
-                usually same day. Both of you get a receipt for the completed sale.
+                {t("lp.esc.d4")}
               </p>
             </div>
           </div>
           <div style={styles.feeNote}>
-            <b>1% platform fee</b>, seller side, on a completed sale — 2% max if a promoter referral
-            brought the buyer. If the deal falls apart before release, the buyer's funds return and
-            nobody is charged.
+            <Rich text={t("lp.esc.fee")} />
           </div>
         </div>
       </section>
@@ -286,26 +271,24 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn }) {
       {/* EVERY LISTING */}
       <section style={styles.assureBand} className="dl-section">
         <div style={styles.assureInner}>
-          <div style={styles.assureBadge}>On every listing</div>
-          <h2 style={styles.assureTitle} className="dl-assure-title">You don't have to ask whether it's the safe kind of deal.</h2>
+          <div style={styles.assureBadge}>{t("lp.assure.badge")}</div>
+          <h2 style={styles.assureTitle} className="dl-assure-title">{t("lp.assure.title")}</h2>
           <p style={styles.assureText}>
-            There's no premium tier and nothing to opt into. Every car on DriveLink closes the same
-            way — the buyer's money held in escrow until the keys and title change hands. That's
-            the only way to buy or sell here.
+            {t("lp.assure.text")}
           </p>
-          <button style={styles.assureBtn} onClick={onBrowse}>Browse cars →</button>
+          <button style={styles.assureBtn} onClick={onBrowse}>{t("lp.assure.btn")}</button>
         </div>
       </section>
 
       {/* CTA */}
       <section style={styles.ctaSection} className="dl-section">
         <div style={styles.sectionInner}>
-          <h2 style={styles.ctaTitle} className="dl-cta-title">Ready to get started?</h2>
-          <p style={styles.ctaSub}>Join DriveLink today — it's free to sign up.</p>
+          <h2 style={styles.ctaTitle} className="dl-cta-title">{t("lp.cta.title")}</h2>
+          <p style={styles.ctaSub}>{t("lp.cta.sub")}</p>
           <div style={{ ...styles.heroActions, justifyContent: "center" }} className="dl-hero-actions">
-            <button style={styles.ctaPrimary} onClick={onBrowse}>Browse Cars →</button>
-            <button style={{ ...styles.ctaSecondary, borderColor: "rgba(255,255,255,.3)", color: "#fff" }} onClick={handleCta}>Create Account</button>
-            <button style={styles.ctaByodDark} onClick={handleStartDeal}>Secure a deal I found →</button>
+            <button style={styles.ctaPrimary} onClick={onBrowse}>{t("lp.cta.browse")}</button>
+            <button style={{ ...styles.ctaSecondary, borderColor: "rgba(255,255,255,.3)", color: "#fff" }} onClick={handleCta}>{t("lp.cta.create")}</button>
+            <button style={styles.ctaByodDark} onClick={handleStartDeal}>{t("lp.cta.byod")}</button>
           </div>
         </div>
       </section>
@@ -320,14 +303,14 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn }) {
             <img src={logoIcon} alt="DriveLink" style={{ height: 26, width: "auto" }} />
             <span style={{ fontWeight: 800, color: "#0f172a" }}>DriveLink</span>
           </div>
-          <p style={styles.footerText}>Peer-to-peer car marketplace with escrow on every deal.</p>
-          <p style={styles.footerText}>© 2026 DriveLink. All rights reserved.</p>
+          <p style={styles.footerText}>{t("lp.foot.tagline")}</p>
+          <p style={styles.footerText}>{t("lp.foot.rights")}</p>
           <div style={styles.footerLinks}>
-            <button style={styles.footerLinkBtn} onClick={() => onNavigate?.("safety")}>🛡️ Safety Tips</button>
+            <button style={styles.footerLinkBtn} onClick={() => onNavigate?.("safety")}>{t("lp.foot.safety")}</button>
             <span style={{ color: "#d1d5db" }}>·</span>
-            <button style={styles.footerLinkBtn} onClick={() => onNavigate?.("terms")}>Terms of Service</button>
+            <button style={styles.footerLinkBtn} onClick={() => onNavigate?.("terms")}>{t("lp.foot.terms")}</button>
             <span style={{ color: "#d1d5db" }}>·</span>
-            <button style={styles.footerLinkBtn} onClick={() => onNavigate?.("privacy")}>Privacy Policy</button>
+            <button style={styles.footerLinkBtn} onClick={() => onNavigate?.("privacy")}>{t("lp.foot.privacy")}</button>
             <span style={{ color: "#d1d5db" }}>·</span>
             <a href="mailto:support@drivelink.deals" style={styles.footerLinkBtn}>support@drivelink.deals</a>
           </div>
