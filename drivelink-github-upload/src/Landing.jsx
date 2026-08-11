@@ -262,6 +262,20 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn }) {
               <p style={styles.stepDesc}>When someone buys through your link, 1% of the sale is credited to your account instantly.</p>
             </div>
           </div>
+          {/* The one route in from the landing page for someone who moves cars
+              for a living. Deliberately a single line rather than a card: a
+              consumer skims past it, and a broker stops. /promoter is not in
+              the nav or footer — this and the outreach email are the ways in. */}
+          <p style={{ textAlign: "center", fontSize: 15, color: "#475569", marginTop: 4, marginBottom: 28 }}>
+            Move cars for a living? Transport brokers, mechanics, and dealers earn the same 1%.{" "}
+            <button
+              onClick={() => onNavigate?.("promoter")}
+              style={{ background: "none", border: "none", padding: 0, color: "#1d4ed8", fontWeight: 700, fontSize: 15, cursor: "pointer", textDecoration: "underline" }}
+            >
+              See how it works →
+            </button>
+          </p>
+
           <div style={styles.exampleBox}>
             <b>Example:</b> A $30,000 Honda CR-V sells through your referral → You earn <span style={{ color: "#16a34a", fontWeight: 800 }}>$300</span> automatically.
           </div>

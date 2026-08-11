@@ -267,6 +267,10 @@ const PUBLIC_VIEWS = new Set([
   "landing", "auth", "home", "advertise", "terms", "privacy", "safety", "about", "startDeal",
   // Arrived at from an emailed recovery link, necessarily signed out.
   "resetPassword",
+  // Brokers arrive here from an outreach email that has already made the case.
+  // Bouncing them to a bare sign-up form threw that away and asked a stranger
+  // to commit with nothing on screen explaining why.
+  "promoter",
 ]);
 
 // The view to paint on first render, read from the address bar.
@@ -1794,6 +1798,16 @@ const denyFlaggedReferral = async (refId) => {
   // for a new password.
   if (view === "resetPassword") {
     return <ResetPassword onDone={() => { setView(currentUser ? "home" : "auth"); navigate(currentUser ? VIEW_PATHS.home : VIEW_PATHS.auth, { replace: true }); }} />;
+  }
+  // Rendered before the auth gate for the same reason resetPassword is: this
+  // is the one view whose whole job is to persuade someone who is not signed in.
+  if (!currentUser && view === "promoter") {
+    return (
+      <div style={styles.app}>
+        <style>{css}</style>
+        <PromoterSignedOut onSignUp={() => { setPendingView("promoter"); setView("auth"); navigate(VIEW_PATHS.auth); }} />
+      </div>
+    );
   }
   if (!currentUser && view === "auth") return <Auth onAuth={completeSignIn} />;
 
@@ -4971,6 +4985,68 @@ function PromoterLinkRow({ code, listing, standing = false }) {
 // to a working link without anyone at DriveLink touching a console. Everything
 // on this page is one screen and one button on purpose — it gets opened on a
 // phone, between calls, by someone who has not read anything about us.
+// What a signed-out visitor sees at /promoter. This page is not linked from the
+// nav — people reach it from an outreach email or a direct link — so it has to
+// carry the whole pitch itself rather than assuming any context.
+function PromoterSignedOut({ onSignUp }) {
+  return (
+    <div style={{ ...styles.pageWrap, maxWidth: 720 }}>
+      <h2 style={styles.pageTitle}>Earn 1% on cars you already move</h2>
+
+      <p style={{ color: "#334155", fontSize: 16, lineHeight: 1.7 }}>
+        If you arrange vehicle sales or transport, your customers are already
+        wiring money to people they have never met. DriveLink holds that money
+        in escrow until the keys and title change hands — and pays you{" "}
+        <b>1% of every sale</b> that goes through your link.
+      </p>
+
+      <div style={{ ...styles.infoBox, marginTop: 24 }}>
+        <b>The 1% is added to the deal, not taken out of it.</b> It does not come
+        out of your customer's pocket at your expense, and it does not reduce
+        what the seller receives beyond the fee they already agreed to. Our own
+        1% stays the same either way.
+      </div>
+
+      <div style={{ marginTop: 28 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: "#64748b", letterSpacing: ".06em", marginBottom: 14 }}>
+          HOW IT WORKS
+        </div>
+        {[
+          ["1", "Create an account", "Takes a minute. No fee, no contract, nothing to install."],
+          ["2", "Get your link", "One standing link. It is not tied to any particular car, and it does not expire."],
+          ["3", "Send it to anyone doing a deal", "A customer buying out of state, a seller nervous about a cashier's check \u2014 anyone moving a car privately."],
+          ["4", "Get paid when the sale completes", "1% lands in your balance once the buyer confirms the handover. Paid out to your bank."],
+        ].map(([n, title, desc]) => (
+          <div key={n} style={{ display: "flex", gap: 14, marginBottom: 18 }}>
+            <div style={{
+              flexShrink: 0, width: 28, height: 28, borderRadius: 14, background: "#1d4ed8",
+              color: "#fff", fontSize: 14, fontWeight: 700, display: "flex",
+              alignItems: "center", justifyContent: "center",
+            }}>{n}</div>
+            <div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: "#0f172a" }}>{title}</div>
+              <div style={{ fontSize: 14, color: "#475569", lineHeight: 1.6, marginTop: 2 }}>{desc}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <button
+        onClick={onSignUp}
+        style={{
+          marginTop: 8, background: "#1d4ed8", color: "#fff", border: "none",
+          borderRadius: 10, padding: "15px 26px", fontSize: 16, fontWeight: 700, cursor: "pointer",
+        }}
+      >
+        Create an account and get my link
+      </button>
+      <div style={{ fontSize: 13, color: "#6b7280", marginTop: 10 }}>
+        Free. You are only paid — never charged.
+      </div>
+    </div>
+  );
+}
+
 function PromoterCodeView({ currentUser, promoterCode, onMint, onSetupPayouts, onViewEarnings }) {
   const [working, setWorking] = useState(false);
   const [copied, setCopied] = useState(null); // "copied" | "shared"
