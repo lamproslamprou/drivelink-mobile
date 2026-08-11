@@ -208,18 +208,21 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn }) {
               <button style={styles.roleBtn} onClick={handleCta}>List My Car →</button>
             </div>
 
+            {/* A pointer, not a pitch. /promoter carries the full explanation —
+                duplicating it here produced a worse version in a more prominent
+                slot, written for consumer sharers rather than the people who
+                actually mint codes. "Most Popular" was also simply untrue. */}
             <div style={{ ...styles.roleCard, ...styles.roleCardFeatured }}>
-              <div style={styles.featuredBadge}>Most Popular</div>
-              <div style={styles.roleEmoji}>💰</div>
+              <div style={styles.roleEmoji}>🔗</div>
               <h3 style={{ ...styles.roleTitle, color: "#fff" }}>Promoters</h3>
-              <p style={{ fontSize: 13, fontWeight: 700, color: "#60a5fa", marginBottom: 10 }}>The link that drives you to cash. 💸</p>
-              <p style={{ ...styles.roleDesc, color: "#94a3b8" }}>Share car listings with your friends, family, or followers. Every time someone buys a car through your link, you earn 1% of the sale price — automatically.</p>
+              <p style={{ fontSize: 13, fontWeight: 700, color: "#60a5fa", marginBottom: 10 }}>Send deals our way, earn 1%.</p>
+              <p style={{ ...styles.roleDesc, color: "#94a3b8" }}>If you move cars for a living — transport, repairs, sales — your customers are already sending money to strangers. Point them here and earn 1% of the sale. The 1% is added to the deal, so it costs them nothing extra at your expense.</p>
               <ul style={{ ...styles.roleList, color: "#94a3b8" }}>
-                <li>✅ Earn 1% per sale</li>
-                <li>✅ No experience needed</li>
-                <li>✅ Paid automatically</li>
+                <li>✅ 1% of every referred sale</li>
+                <li>✅ One standing link, no expiry</li>
+                <li>✅ Paid out to your bank</li>
               </ul>
-              <button style={{ ...styles.roleBtn, background: "#3b82f6" }} onClick={handleCta}>Start Earning →</button>
+              <button style={{ ...styles.roleBtn, background: "#3b82f6" }} onClick={() => onNavigate?.("promoter")}>See how it works →</button>
             </div>
 
             <div style={{ ...styles.roleCard, background: "#fff" }}>
