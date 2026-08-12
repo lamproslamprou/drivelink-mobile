@@ -16,6 +16,52 @@
 //  - checkout.session.completed: payment succeeded → listing goes to
 //    "pending_confirmation", mirrors the fields the old markSold() set
 //    (sale_price, sold_at, platform_fee, seller_net), plus auto_release_at.
+//    On a DELAYED-NOTIFICATION method (ACH) this same event fires days before
+//    the money exists, with payment_status "unpaid" — see below.
+//  - checkout.session.async_payment_succeeded: an ACH debit settled. This is
+//    the real settlement moment for bank payments and runs the identical
+//    settlement path.
+//  - checkout.session.async_payment_failed: an ACH debit bounced. Returns the
+//    listing to "active" and tells both parties.
+//
+// ── DELAYED-NOTIFICATION PAYMENTS (ACH), added 2026-08-12 ───────────────────
+// A card checkout completes and settles in one event. A bank debit does not:
+// checkout.session.completed arrives immediately with payment_status
+// "unpaid", and the money lands ~4-5 business days later on
+// async_payment_succeeded — or never, on async_payment_failed.
+//
+// Three rules follow, and all three are load-bearing:
+//
+//   1. NOTHING SETTLES ON AN UNPAID SESSION. settleSale() runs only when
+//      payment_status === "paid". On an unpaid completion the listing is
+//      parked in "awaiting_payment": locked so a second buyer cannot pay for
+//      the same car, but short of "pending_confirmation" so
+//      trg_issue_handover_code never fires. No handover code exists until the
+//      money does.
+//
+//   2. THE CLOCKS ANCHOR TO SETTLEMENT, NOT CHECKOUT. auto_release_at is
+//      computed inside settleSale(), which for ACH runs at settlement — so a
+//      sale cannot be escalated for "no confirmation" during days when the
+//      buyer could not possibly have confirmed.
+//
+//   3. RELEASE HAS A FLOOR. release_not_before is set to settlement + 3
+//      business days on ACH sales and left NULL on card sales. release-funds
+//      and confirm-handover both refuse to transfer before it.
+//
+// ── WHAT THIS DOES NOT PROTECT AGAINST ──────────────────────────────────────
+// An ACH debit on a personal account can be returned as UNAUTHORIZED for 60
+// calendar days. Per Stripe those returns are final and uncontestable through
+// the ACH network: the funds are pulled straight back out of the platform
+// balance, there is no appeal, and the dispute has to be settled with the
+// customer directly. If the seller has already been paid, the loss lands on
+// DriveLink — not on the seller, and not on Stripe.
+//
+// No hold short of 60 days closes that window, and no seller will wait 60 days
+// to be paid, so the trade is deliberate: the 3-day floor closes the
+// INVOLUNTARY failure window (insufficient funds, closed account, the rare
+// late bank return), and the identity-verification requirement in
+// create-checkout-session ensures the DELIBERATE case comes attached to a
+// verified legal identity. Do not describe this to sellers as "guaranteed".
 //  - account.updated: a seller's Connect onboarding status changed.
 //  - identity.verification_session.verified: a seller's Stripe Identity
 //    check succeeded → flips users.verified to true and marks their
@@ -109,6 +155,67 @@ import {
 const FALLBACK_FEE_PERCENT = 0.029;
 const FALLBACK_FEE_FIXED_CENTS = 30;
 
+// ACH Direct Debit is priced completely differently: 0.8% capped at $5, no
+// fixed component. Falling back to the CARD numbers on a bank payment would
+// estimate ~$870 of processing on a $30,000 car against a real fee of $5, and
+// seller_net is computed by subtracting that estimate — the seller would be
+// shorted the difference with nobody receiving it. Separate constants, and
+// stripeFallbackFor() below picks between them off the actual charge.
+const FALLBACK_ACH_FEE_PERCENT = 0.008;
+const FALLBACK_ACH_FEE_CAP_CENTS = 500;
+
+// Buffer between ACH settlement and the earliest possible payout. Business
+// days, so a Friday settlement doesn't burn the buffer over a weekend when no
+// bank return could arrive anyway.
+const ACH_RELEASE_BUFFER_BUSINESS_DAYS = 3;
+
+// Weekends only — US bank holidays are not modelled. The consequence of that
+// simplification is a buffer that is occasionally a day short of intent, never
+// a payout before settlement, so it fails in the safe direction.
+function addBusinessDays(from: Date, days: number): Date {
+  const d = new Date(from.getTime());
+  let remaining = days;
+  while (remaining > 0) {
+    d.setUTCDate(d.getUTCDate() + 1);
+    const day = d.getUTCDay();
+    if (day !== 0 && day !== 6) remaining--;
+  }
+  return d;
+}
+
+// True when the charge behind this session was a bank debit rather than a
+// card. Read off the expanded charge, never off the session's
+// payment_method_types — that lists what was OFFERED, not what was used.
+function isBankDebit(pi: unknown): boolean {
+  if (!pi || typeof pi !== "object") return false;
+  const charge = (pi as { latest_charge?: unknown }).latest_charge;
+  if (!charge || typeof charge !== "object") return false;
+  const details = (charge as { payment_method_details?: unknown }).payment_method_details;
+  if (!details || typeof details !== "object") return false;
+  return (details as { type?: unknown }).type === "us_bank_account";
+}
+
+// The agreed handover day, or null. One parser for both the parked path and
+// the settlement path — they must not disagree about what counts as a valid
+// date, or a sale could be parked with a handover_date and settle without one.
+function handoverDateFromMeta(meta: Record<string, string> | null): string | null {
+  const raw = meta?.handover_date ?? "";
+  return /^\d{4}-\d{2}-\d{2}$/.test(raw) ? raw : null;
+}
+
+// Conservative estimate of Stripe's cut, used only when balance_transaction
+// isn't readable. Rounds UP in both branches: overestimating a fee we do not
+// control keeps seller_net at or below the money that actually exists.
+function stripeFallbackFor(chargedTotalCents: number, bankDebit: boolean): number {
+  if (bankDebit) {
+    return Math.min(
+      Math.ceil(chargedTotalCents * FALLBACK_ACH_FEE_PERCENT),
+      FALLBACK_ACH_FEE_CAP_CENTS,
+    );
+  }
+  return Math.ceil(chargedTotalCents * FALLBACK_FEE_PERCENT) + FALLBACK_FEE_FIXED_CENTS;
+}
+
 // Expanding payment_intent turns session.payment_intent from a string id into
 // an object. Anything that wants the id has to cope with both shapes — writing
 // the raw value into a text column when it's an object silently stores junk.
@@ -192,7 +299,16 @@ Deno.serve(async (req) => {
   };
 
   try {
-    if (event.type === "checkout.session.completed") {
+    // One block, three events. checkout.session.completed and
+    // async_payment_succeeded run the SAME settlement path — the only
+    // difference is that on a bank payment the money is real by the time the
+    // second one arrives. Deliberately not two copies of the settlement code:
+    // a fee calculation that drifts between the card path and the ACH path is
+    // a silent money bug.
+    if (
+      event.type === "checkout.session.completed" ||
+      event.type === "checkout.session.async_payment_succeeded"
+    ) {
       // Fetch the full session from Stripe's API rather than trusting the
       // webhook body directly — works whether Stripe sends a full ("snapshot")
       // or minimal ("thin") event payload, so we don't depend on which
@@ -265,6 +381,102 @@ Deno.serve(async (req) => {
 
       const { listing_id, buyer_id } = meta;
 
+      // ── UNPAID COMPLETION: park it, settle nothing ───────────────────────
+      // Reached only by delayed-notification methods. A card checkout is
+      // already "paid" here and falls straight through.
+      //
+      // Everything below this branch — fee arithmetic, seller_net, the
+      // handover code, both parties' emails — is deliberately skipped. None of
+      // it is safe to run against money that does not exist yet, and the
+      // handover code least of all: a code issued now would let the buyer
+      // collect the car days before the debit clears, on a payment that can
+      // still bounce.
+      if (session.payment_status !== "paid") {
+        // Idempotent by construction. If a redelivered event arrives after the
+        // payment has already settled, this must not drag a live sale back
+        // into awaiting_payment — so it only moves a row that is still active.
+        const { data: parked, error: parkErr } = await supabase
+          .from("listings")
+          .update({
+            status: "awaiting_payment",
+            buyer_id,
+            stripe_payment_intent_id: piId,
+            ...(handoverDateFromMeta(meta) ? { handover_date: handoverDateFromMeta(meta) } : {}),
+          })
+          .eq("id", listing_id)
+          .eq("status", "active")
+          .select("make, model, year, seller_id")
+          .maybeSingle();
+
+        if (parkErr) {
+          console.error("awaiting_payment update failed:", parkErr.message, listing_id);
+          return jsonResponse({ error: "listings update failed", detail: parkErr.message }, 500);
+        }
+
+        const parkedLabel = parked
+          ? [parked.year, parked.make, parked.model].filter(Boolean).join(" ")
+          : listing_id;
+
+        // Both parties need to know the car is spoken for but the money is not
+        // here yet. The seller especially: without this they see a sale in the
+        // app and may hand over a vehicle against an unsettled debit, which is
+        // the exact failure this whole design exists to prevent.
+        if (parked) {
+          const [{ data: b }, { data: sl }] = await Promise.all([
+            supabase.from("users").select("name, email").eq("id", buyer_id).single(),
+            parked.seller_id
+              ? supabase.from("users").select("name, email").eq("id", parked.seller_id).single()
+              : Promise.resolve({ data: null }),
+          ]);
+
+          if (b?.email) {
+            await sendEmail({
+              to: b.email,
+              subject: `Bank transfer started for the ${parkedLabel}`,
+              html: `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;color:#0f172a;max-width:520px;">
+                <h2 style="font-size:18px;margin:0 0 14px;">Your bank transfer is on its way</h2>
+                <p style="font-size:15px;line-height:1.55;">We've started the transfer for the <b>${parkedLabel}</b>. Bank payments take about 5 business days to clear.</p>
+                <p style="font-size:15px;line-height:1.55;"><b>You don't have a handover code yet.</b> We'll email it the moment the payment clears — that code is what releases the money to the seller.</p>
+                <p style="font-size:14px;line-height:1.55;color:#374151;">Please don't arrange to collect the vehicle until you've had that email. Nothing has been paid to the seller yet.</p>
+                <p style="font-size:12px;color:#6b7280;margin-top:24px;">DriveLink · drivelink.deals</p>
+              </div>`,
+            });
+          }
+
+          if (sl?.email) {
+            await sendEmail({
+              to: sl.email,
+              subject: `Bank transfer started for your ${parkedLabel}`,
+              html: `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;color:#0f172a;max-width:520px;">
+                <h2 style="font-size:18px;margin:0 0 14px;">A buyer has started a bank transfer</h2>
+                <p style="font-size:15px;line-height:1.55;">The buyer for your <b>${parkedLabel}</b> is paying by bank transfer. Your listing is now reserved for them.</p>
+                <div style="background:#FFF8E7;border-left:3px solid #FFB020;padding:12px 14px;margin:18px 0;font-size:15px;line-height:1.55;">
+                  <b>Do not hand over the vehicle yet.</b> Bank transfers take about 5 business days to clear, and this one has not cleared. We'll email you the moment it does.
+                </div>
+                <p style="font-size:14px;line-height:1.55;color:#374151;">If the transfer fails, your listing goes back on sale automatically and we'll let you know.</p>
+                <p style="font-size:12px;color:#6b7280;margin-top:24px;">DriveLink · drivelink.deals</p>
+              </div>`,
+            });
+          }
+        }
+
+        notifyAdmin({
+          subject: `⏳ Bank payment initiated — ${parkedLabel}`,
+          html: alertHtml("ACH checkout completed, funds not settled", [
+            ["Vehicle", parkedLabel],
+            ["Charged total", money(session.amount_total ?? 0)],
+            ["Payment status", session.payment_status ?? "—"],
+            ["Listing ID", listing_id],
+            ["Row parked", parked ? "yes" : "NO — listing was not active"],
+          ], parked
+            ? "No money has settled and no handover code exists. Awaiting checkout.session.async_payment_succeeded."
+            : "The listing was NOT in 'active' status, so nothing was parked. Either this is a redelivered event for a sale that already settled (harmless) or two payments raced for one car (not harmless). Check the listing."),
+        });
+
+        await claimEvent();
+        return jsonResponse({ received: true, awaitingSettlement: true });
+      }
+
       // ── What the car actually sold for ────────────────────────────────────
       // NOT amount_total. On a buyer-initiated BYOD deal with a Promoter
       // referral, the buyer is charged the agreed price PLUS a 1% referral
@@ -299,8 +511,11 @@ Deno.serve(async (req) => {
       // Stripe's fee applies to amount_total, which includes any referral
       // surcharge.
       const chargedTotal = session.amount_total ?? salePrice;
-      const stripeFee = realFeeCents ??
-        (Math.ceil(chargedTotal * FALLBACK_FEE_PERCENT) + FALLBACK_FEE_FIXED_CENTS);
+      // Which rate card applies is read off the actual charge, not off what
+      // Checkout offered. Getting this wrong costs the seller real money on
+      // every ACH sale where balance_transaction isn't readable.
+      const bankDebit = isBankDebit(paymentIntent);
+      const stripeFee = realFeeCents ?? stripeFallbackFor(chargedTotal, bankDebit);
       const effectiveFeeCents = stripeFee;
 
       if (feeWasEstimated) {
@@ -370,9 +585,7 @@ Deno.serve(async (req) => {
       const paymentReleaseAt = new Date();
       paymentReleaseAt.setDate(paymentReleaseAt.getDate() + AUTO_RELEASE_DAYS);
 
-      const handoverDate = /^\d{4}-\d{2}-\d{2}$/.test(meta.handover_date ?? "")
-        ? meta.handover_date
-        : null;
+      const handoverDate = handoverDateFromMeta(meta);
 
       let releaseAt = paymentReleaseAt;
 
@@ -392,10 +605,36 @@ Deno.serve(async (req) => {
         }
       }
 
+      // ── RELEASE FLOOR ─────────────────────────────────────────────────────
+      // NULL on cards: a card charge that reached this point is settled money
+      // and every existing sale behaves exactly as it did before ACH existed.
+      //
+      // On a bank debit, settlement + 3 business days. Stripe's own docs note
+      // that in rare cases an ACH failure arrives from the bank AFTER the
+      // payment has transitioned to succeeded, and the money for that failure
+      // comes out of the platform balance. This is the window that covers.
+      //
+      // It does NOT cover the 60-day unauthorized-return window. See the
+      // header. Nothing here does.
+      const releaseNotBefore = bankDebit
+        ? addBusinessDays(new Date(), ACH_RELEASE_BUFFER_BUSINESS_DAYS)
+        : null;
+
+      // The escalation deadline must never land before funds are even
+      // releasable, or auto-release-cron would email both parties that their
+      // sale is being paused for inaction during days when acting was
+      // impossible. On a card this is a no-op.
+      if (releaseNotBefore && releaseNotBefore.getTime() > releaseAt.getTime()) {
+        releaseAt = new Date(releaseNotBefore.getTime());
+        releaseAt.setDate(releaseAt.getDate() + AUTO_RELEASE_DAYS);
+      }
+
       const { data: soldListing, error: listingErr } = await supabase
         .from("listings")
         .update({
           status: "pending_confirmation",
+          // NULL on cards — see above.
+          release_not_before: releaseNotBefore ? releaseNotBefore.toISOString() : null,
           buyer_id,
           sale_price: salePrice,
           platform_fee: platformFee,
@@ -531,6 +770,7 @@ Deno.serve(async (req) => {
                 </div>
               </div>
               <p style="font-size:14px;line-height:1.55;color:#374151;">If something isn't right, don't give out the code — report a problem at <a href="https://drivelink.deals" style="color:#B87300;">drivelink.deals</a> instead and we'll hold the funds while we look into it.</p>
+              <p style="font-size:14px;line-height:1.55;color:#374151;"><b>DriveLink will never ask you for this code.</b> Nobody from DriveLink will call, email or message you to request it. If someone does, it isn't us.</p>
               <p style="font-size:12px;color:#6b7280;margin-top:24px;">DriveLink · drivelink.deals</p>
             </div>`,
           });
@@ -545,11 +785,119 @@ Deno.serve(async (req) => {
               <p style="font-size:15px;line-height:1.55;">Your net proceeds of <b>${money(sellerNet)}</b> are held by DriveLink and released when the handover is confirmed.</p>
               <p style="font-size:15px;line-height:1.55;">The buyer has a <b>6-digit handover code</b>. Once they have the car and the signed title, ask them for it and enter it on your listing — that releases your funds straight away. They can also confirm receipt themselves in the app.</p>
               <p style="font-size:14px;line-height:1.55;color:#374151;">Nothing releases automatically. If neither happens, we'll check in with both of you.</p>
+              ${releaseNotBefore
+                ? `<div style="background:#FFF8E7;border-left:3px solid #FFB020;padding:12px 14px;margin:18px 0;font-size:14px;line-height:1.55;">
+                    This buyer paid by bank transfer, which has now cleared. Bank payments carry a short settlement hold, so funds can be released from <b>${releaseNotBefore.toISOString().slice(0, 10)}</b>. You can hand over the vehicle before then — the code just won't pay out until that date.
+                  </div>`
+                : ""}
               <p style="font-size:12px;color:#6b7280;margin-top:24px;">DriveLink · drivelink.deals</p>
             </div>`,
           });
         }
       }
+    }
+
+    // ── ACH BOUNCED ────────────────────────────────────────────────────────
+    // Insufficient funds, closed account, wrong details, or the buyer's bank
+    // refusing the debit. Without this handler the listing sits in
+    // awaiting_payment forever: unbuyable by anyone else, with no money behind
+    // it, and nobody told. That is the single worst outcome in the whole ACH
+    // path, and it is a handler that is easy to forget to subscribe to in the
+    // Stripe dashboard — if bank payments seem to vanish, check the endpoint's
+    // event list first.
+    //
+    // No handover code can exist here: codes are minted on the flip to
+    // pending_confirmation, which an unsettled sale never reached. Nothing to
+    // revoke, nothing to claw back.
+    if (event.type === "checkout.session.async_payment_failed") {
+      const sessionId = (event.data.object as { id: string }).id;
+      const session = await stripe.checkout.sessions.retrieve(sessionId);
+      const meta = (session.metadata ?? {}) as Record<string, string>;
+      const { listing_id, buyer_id } = meta;
+
+      if (!listing_id) {
+        console.error("async_payment_failed with no listing_id in metadata", sessionId);
+        await claimEvent();
+        return jsonResponse({ received: true, ignored: "no listing_id" });
+      }
+
+      // Only un-park a row this payment actually parked. Guarding on
+      // awaiting_payment means a redelivered failure event cannot reopen a car
+      // that has since been paid for and handed over.
+      const { data: freed, error: freeErr } = await supabase
+        .from("listings")
+        .update({
+          status: "active",
+          buyer_id: null,
+          stripe_payment_intent_id: null,
+        })
+        .eq("id", listing_id)
+        .eq("status", "awaiting_payment")
+        .select("make, model, year, seller_id")
+        .maybeSingle();
+
+      if (freeErr) {
+        console.error("async_payment_failed un-park failed:", freeErr.message, listing_id);
+        return jsonResponse({ error: "listings update failed", detail: freeErr.message }, 500);
+      }
+
+      const label = freed
+        ? [freed.year, freed.make, freed.model].filter(Boolean).join(" ")
+        : listing_id;
+
+      if (freed) {
+        const [{ data: b }, { data: sl }] = await Promise.all([
+          buyer_id
+            ? supabase.from("users").select("name, email").eq("id", buyer_id).single()
+            : Promise.resolve({ data: null }),
+          freed.seller_id
+            ? supabase.from("users").select("name, email").eq("id", freed.seller_id).single()
+            : Promise.resolve({ data: null }),
+        ]);
+
+        if (b?.email) {
+          await sendEmail({
+            to: b.email,
+            subject: `Your bank transfer for the ${label} didn't go through`,
+            html: `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;color:#0f172a;max-width:520px;">
+              <h2 style="font-size:18px;margin:0 0 14px;">The bank transfer didn't complete</h2>
+              <p style="font-size:15px;line-height:1.55;">Your payment for the <b>${label}</b> was returned by the bank, so the purchase didn't go ahead. <b>You haven't been charged</b>, and no money is being held.</p>
+              <p style="font-size:15px;line-height:1.55;">Banks return transfers for ordinary reasons — available balance, account details, or debit restrictions. Your bank can tell you which.</p>
+              <p style="font-size:14px;line-height:1.55;color:#374151;">The listing is available again if you'd like to try, by bank transfer or card.</p>
+              <p style="font-size:12px;color:#6b7280;margin-top:24px;">DriveLink · drivelink.deals</p>
+            </div>`,
+          });
+        }
+
+        if (sl?.email) {
+          await sendEmail({
+            to: sl.email,
+            subject: `Your ${label} is back on sale`,
+            html: `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;color:#0f172a;max-width:520px;">
+              <h2 style="font-size:18px;margin:0 0 14px;">That bank transfer didn't clear</h2>
+              <p style="font-size:15px;line-height:1.55;">The bank transfer for your <b>${label}</b> was returned, so the sale didn't complete. Your listing is active again and open to other buyers.</p>
+              <p style="font-size:14px;line-height:1.55;color:#374151;">This is exactly why we asked you not to hand over the vehicle before the payment cleared. If you already did, contact us straight away.</p>
+              <p style="font-size:12px;color:#6b7280;margin-top:24px;">DriveLink · drivelink.deals</p>
+            </div>`,
+          });
+        }
+      }
+
+      notifyAdmin({
+        subject: `❌ Bank payment FAILED — ${label}`,
+        html: alertHtml("ACH debit returned by the bank", [
+          ["Vehicle", label],
+          ["Amount attempted", money(session.amount_total ?? 0)],
+          ["Buyer ID", buyer_id ?? "—"],
+          ["Listing ID", listing_id],
+          ["Listing reopened", freed ? "yes" : "NO — was not in awaiting_payment"],
+        ], freed
+          ? "No money moved and no handover code ever existed. The listing is active again and both parties were emailed."
+          : "The listing was NOT in awaiting_payment, so nothing was reopened. If this sale later settled and completed, a car may have been handed over against a payment that has now been returned — check this one by hand."),
+      });
+
+      await claimEvent();
+      return jsonResponse({ received: true, paymentFailed: true });
     }
 
     if (event.type === "account.updated") {

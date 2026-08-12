@@ -3,8 +3,33 @@
 // Checkout session at the listing's asking price. Funds land on the
 // PLATFORM's Stripe balance first (separate-charges-and-transfers, not a
 // destination charge) — that's what makes the hold-then-release flow work.
-// The seller is paid out later by release-funds or auto-release-cron.
+// The seller is paid out later by release-funds or confirm-handover.
+//
+// ── ACH DIRECT DEBIT (added 2026-08-12) ─────────────────────────────────────
+// Bank debit is offered ONLY when both conditions hold:
+//   • the charge clears ACH_MIN_CENTS, and
+//   • the buyer has completed Stripe Identity verification.
+//
+// Why a floor: ACH costs 0.8% capped at $5 against a card's ~2.9% + 30c, which
+// on a $30,000 car is a ~$870 swing — but it settles in days rather than
+// seconds. Below the floor the buyer waits a week to save a few dollars, which
+// is a worse product. Above it the saving is the entire reason the feature
+// exists.
+//
+// Why identity verification: an ACH debit on a personal account can be
+// returned as unauthorized for 60 calendar days, and per Stripe those returns
+// are FINAL and uncontestable through the ACH network — the money is pulled
+// straight back out of the platform balance and there is no appeal. Nothing in
+// this codebase can close that window. What it can do is make sure the person
+// who filed the return is a verified legal identity on file, which is the
+// difference between a civil claim and an anonymous loss. Treat the identity
+// requirement as part of the payment control, not as onboarding polish.
+//
+// See 20260812_01_ach_settlement.sql for the rest of the design.
 import { corsHeaders, jsonResponse, PROMOTER_FEE, requireUser, stripeClient, supabaseAdmin } from "../_shared/helpers.ts";
+
+// $15,000. Below this, cards only.
+const ACH_MIN_CENTS = 1_500_000;
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -62,7 +87,7 @@ Deno.serve(async (req) => {
     // client could otherwise attach someone else's address to a payment.
     const { data: buyer, error: buyerErr } = await supabase
       .from("users")
-      .select("id, email, name")
+      .select("id, email, name, identity_verification_status")
       .eq("id", buyerId)
       .single();
     if (buyerErr) console.error("buyer lookup failed:", buyerId, buyerErr);
@@ -264,14 +289,55 @@ Deno.serve(async (req) => {
       `DriveLink holds your payment — the seller is not paid at checkout. ` +
       `You'll get a 6-digit handover code. Give it to the seller only after the vehicle and the signed title are in your hands; ` +
       `entering it releases the funds. You can also confirm receipt yourself in the app, or report a problem instead. ` +
-      `Nothing is released automatically.`;
+      `Nothing is released automatically.` +
+      // Shown only when bank debit is actually offered. A buyer who picks it
+      // does NOT get a code at checkout, and telling them otherwise on the
+      // payment screen is a promise the backend deliberately won't keep — the
+      // code is withheld until the money settles, because a code issued
+      // against an unsettled debit lets a buyer collect a car on a payment
+      // that can still fail.
+      (achEligible
+        ? ` If you pay by bank account: bank transfers take about 5 business days to clear. ` +
+          `Your handover code is issued once the payment clears, not today — do not arrange to collect the vehicle before then.`
+        : "");
+
+    // ── Is bank debit on the table for this charge? ──────────────────────────
+    // chargedTotal, not priceCents: the floor is about what the buyer actually
+    // pays, and on a buyer-paid referral the surcharge is part of that.
+    const chargedTotal = priceCents + promoterSurcharge;
+    const buyerIdentityVerified = buyer?.identity_verification_status === "verified";
+    const achEligible = chargedTotal >= ACH_MIN_CENTS && buyerIdentityVerified;
+
+    // Logged rather than silent: "why didn't ACH show up" is otherwise an
+    // unanswerable support question.
+    if (chargedTotal >= ACH_MIN_CENTS && !buyerIdentityVerified) {
+      console.log("ACH withheld — buyer not identity verified:", buyerId, listing.id);
+    }
 
     const origin = req.headers.get("origin") ?? "https://drivelink.deals";
     const label = [listing.year, listing.make, listing.model].filter(Boolean).join(" ") || "DriveLink vehicle purchase";
 
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
-      payment_method_types: ["card"],
+      payment_method_types: achEligible ? ["card", "us_bank_account"] : ["card"],
+      ...(achEligible
+        ? {
+          payment_method_options: {
+            us_bank_account: {
+              financial_connections: { permissions: ["payment_method", "balances"] },
+              // "automatic" tries instant verification through Financial
+              // Connections and falls back to microdeposits when the buyer's
+              // bank isn't supported. Instant is the one worth having: it
+              // proves the buyer controls the account, which is the single
+              // best evidence against a later "I never authorized this"
+              // return. Microdeposits add 1-2 days and prove less, but
+              // refusing them outright would turn away legitimate buyers at
+              // smaller banks.
+              verification_method: "automatic",
+            },
+          },
+        }
+        : {}),
       // Prefills Checkout and stamps the payment with a real address rather
       // than leaving it as an anonymous guest.
       ...(buyerEmail ? { customer_email: buyerEmail } : {}),

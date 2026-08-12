@@ -1112,7 +1112,7 @@ const denyFlaggedReferral = async (refId) => {
   // error message, not for security.
   const deleteListing = async (listingId) => {
     const listing = listings.find(l => l.id === listingId);
-    if (listing && ["pending_confirmation", "sold", "disputed"].includes(listing.status)) {
+    if (listing && ["awaiting_payment", "pending_confirmation", "sold", "disputed"].includes(listing.status)) {
       showToast("This car has a sale in progress — it can't be deleted until that settles.", "error");
       return;
     }
@@ -3301,9 +3301,33 @@ function MyListingsView({ listings, referrals, users, offers, stats, onMarkSold,
                       💸 {fmt(l.seller_net)} released to your Stripe account. Card payments take a few business days to settle before Stripe pays out to your bank — expect it within about 5–7 business days of the sale. New accounts can take longer on the first payout.
                     </div>
                   )}
+                  {/* ACH in flight. The buyer has committed but the money has not
+                      arrived, so there is no handover code and nothing to enter.
+                      The one thing that matters on this screen is that the seller
+                      does NOT hand over the car yet — say it loudly. */}
+                  {l.status === "awaiting_payment" && (
+                    <>
+                      <div style={{ ...styles.awaitingBadge, background: "#FFF8E7", color: "#7c5000" }}>
+                        🏦 Bank transfer started — reserved, but not paid yet
+                      </div>
+                      <div style={{ fontSize: 13, color: "#7c5000", marginTop: 6, lineHeight: 1.6, padding: "10px 12px", background: "#FFF8E7", borderLeft: "3px solid #FFB020", borderRadius: "0 6px 6px 0" }}>
+                        <strong>Don't hand over the vehicle yet.</strong> Bank transfers take about 5 business days to clear. We'll email you the moment this one does, and your listing is reserved for this buyer until then.
+                      </div>
+                      <div style={{ fontSize: 12, color: "#6b7280", marginTop: 4, lineHeight: 1.5 }}>
+                        If the transfer fails, this listing goes back on sale automatically and we'll let you know.
+                      </div>
+                    </>
+                  )}
                   {l.status === "pending_confirmation" && (
                     <>
                       <div style={styles.awaitingBadge}>💳 Payment received for {fmt(l.sale_price)} — enter the buyer's handover code to get paid</div>
+                      {/* Set only on bank-funded sales. Without this the seller
+                          enters a correct code, gets "held", and has no idea why. */}
+                      {l.release_not_before && new Date(l.release_not_before) > new Date() && (
+                        <div style={{ fontSize: 13, color: "#7c5000", marginTop: 6, lineHeight: 1.6, padding: "10px 12px", background: "#FFF8E7", borderLeft: "3px solid #FFB020", borderRadius: "0 6px 6px 0" }}>
+                          This buyer paid by bank transfer, which has cleared. Bank payments carry a short settlement hold, so funds are released from <strong>{new Date(l.release_not_before).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })}</strong>. You can hand over the vehicle before then — entering the code just won't pay out until that date.
+                        </div>
+                      )}
                       <div style={{ fontSize: 12, color: "#6b7280", marginTop: 4, lineHeight: 1.5 }}>
                         The buyer's payment is held safely. Once they have the car and the signed title, ask them for their 6-digit handover code and enter it below — {fmt(l.seller_net)} is released to you immediately. They can also release it themselves from their purchases page. Bank arrival typically takes a few business days after that.
                       </div>
@@ -3347,8 +3371,11 @@ function MyListingsView({ listings, referrals, users, offers, stats, onMarkSold,
                     </div>
                   )}
                 </div>
-                <span style={{ ...styles.statusPill, background: l.status === "active" ? "#dcfce7" : l.status === "pending" ? "#fef9c3" : l.status === "pending_confirmation" ? "#dbeafe" : l.status === "disputed" ? "#fee2e2" : "#fee2e2", color: l.status === "active" ? "#15803d" : l.status === "pending" ? "#854d0e" : l.status === "pending_confirmation" ? "#1d4ed8" : l.status === "disputed" ? "#b91c1c" : "#b91c1c" }}>{l.status === "pending_confirmation" ? "awaiting confirmation" : l.status}</span>
-                {l.status !== "sold" && l.status !== "pending_confirmation" && l.status !== "disputed" && (
+                <span style={{ ...styles.statusPill, background: l.status === "active" ? "#dcfce7" : l.status === "pending" ? "#fef9c3" : l.status === "awaiting_payment" ? "#FFF8E7" : l.status === "pending_confirmation" ? "#dbeafe" : l.status === "disputed" ? "#fee2e2" : "#fee2e2", color: l.status === "active" ? "#15803d" : l.status === "pending" ? "#854d0e" : l.status === "awaiting_payment" ? "#7c5000" : l.status === "pending_confirmation" ? "#1d4ed8" : l.status === "disputed" ? "#b91c1c" : "#b91c1c" }}>{l.status === "pending_confirmation" ? "awaiting confirmation" : l.status === "awaiting_payment" ? "payment clearing" : l.status}</span>
+                {/* awaiting_payment excluded: the price and terms are what a buyer
+                    has already committed money against, and guard_listings_settlement_columns
+                    would reject the write anyway — better to not offer the button. */}
+                {l.status !== "sold" && l.status !== "awaiting_payment" && l.status !== "pending_confirmation" && l.status !== "disputed" && (
                   <button style={styles.pendingBtn} onClick={() => setEditing(l)}>Edit</button>
                 )}
                 {l.status === "active" && (
@@ -3482,14 +3509,31 @@ function MyPurchasesView({ listings, users, reviews, currentUser, handoverCodes,
           // at all — the buyer's only route to checkout was the listing modal,
           // which nothing links to from here.
           const awaitingPayment = l.status === "active" && !l.sold_at;
+          // Distinct from awaitingPayment above, which is a BYOD deal the buyer
+          // has not paid for yet. This one is money already committed by bank
+          // transfer and still in flight — the buyer can do nothing but wait,
+          // and must not go and collect the car.
+          const settlingPayment = l.status === "awaiting_payment";
           return (
             <div key={l.id} style={styles.listingRow} className="app-listing-row">
               <img src={cover} alt="" style={styles.rowImg} onError={e => { e.target.src = "https://images.unsplash.com/photo-1494976388531-d1058494cdd8?w=300&q=60"; }} />
               <div style={styles.rowInfo} className="app-row-info">
                 <div style={styles.rowTitle}>{l.year} {l.make} {l.model}</div>
                 <div style={styles.rowMeta}>
-                  {fmt(l.sale_price || l.price)} • {awaitingPayment ? `Seller: ${seller?.name || "seller"}` : `Sold by ${seller?.name || "seller"} on ${l.sold_at}`}
+                  {fmt(l.sale_price || l.price)} • {(awaitingPayment || settlingPayment) ? `Seller: ${seller?.name || "seller"}` : `Sold by ${seller?.name || "seller"} on ${l.sold_at}`}
                 </div>
+                {settlingPayment && (
+                  <div style={{ marginTop: 6 }}>
+                    <div style={{ fontSize: 13, color: "#7c5000", fontWeight: 600 }}>
+                      🏦 Your bank transfer is on its way. Bank payments take about 5 business days to clear.
+                    </div>
+                    <div style={{ marginTop: 10, padding: 12, background: "#FFF8E7", border: "1px solid #FFB020", borderRadius: 8, fontSize: 13, color: "#7c5000", lineHeight: 1.6 }}>
+                      <strong>You don't have a handover code yet.</strong> We'll email it the moment the payment clears — that code is what releases the money to the seller.
+                      <br /><br />
+                      Please don't arrange to collect the vehicle until then. Nothing has been paid to the seller.
+                    </div>
+                  </div>
+                )}
                 {awaitingConfirmation && (
                   <div style={{ marginTop: 6 }}>
                     <div style={{ fontSize: 13, color: "#1d4ed8", fontWeight: 600 }}>
@@ -5385,11 +5429,12 @@ function AdminView({ listings, users, referrals, reports, feedback, userReports,
               <div style={styles.rowInfo} className="app-row-info">
                 <div style={styles.rowTitle}>{l.year} {l.make} {l.model}</div>
                 <div style={styles.rowMeta}>{fmt(l.price)}</div>
-                {l.status === "pending_confirmation" && <div style={{ fontSize: 12, color: "#1d4ed8", marginTop: 2 }}>Sold {fmt(l.sale_price)} on {l.sold_at} • waiting on buyer to confirm receipt</div>}
+                {l.status === "awaiting_payment" && <div style={{ fontSize: 12, color: "#7c5000", marginTop: 2 }}>🏦 Bank transfer in flight — no money settled, no handover code issued</div>}
+                {l.status === "pending_confirmation" && <div style={{ fontSize: 12, color: "#1d4ed8", marginTop: 2 }}>Sold {fmt(l.sale_price)} on {l.sold_at} • waiting on buyer to confirm receipt{l.release_not_before && new Date(l.release_not_before) > new Date() ? ` • funds held until ${String(l.release_not_before).slice(0, 10)} (bank settlement)` : ""}</div>}
                 {l.status === "disputed" && <div style={{ fontSize: 12, color: "#b91c1c", marginTop: 2 }}>⚠️ Disputed — see Disputes tab</div>}
                 <RiskFlagPanel flags={(riskFlags || {})[l.id]} onResolve={onResolveRiskFlag} />
               </div>
-              <span style={{ ...styles.statusPill, background: l.status === "active" ? "#dcfce7" : l.status === "pending_confirmation" ? "#dbeafe" : l.status === "disputed" ? "#fee2e2" : "#fee2e2", color: l.status === "active" ? "#15803d" : l.status === "pending_confirmation" ? "#1d4ed8" : "#b91c1c" }}>{l.status === "pending_confirmation" ? "awaiting confirmation" : l.status}</span>
+              <span style={{ ...styles.statusPill, background: l.status === "active" ? "#dcfce7" : l.status === "awaiting_payment" ? "#FFF8E7" : l.status === "pending_confirmation" ? "#dbeafe" : l.status === "disputed" ? "#fee2e2" : "#fee2e2", color: l.status === "active" ? "#15803d" : l.status === "awaiting_payment" ? "#7c5000" : l.status === "pending_confirmation" ? "#1d4ed8" : "#b91c1c" }}>{l.status === "pending_confirmation" ? "awaiting confirmation" : l.status === "awaiting_payment" ? "payment clearing" : l.status}</span>
               {l.status === "active" && <button style={styles.soldBtn} onClick={() => setMarkingSold(l)}>Mark Sold</button>}
               {l.status === "pending_confirmation" && <button style={styles.soldBtn} onClick={() => onConfirmReceipt(l.id)} title="Use only if the buyer isn't responding — normally they confirm themselves">Force Confirm</button>}
               <button style={styles.removeBtn} onClick={() => onArchive(l.id)}>Archive</button>

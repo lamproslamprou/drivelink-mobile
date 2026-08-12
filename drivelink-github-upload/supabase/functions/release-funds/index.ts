@@ -72,7 +72,7 @@ Deno.serve(async (req) => {
     const { data: listing, error: listingErr } = await supabase
       .from("listings")
       .select(
-        "id, seller_id, buyer_id, status, funds_released, seller_net, sale_price, referral_code, stripe_payment_intent_id, make, model, year",
+        "id, seller_id, buyer_id, status, funds_released, seller_net, sale_price, referral_code, stripe_payment_intent_id, release_not_before, make, model, year",
       )
       .eq("id", listing_id)
       .single();
@@ -174,6 +174,34 @@ Deno.serve(async (req) => {
         message:
           "Your confirmation has been recorded. This transaction is under a short review before funds are released to the seller.",
       });
+    }
+
+    // ── ACH settlement floor ────────────────────────────────────────────────
+    // NULL on card sales, so this is a no-op on every sale that existed before
+    // ACH. On a bank-funded sale it is the last thing standing between a payout
+    // and a debit the bank can still return: stripe-webhook sets it to
+    // settlement + 3 business days on checkout.session.async_payment_succeeded.
+    //
+    // Placed AFTER confirmed_at is written and after the risk gate,
+    // deliberately. The buyer's confirmation is recorded either way — it simply
+    // cannot move money yet. When the floor passes, the buyer taps Confirm
+    // again (or an admin presses Force Confirm) and the release completes
+    // normally, because nothing above this point is destructive.
+    //
+    // Admins are NOT exempt. Force Confirm exists to act on a silent buyer, not
+    // to pay out of unsettled funds — a transfer against a bank debit that is
+    // later returned comes out of the platform balance, not the seller's.
+    if (listing.release_not_before) {
+      const floor = new Date(listing.release_not_before);
+      if (Number.isFinite(floor.getTime()) && floor.getTime() > Date.now()) {
+        return jsonResponse({
+          heldForSettlement: true,
+          releasableFrom: listing.release_not_before,
+          message:
+            `This purchase was paid by bank transfer. Funds can be released from ` +
+            `${String(listing.release_not_before).slice(0, 10)}, once the payment has fully settled.`,
+        });
+      }
     }
 
     const { data: seller, error: sellerErr } = await supabase

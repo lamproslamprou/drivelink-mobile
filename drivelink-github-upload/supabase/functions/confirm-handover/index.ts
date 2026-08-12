@@ -74,7 +74,7 @@ Deno.serve(async (req) => {
     const { data: listing, error: listingErr } = await supabase
       .from("listings")
       .select(
-        "id, seller_id, buyer_id, status, funds_released, seller_net, sale_price, referral_code, stripe_payment_intent_id, make, model, year",
+        "id, seller_id, buyer_id, status, funds_released, seller_net, sale_price, referral_code, stripe_payment_intent_id, release_not_before, make, model, year",
       )
       .eq("id", listing_id)
       .single();
@@ -226,6 +226,37 @@ Deno.serve(async (req) => {
         message:
           "Handover confirmed. This transaction is under a short review before funds are released.",
       });
+    }
+
+    // ── ACH settlement floor ──────────────────────────────────────────────
+    // NULL on card sales, so this is a no-op on every sale that existed before
+    // ACH. On a bank-funded sale it is the last thing standing between a payout
+    // and a debit the bank can still return: stripe-webhook sets it to
+    // settlement + 3 business days on checkout.session.async_payment_succeeded.
+    //
+    // Placed AFTER the code is accepted and confirmed_at is written,
+    // deliberately. The buyer's participation is the scarce thing here — they
+    // are standing in a parking lot and will not be available again — so the
+    // code is consumed and recorded now, and only the MONEY waits. attempts is
+    // already reset to 0 above, so the seller re-entering the same code after
+    // the floor passes goes straight through.
+    //
+    // The seller is told the date rather than a vague "pending", because the
+    // alternative is a seller who has just handed over a car being told only
+    // that something is held.
+    if (listing.release_not_before) {
+      const floor = new Date(listing.release_not_before);
+      if (Number.isFinite(floor.getTime()) && floor.getTime() > Date.now()) {
+        return jsonResponse({
+          heldForSettlement: true,
+          releasableFrom: listing.release_not_before,
+          message:
+            `Code accepted — the handover is recorded. This buyer paid by bank ` +
+            `transfer, so funds are released from ` +
+            `${String(listing.release_not_before).slice(0, 10)}, once the payment ` +
+            `has fully settled. You don't need to do anything else.`,
+        });
+      }
     }
 
     // ── Transfer ──────────────────────────────────────────────────────────
