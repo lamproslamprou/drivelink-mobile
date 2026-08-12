@@ -1,32 +1,30 @@
 import { useState, useEffect } from "react";
+import { useLang, LangToggle } from "./i18n.jsx";
 
 /*
-  FAQView — standalone FAQ page.
+  FAQView — standalone FAQ page at /faq.
 
-  WIRING (3 edits outside this file):
-    1. import FAQView from "./FAQView.jsx";
-    2. VIEW_PATHS: add  faq: "/faq"
-    3. render <FAQView lang={lang} onBack={...} /> when view === "faq"
-    4. PUBLIC_VIEWS: add "faq" so signed-out visitors are not bounced to sign-in
+  Palette and type deliberately mirror styles.legalPage / legalTitle / legalBody
+  in App.jsx (white background, #0f172a headings, #374151 body, Inter). This page
+  should read as the same document family as Terms, Privacy and Safety Tips.
 
-  `lang` is "en" or "es". Pass whatever your language toggle already holds.
-  FAQ copy lives here rather than in i18n.jsx on purpose: these are long prose
-  blocks, not UI strings, and keeping the two languages side by side makes it
-  obvious when one drifts out of sync with the other.
+  Copy lives here rather than in i18n.jsx because these are prose paragraphs, not
+  UI strings — keeping EN and ES adjacent makes drift obvious. The language comes
+  from useLang() so the toggle in the corner works without App.jsx passing it.
 
-  Every claim here is one that is currently true. Do NOT add anything about
-  funds settling if DriveLink goes offline — auto-release runs on our own cron,
-  not on Stripe, so that promise would not hold.
+  Every claim here is currently true. Do NOT add anything promising that funds
+  settle if DriveLink goes offline — auto-release runs on our own pg_cron, not on
+  Stripe, so that would not hold.
 */
 
 const COPY = {
   en: {
-    back: "Back",
-    eyebrow: "Common questions",
+    back: "← Back to DriveLink",
     title: "How your money is protected",
     lede: "Buying a car from a stranger means one of you has to go first. These are the questions people ask us before they do.",
     contactLead: "Still unsure about something?",
     contactBody: "Email us and a person will answer.",
+    safetyLink: "Read the meetup safety tips →",
     items: [
       {
         q: "Who actually holds my money?",
@@ -73,12 +71,12 @@ const COPY = {
   },
 
   es: {
-    back: "Volver",
-    eyebrow: "Preguntas frecuentes",
+    back: "← Volver a DriveLink",
     title: "Cómo se protege tu dinero",
     lede: "Comprarle un auto a un desconocido significa que alguien tiene que dar el primer paso. Estas son las preguntas que nos hacen antes de darlo.",
     contactLead: "¿Te quedó alguna duda?",
     contactBody: "Escríbenos y te responderá una persona.",
+    safetyLink: "Lee los consejos de seguridad para el encuentro →",
     items: [
       {
         q: "¿Quién retiene mi dinero?",
@@ -125,12 +123,13 @@ const COPY = {
   },
 };
 
-export default function FAQView({ lang = "en", onBack }) {
+export default function FAQView({ onBack, onSafety }) {
+  const { lang } = useLang();
   const t = COPY[lang] || COPY.en;
   const [open, setOpen] = useState(0);
 
-  // FAQPage structured data — lets Google show these as expandable results,
-  // which is worth a lot on escrow-intent search queries.
+  // FAQPage structured data. Google can render these as expandable results,
+  // which is worth real estate on escrow-intent searches for free.
   useEffect(() => {
     const el = document.createElement("script");
     el.type = "application/ld+json";
@@ -144,93 +143,100 @@ export default function FAQView({ lang = "en", onBack }) {
       })),
     });
     document.head.appendChild(el);
-    return () => document.head.removeChild(el);
+    return () => {
+      if (el.parentNode) el.parentNode.removeChild(el);
+    };
   }, [lang]);
 
   return (
-    <div className="dl-faq">
-      <style>{`
-        .dl-faq{max-width:820px;margin:0 auto;padding:64px 20px 96px;color:#F2F4F7}
-        .dl-faq__back{background:none;border:0;color:#8A939F;font:inherit;font-size:14px;
-          padding:0 0 28px;cursor:pointer;display:flex;align-items:center;gap:8px}
-        .dl-faq__back:hover{color:#F2F4F7}
-        .dl-faq__back:focus-visible{outline:2px solid #FFB020;outline-offset:3px;border-radius:4px}
-        .dl-faq__eyebrow{font-size:12px;letter-spacing:.14em;text-transform:uppercase;
-          color:#8A939F;display:flex;align-items:center;gap:10px;margin-bottom:18px}
-        .dl-faq__dot{width:6px;height:6px;border-radius:50%;background:#FFB020;
-          box-shadow:0 0 0 4px rgba(255,176,32,.15)}
-        .dl-faq__title{font-size:clamp(30px,5vw,44px);font-weight:600;letter-spacing:-.03em;
-          line-height:1.1;margin:0}
-        .dl-faq__lede{margin-top:16px;color:#8A939F;font-size:16px;line-height:1.6;max-width:56ch}
-        .dl-faq__list{margin-top:44px;border-top:1px solid #242A32}
-        .dl-faq__item{border-bottom:1px solid #242A32}
-        .dl-faq__q{width:100%;background:none;border:0;color:inherit;font:inherit;
-          font-size:16.5px;font-weight:500;text-align:left;padding:22px 44px 22px 0;
-          cursor:pointer;position:relative;line-height:1.45}
-        .dl-faq__q:hover{color:#FFB020}
-        .dl-faq__q:focus-visible{outline:2px solid #FFB020;outline-offset:3px;border-radius:4px}
-        .dl-faq__sign{position:absolute;right:8px;top:50%;transform:translateY(-50%);
-          color:#8A939F;font-size:20px;line-height:1;transition:transform .2s ease}
-        .dl-faq__item[data-open="true"] .dl-faq__sign{transform:translateY(-50%) rotate(45deg);color:#FFB020}
-        .dl-faq__a{padding:0 44px 26px 0;color:#8A939F;font-size:15.5px;line-height:1.7;margin:0}
-        .dl-faq__a--flag{border-left:2px solid #FFB020;padding-left:18px;color:#C9D1DB}
-        .dl-faq__contact{margin-top:48px;padding:24px;border:1px solid #242A32;border-radius:12px}
-        .dl-faq__contact strong{display:block;margin-bottom:6px;font-weight:600}
-        .dl-faq__contact p{margin:0;color:#8A939F;font-size:14.5px}
-        .dl-faq__contact a{color:#FFB020;text-decoration:none}
-        .dl-faq__contact a:hover{text-decoration:underline}
-        @media(prefers-reduced-motion:reduce){.dl-faq__sign{transition:none}}
-      `}</style>
+    <div style={S.page}>
+      <style>{CSS}</style>
+      <div style={S.inner}>
+        <div style={S.topRow}>
+          {onBack ? (
+            <button style={S.backBtn} onClick={onBack}>{t.back}</button>
+          ) : <span />}
+          <LangToggle />
+        </div>
 
-      {onBack && (
-        <button className="dl-faq__back" onClick={onBack}>
-          <span aria-hidden="true">←</span> {t.back}
-        </button>
-      )}
+        <h1 style={S.title}>{t.title}</h1>
+        <p style={S.lede}>{t.lede}</p>
 
-      <div className="dl-faq__eyebrow">
-        <span className="dl-faq__dot" />
-        {t.eyebrow}
-      </div>
-      <h1 className="dl-faq__title">{t.title}</h1>
-      <p className="dl-faq__lede">{t.lede}</p>
+        <div style={S.list}>
+          {t.items.map((it, i) => {
+            const isOpen = open === i;
+            return (
+              <div key={i} style={S.item}>
+                <h2 style={{ margin: 0 }}>
+                  <button
+                    className="dlFaqQ"
+                    aria-expanded={isOpen}
+                    aria-controls={`dl-faq-a-${i}`}
+                    onClick={() => setOpen(isOpen ? -1 : i)}
+                  >
+                    <span>{it.q}</span>
+                    <span className={"dlFaqSign" + (isOpen ? " isOpen" : "")} aria-hidden="true">+</span>
+                  </button>
+                </h2>
+                {isOpen && (
+                  <p
+                    id={`dl-faq-a-${i}`}
+                    style={{ ...S.answer, ...(it.flag ? S.answerFlag : null) }}
+                  >
+                    {it.a}
+                  </p>
+                )}
+              </div>
+            );
+          })}
+        </div>
 
-      <div className="dl-faq__list">
-        {t.items.map((it, i) => {
-          const isOpen = open === i;
-          return (
-            <div className="dl-faq__item" key={i} data-open={isOpen}>
-              <h2 style={{ margin: 0 }}>
-                <button
-                  className="dl-faq__q"
-                  aria-expanded={isOpen}
-                  aria-controls={`dl-faq-a-${i}`}
-                  onClick={() => setOpen(isOpen ? -1 : i)}
-                >
-                  {it.q}
-                  <span className="dl-faq__sign" aria-hidden="true">+</span>
-                </button>
-              </h2>
-              {isOpen && (
-                <p
-                  id={`dl-faq-a-${i}`}
-                  className={"dl-faq__a" + (it.flag ? " dl-faq__a--flag" : "")}
-                >
-                  {it.a}
-                </p>
-              )}
-            </div>
-          );
-        })}
-      </div>
-
-      <div className="dl-faq__contact">
-        <strong>{t.contactLead}</strong>
-        <p>
-          {t.contactBody}{" "}
-          <a href="mailto:hello@drivelink.deals">hello@drivelink.deals</a>
-        </p>
+        <div style={S.contact}>
+          <strong style={S.contactLead}>{t.contactLead}</strong>
+          <p style={S.contactBody}>
+            {t.contactBody}{" "}
+            <a href="mailto:support@drivelink.deals" style={S.link}>support@drivelink.deals</a>
+          </p>
+          {onSafety && (
+            <button style={{ ...S.link, ...S.linkBtn }} onClick={onSafety}>
+              {t.safetyLink}
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );
 }
+
+/* Mirrors styles.legalPage & friends in App.jsx — same document family as
+   Terms, Privacy and Safety Tips. */
+const S = {
+  page: { fontFamily: "'Inter', system-ui, sans-serif", background: "#fff", minHeight: "100vh", color: "#111827" },
+  inner: { maxWidth: 760, margin: "0 auto", padding: "48px 24px 96px" },
+  topRow: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 32, flexWrap: "wrap" },
+  backBtn: { background: "none", border: "1px solid #e5e7eb", padding: "8px 16px", borderRadius: 10, cursor: "pointer", fontSize: 14, fontWeight: 600, color: "#374151" },
+  title: { fontSize: 36, fontWeight: 800, color: "#0f172a", letterSpacing: "-0.02em", marginBottom: 10 },
+  lede: { fontSize: 15, color: "#6b7280", lineHeight: 1.7, marginBottom: 8, maxWidth: "56ch" },
+  list: { marginTop: 36, borderTop: "1px solid #e5e7eb" },
+  item: { borderBottom: "1px solid #e5e7eb" },
+  answer: { margin: 0, padding: "0 44px 22px 0", fontSize: 15, color: "#374151", lineHeight: 1.7 },
+  answerFlag: { borderLeft: "3px solid #FFB020", paddingLeft: 16, background: "#fffbf2", paddingTop: 14, paddingBottom: 14, marginBottom: 22, borderRadius: "0 8px 8px 0", color: "#1f2937" },
+  contact: { marginTop: 44, padding: 22, border: "1px solid #e5e7eb", borderRadius: 12, background: "#f9fafb" },
+  contactLead: { display: "block", fontSize: 15, fontWeight: 700, color: "#0f172a", marginBottom: 6 },
+  contactBody: { margin: 0, fontSize: 14, color: "#6b7280", lineHeight: 1.6 },
+  link: { color: "#2563eb", textDecoration: "none", fontWeight: 600 },
+  linkBtn: { display: "inline-block", background: "none", border: "none", padding: 0, marginTop: 14, cursor: "pointer", fontSize: 14 },
+};
+
+const CSS = `
+.dlFaqQ{
+  width:100%;background:none;border:0;color:#0f172a;font-family:inherit;
+  font-size:16px;font-weight:600;text-align:left;padding:20px 0;cursor:pointer;
+  display:flex;align-items:flex-start;justify-content:space-between;gap:16px;line-height:1.45;
+}
+.dlFaqQ:hover{color:#2563eb}
+.dlFaqQ:focus-visible{outline:2px solid #FFB020;outline-offset:3px;border-radius:4px}
+.dlFaqSign{color:#9ca3af;font-size:22px;line-height:1.2;flex:0 0 auto;transition:transform .18s ease}
+.dlFaqSign.isOpen{transform:rotate(45deg);color:#FFB020}
+@media(prefers-reduced-motion:reduce){.dlFaqSign{transition:none}}
+`;

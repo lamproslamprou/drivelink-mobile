@@ -1767,8 +1767,8 @@ const denyFlaggedReferral = async (refId) => {
 
   if (view === "faq") return (
     <FAQView
-      lang={lang}
       onBack={() => setView(currentUser ? "home" : "landing")}
+      onSafety={() => setView("safety")}
     />
   );
 
@@ -1867,6 +1867,10 @@ const denyFlaggedReferral = async (refId) => {
             {currentUser && <NavBtn active={view === "postListing"} onClick={() => setView("postListing")}>{t("nav.postListing")}</NavBtn>}
             <NavBtn active={view === "startDeal"} onClick={() => setView("startDeal")}>{t("nav.startDeal")}</NavBtn>
             <NavBtn active={view === "advertise"} onClick={() => setView("advertise")}>{t("nav.advertise")}</NavBtn>
+            {/* Not an action like the rest of this row, but it answers the one
+                objection that stops a first-time visitor from paying at all.
+                Literal strings: i18n.jsx has no nav.faq key yet. */}
+            <NavBtn active={view === "faq"} onClick={() => setView("faq")}>{lang === "es" ? "¿Es seguro?" : "Is this safe?"}</NavBtn>
           </div>
           <div style={styles.navRight} className="app-nav-right">
             {currentUser ? (
@@ -1988,6 +1992,8 @@ const denyFlaggedReferral = async (refId) => {
         <button style={styles.appFooterLink} onClick={() => setView("about")}>About DriveLink</button>
         <span style={{ color: "#d1d5db" }}>·</span>
         <button style={styles.appFooterLink} onClick={() => setView("safety")}>🛡️ Safety Tips</button>
+        <span style={{ color: "#d1d5db" }}>·</span>
+        <button style={styles.appFooterLink} onClick={() => setView("faq")}>How your money is protected</button>
         <span style={{ color: "#d1d5db" }}>·</span>
         <button style={styles.appFooterLink} onClick={() => setView("terms")}>Terms of Service</button>
         <span style={{ color: "#d1d5db" }}>·</span>
