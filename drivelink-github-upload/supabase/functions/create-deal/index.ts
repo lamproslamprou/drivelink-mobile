@@ -138,8 +138,31 @@ Deno.serve(async (req) => {
     const body = await req.json();
 
     const role = body.role;
-    if (role !== "seller" && role !== "buyer") {
+    if (role !== "seller" && role !== "buyer" && role !== "promoter") {
       return jsonResponse({ error: "Pick whether you are the buyer or the seller." }, 400);
+    }
+
+    // A promoter is arranging a deal between two other people and is neither
+    // party to it. Gated on holding an active code so this branch cannot be
+    // used as a way to create unattached deals in bulk.
+    let promoterCode: string | null = null;
+    if (role === "promoter") {
+      const { data: pc, error: pcErr } = await supabase
+        .from("promoter_codes")
+        .select("code")
+        .eq("user_id", userId)
+        .eq("active", true)
+        .maybeSingle();
+      if (pcErr) {
+        console.error("create-deal promoter code lookup failed:", pcErr.message);
+        return jsonResponse({ error: "Could not verify your Promoter code." }, 500);
+      }
+      if (!pc) {
+        return jsonResponse({
+          error: "Create your Promoter code first, then you can set up deals for other people.",
+        }, 403);
+      }
+      promoterCode = pc.code;
     }
 
     // --- validate the car (year, make, model are NOT NULL on listings) -----
@@ -213,6 +236,72 @@ Deno.serve(async (req) => {
 
     const token = makeToken();
     const carLabel = `${year} ${make} ${model}`;
+
+    // ---------------------------------------------------------------------
+    // Promoter-initiated: neither party is attached yet.
+    //
+    // No listing is created here. listings.seller_id drives the payout, and
+    // nobody has claimed the seller side — accept-deal-invite builds the
+    // listing once both sides are known and the seller has onboarded.
+    //
+    // The invite expires faster than a two-party deal on purpose: a broker who
+    // sends ten links and gets two takers otherwise leaves eight rows sitting
+    // open with nobody committed to them.
+    // ---------------------------------------------------------------------
+    if (role === "promoter") {
+      const PROMOTER_INVITE_DAYS = 7;
+      const { error: inviteErr } = await supabase.from("deal_invites").insert({
+        token,
+        created_by: userId,
+        creator_role: "promoter",
+        listing_id: null,
+        buyer_id: null,
+        seller_id: null,
+        year, make, model, mileage, vin, note,
+        price: priceCents,
+        handover_date: handoverDate,
+        expires_at: new Date(Date.now() + PROMOTER_INVITE_DAYS * 86400000).toISOString(),
+      });
+
+      if (inviteErr) {
+        console.error("create-deal promoter invite insert failed:", inviteErr.message);
+        return jsonResponse({ error: "Could not create the deal." }, 500);
+      }
+
+      // Attribution is the promoter's own code, not one passed in the body.
+      // recordPromoterReferral skips self-referrals by comparing the code owner
+      // to the initiator, which would reject this — here the initiator IS the
+      // promoter and that is the intended arrangement, so the row is written
+      // directly.
+      const { error: refErr } = await supabase.from("referrals").insert({
+        id: `r${Date.now()}`,
+        promoter_id: userId,
+        listing_id: null,
+        deal_id: token,
+        share_code: null,
+        status: "pending",
+        commission_amount: 0,
+      });
+      if (refErr) console.error("promoter-deal referral insert failed:", token, refErr.message);
+
+      notifyAdmin({
+        subject: `New promoter-arranged deal — ${carLabel} (${dollars(priceCents / 100)})`,
+        html: alertHtml("A promoter set up a deal between two other people", [
+          ["Vehicle", carLabel],
+          ["Price", dollars(priceCents / 100)],
+          ["Promoter", `${caller?.name ?? "—"} (${caller?.email ?? "—"})`],
+          ["Promoter code", promoterCode ?? "—"],
+          ["Link", `${SITE_URL}/d/${token}`],
+        ], "Neither party has joined yet. Worth a look if the same promoter keeps appearing with the same counterparties."),
+      });
+
+      return jsonResponse({
+        token,
+        url: `${SITE_URL}/d/${token}`,
+        listing_id: null,
+        role: "promoter",
+      });
+    }
 
     // ---------------------------------------------------------------------
     // Seller-initiated

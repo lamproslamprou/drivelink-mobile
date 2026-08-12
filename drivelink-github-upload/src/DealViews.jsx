@@ -44,7 +44,7 @@ function clearPromoterCode() {
 // StartDealView
 // ============================================================================
 
-export function StartDealView({ currentUser, onBack, onNavigate, showToast }) {
+export function StartDealView({ currentUser, promoterCode, onBack, onNavigate, showToast }) {
   const [role, setRole] = useState("seller");
   const [form, setForm] = useState({
     vin: "", year: "", make: "", model: "", mileage: "", price: "", note: "",
@@ -232,13 +232,17 @@ export function StartDealView({ currentUser, onBack, onNavigate, showToast }) {
 
   // ---- link created --------------------------------------------------------
   if (result) {
-    const them = role === "seller" ? "the buyer" : "the seller";
+    const them = role === "promoter" ? "both parties" : role === "seller" ? "the buyer" : "the seller";
     return (
       <div style={dealStyles.page}>
         <div style={dealStyles.inner}>
           {onBack && <button style={dealStyles.backBtn} onClick={onBack}>← Back</button>}
           <h1 style={dealStyles.title}>Your deal is ready</h1>
-          <p style={dealStyles.sub}>Send this link to {them}. No money moves until you both agree.</p>
+          <p style={dealStyles.sub}>
+            {role === "promoter"
+              ? "Send this link to both parties. Whoever opens it first picks their side. No money moves until they both join."
+              : `Send this link to ${them}. No money moves until you both agree.`}
+          </p>
 
           <div style={dealStyles.linkBox}>
             <div style={dealStyles.eyebrow}>Deal link</div>
@@ -252,11 +256,18 @@ export function StartDealView({ currentUser, onBack, onNavigate, showToast }) {
           <div style={dealStyles.stepsWrap}>
             <div style={dealStyles.eyebrow}>What happens next</div>
             <ol style={dealStyles.steps}>
-              <li style={dealStyles.step}>{cap(them)} opens the link and confirms the car and price.</li>
+              <li style={dealStyles.step}>
+                {role === "promoter"
+                  ? "Both parties open the link, pick their side, and confirm the car and price."
+                  : `${cap(them)} opens the link and confirms the car and price.`}
+              </li>
               <li style={dealStyles.step}>The buyer pays into escrow. DriveLink holds the money.</li>
               <li style={dealStyles.step}>
                 The car and title change hands, the buyer confirms, and the seller is paid out.
               </li>
+              {role === "promoter" && (
+                <li style={dealStyles.step}>Your 1% lands in your balance once the sale completes.</li>
+              )}
             </ol>
           </div>
         </div>
@@ -278,17 +289,29 @@ export function StartDealView({ currentUser, onBack, onNavigate, showToast }) {
         </p>
 
         <div style={dealStyles.eyebrow}>In this deal, you are the</div>
-        <div style={dealStyles.roleRow}>
-          {["seller", "buyer"].map((r) => (
+        {/* The third option only appears for someone holding an active Promoter
+            code — create-deal rejects role:"promoter" without one, so offering
+            it to everyone would produce a button that always errors. */}
+        <div style={{ ...dealStyles.roleRow, gridTemplateColumns: promoterCode ? "1fr 1fr 1fr" : "1fr 1fr" }}>
+          {["seller", "buyer", ...(promoterCode ? ["promoter"] : [])].map((r) => (
             <button
               key={r}
               onClick={() => setRole(r)}
-              style={{ ...dealStyles.roleBtn, ...(role === r ? dealStyles.roleBtnActive : null) }}
+              style={{ ...dealStyles.roleBtn, ...(role === r ? dealStyles.roleBtnActive : null), ...(r === "promoter" ? { fontSize: 14 } : null) }}
             >
-              {cap(r)}
+              {r === "promoter" ? "Neither — I'm arranging it" : cap(r)}
             </button>
           ))}
         </div>
+
+        {role === "promoter" && (
+          <div style={{ ...dealStyles.infoBox, marginTop: -20, marginBottom: 28 }}>
+            You're setting this up for two other people. Enter the car and the
+            price they agreed on, then send them one link — whoever opens it
+            first says whether they're the buyer or the seller. You earn 1% when
+            the sale completes.
+          </div>
+        )}
 
         <div style={dealStyles.fieldLabel}>VIN (optional — fills in the rest)</div>
         <div style={dealStyles.vinRow}>
@@ -359,6 +382,9 @@ export function JoinDealView({ token, currentUser, onNavigate, onJoined, showToa
   const [error, setError] = useState(null);
   const [joining, setJoining] = useState(false);
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
+  // Only used on a promoter-arranged deal that still has both sides free.
+  const [pickedRole, setPickedRole] = useState(null);
+  const [waiting, setWaiting] = useState(null);
 
   useEffect(() => {
     // Survive the sign-up round trip.
@@ -383,12 +409,21 @@ export function JoinDealView({ token, currentUser, onNavigate, onJoined, showToa
     setError(null);
     try {
       const { data, error: fnErr } = await supabase.functions.invoke("accept-deal-invite", {
-        body: { token, action: "accept" },
+        // role is ignored unless the deal was arranged by a promoter and both
+        // sides are still free.
+        body: { token, action: "accept", role: pickedRole },
       });
       if (fnErr) { setError("Could not join this deal."); return; }
       if (data?.error) { setError(data.error); return; }
 
       if (data.state === "needs_onboarding") { setNeedsOnboarding(true); return; }
+
+      // Promoter deal, first party in. There is no listing to pay for yet.
+      if (data.state === "waiting_for_other_party") {
+        try { localStorage.removeItem("dl_pending_deal"); } catch { /* noop */ }
+        setWaiting({ role: data.your_role, message: data.message });
+        return;
+      }
 
       if (data.state === "ready_for_payment") {
         try { localStorage.removeItem("dl_pending_deal"); } catch { /* noop */ }
@@ -422,8 +457,28 @@ export function JoinDealView({ token, currentUser, onNavigate, onJoined, showToa
     );
   }
 
-  const { car, your_role: yourRole, state } = preview;
-  const isSeller = yourRole === "seller";
+  if (waiting) {
+    return (
+      <div style={dealStyles.page}>
+        <div style={dealStyles.inner}>
+          <h1 style={dealStyles.title}>You're in as the {waiting.role}</h1>
+          <p style={dealStyles.sub}>{waiting.message}</p>
+          <p style={dealStyles.sub}>
+            We'll email you when the other party joins. You can close this page.
+          </p>
+          <button style={dealStyles.secondaryBtn} onClick={() => onNavigate?.("home")}>
+            Go to DriveLink
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const { car, your_role: yourRole, state, choose_role: chooseRole, arranged_by_promoter: byPromoter } = preview;
+  // On a wide-open promoter deal the server sends no role — the visitor says
+  // which side they are, and that answer drives the steps shown below.
+  const effectiveRole = yourRole || pickedRole;
+  const isSeller = effectiveRole === "seller";
   const title = [car.year, car.make, car.model].filter(Boolean).join(" ");
 
   if (state === "already_accepted") {
@@ -463,8 +518,30 @@ export function JoinDealView({ token, currentUser, onNavigate, onJoined, showToa
           )}
         </div>
 
+        {chooseRole && (
+          <div style={{ marginBottom: 28 }}>
+            <div style={dealStyles.eyebrow}>Which side of this deal are you on?</div>
+            <div style={dealStyles.roleRow}>
+              {["buyer", "seller"].map((r) => (
+                <button
+                  key={r}
+                  onClick={() => setPickedRole(r)}
+                  style={{ ...dealStyles.roleBtn, ...(pickedRole === r ? dealStyles.roleBtnActive : null) }}
+                >
+                  {r === "buyer" ? "I'm buying" : "I'm selling"}
+                </button>
+              ))}
+            </div>
+            <div style={{ fontSize: 13, color: "#6b7280", marginTop: 8, lineHeight: 1.5 }}>
+              This deal was set up by someone arranging it for you both. Whoever
+              opens this link second takes the other side.
+            </div>
+          </div>
+        )}
+
+        {effectiveRole && (
         <div style={dealStyles.stepsWrap}>
-          <div style={dealStyles.eyebrow}>You are joining as the {yourRole}</div>
+          <div style={dealStyles.eyebrow}>You are joining as the {effectiveRole}</div>
           <ol style={dealStyles.steps}>
             {isSeller ? (
               <>
@@ -481,6 +558,7 @@ export function JoinDealView({ token, currentUser, onNavigate, onJoined, showToa
             )}
           </ol>
         </div>
+        )}
 
         {error && <div style={dealStyles.errorBox}>{error}</div>}
 
@@ -496,10 +574,10 @@ export function JoinDealView({ token, currentUser, onNavigate, onJoined, showToa
         ) : currentUser ? (
           <button
             onClick={join}
-            disabled={joining}
-            style={{ ...dealStyles.primaryBtn, ...(joining ? dealStyles.btnDisabled : null) }}
+            disabled={joining || (chooseRole && !pickedRole)}
+            style={{ ...dealStyles.primaryBtn, ...(joining || (chooseRole && !pickedRole) ? dealStyles.btnDisabled : null) }}
           >
-            {joining ? "Joining…" : "Join this deal"}
+            {joining ? "Joining…" : chooseRole && !pickedRole ? "Pick your side first" : "Join this deal"}
           </button>
         ) : (
           <button style={dealStyles.primaryBtn} onClick={() => onNavigate?.("auth")}>
@@ -569,5 +647,6 @@ const dealStyles = {
   step: { fontSize: 14, color: "#374151", lineHeight: 1.6 },
   errorBox: { background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 12, padding: "12px 16px", fontSize: 14, color: "#b91c1c", lineHeight: 1.5, marginBottom: 16 },
   warnBox: { background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 12, padding: "16px 20px", fontSize: 14, color: "#92400e", lineHeight: 1.6, marginBottom: 16 },
+  infoBox: { background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: 12, padding: "14px 18px", fontSize: 14, color: "#1e40af", lineHeight: 1.6 },
   finePrint: { fontSize: 12, color: "#9ca3af", textAlign: "center", marginTop: 16, lineHeight: 1.5 },
 };

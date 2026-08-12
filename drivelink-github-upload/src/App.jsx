@@ -1721,6 +1721,7 @@ const denyFlaggedReferral = async (refId) => {
   if (view === "startDeal") return (
     <StartDealView
       currentUser={currentUser}
+      promoterCode={promoterCode?.code || null}
       showToast={showToast}
       onBack={() => { navigate("/"); setView("home"); }}
       onNavigate={setView}
