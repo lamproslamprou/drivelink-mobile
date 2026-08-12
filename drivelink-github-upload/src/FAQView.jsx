@@ -4,9 +4,10 @@ import { useState, useEffect } from "react";
   FAQView — standalone FAQ page.
 
   WIRING (3 edits outside this file):
-    1. import FAQView from "./FAQView";
+    1. import FAQView from "./FAQView.jsx";
     2. VIEW_PATHS: add  faq: "/faq"
-    3. render <FAQView lang={lang} /> when view === "faq"
+    3. render <FAQView lang={lang} onBack={...} /> when view === "faq"
+    4. PUBLIC_VIEWS: add "faq" so signed-out visitors are not bounced to sign-in
 
   `lang` is "en" or "es". Pass whatever your language toggle already holds.
   FAQ copy lives here rather than in i18n.jsx on purpose: these are long prose
@@ -20,6 +21,7 @@ import { useState, useEffect } from "react";
 
 const COPY = {
   en: {
+    back: "Back",
     eyebrow: "Common questions",
     title: "How your money is protected",
     lede: "Buying a car from a stranger means one of you has to go first. These are the questions people ask us before they do.",
@@ -71,6 +73,7 @@ const COPY = {
   },
 
   es: {
+    back: "Volver",
     eyebrow: "Preguntas frecuentes",
     title: "Cómo se protege tu dinero",
     lede: "Comprarle un auto a un desconocido significa que alguien tiene que dar el primer paso. Estas son las preguntas que nos hacen antes de darlo.",
@@ -122,7 +125,7 @@ const COPY = {
   },
 };
 
-export default function FAQView({ lang = "en" }) {
+export default function FAQView({ lang = "en", onBack }) {
   const t = COPY[lang] || COPY.en;
   const [open, setOpen] = useState(0);
 
@@ -148,6 +151,10 @@ export default function FAQView({ lang = "en" }) {
     <div className="dl-faq">
       <style>{`
         .dl-faq{max-width:820px;margin:0 auto;padding:64px 20px 96px;color:#F2F4F7}
+        .dl-faq__back{background:none;border:0;color:#8A939F;font:inherit;font-size:14px;
+          padding:0 0 28px;cursor:pointer;display:flex;align-items:center;gap:8px}
+        .dl-faq__back:hover{color:#F2F4F7}
+        .dl-faq__back:focus-visible{outline:2px solid #FFB020;outline-offset:3px;border-radius:4px}
         .dl-faq__eyebrow{font-size:12px;letter-spacing:.14em;text-transform:uppercase;
           color:#8A939F;display:flex;align-items:center;gap:10px;margin-bottom:18px}
         .dl-faq__dot{width:6px;height:6px;border-radius:50%;background:#FFB020;
@@ -174,6 +181,12 @@ export default function FAQView({ lang = "en" }) {
         .dl-faq__contact a:hover{text-decoration:underline}
         @media(prefers-reduced-motion:reduce){.dl-faq__sign{transition:none}}
       `}</style>
+
+      {onBack && (
+        <button className="dl-faq__back" onClick={onBack}>
+          <span aria-hidden="true">←</span> {t.back}
+        </button>
+      )}
 
       <div className="dl-faq__eyebrow">
         <span className="dl-faq__dot" />

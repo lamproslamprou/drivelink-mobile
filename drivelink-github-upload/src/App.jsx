@@ -9,6 +9,7 @@ import Messages from "./Messages.jsx";
 import ListingsMap, { geocode } from "./ListingsMap.jsx";
 import logoIcon from "./assets/logo-icon.png";
 import { StartDealView, JoinDealView } from "./DealViews.jsx";
+import FAQView from "./FAQView.jsx";
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 
 // ── MONEY IS CENTS ──────────────────────────────────────────────────────────
@@ -253,6 +254,7 @@ const VIEW_PATHS = {
   privacy:       "/privacy",
   safety:        "/safety",
   about:         "/about",
+  faq:           "/faq",
 };
 const PATH_TO_VIEW = Object.fromEntries(
   Object.entries(VIEW_PATHS).map(([v, p]) => [p, v]),
@@ -265,6 +267,8 @@ const normalizePath = (p) => (p || "/").replace(/[?#].*$/, "").replace(/\/+$/, "
 // someone to register before they have seen a single car loses them.
 const PUBLIC_VIEWS = new Set([
   "landing", "auth", "home", "advertise", "terms", "privacy", "safety", "about", "startDeal",
+  // Linked from outreach email and ad extensions — must open without an account.
+  "faq",
   // Arrived at from an emailed recovery link, necessarily signed out.
   "resetPassword",
   // Brokers arrive here from an outreach email that has already made the case.
@@ -1759,6 +1763,13 @@ const denyFlaggedReferral = async (refId) => {
 
   if (view === "safety") return (
     <SafetyTipsView onBack={() => setView(currentUser ? "home" : "landing")} />
+  );
+
+  if (view === "faq") return (
+    <FAQView
+      lang={lang}
+      onBack={() => setView(currentUser ? "home" : "landing")}
+    />
   );
 
   if (view === "landing") return (
