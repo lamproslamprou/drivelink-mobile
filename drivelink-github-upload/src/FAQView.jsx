@@ -49,7 +49,7 @@ const COPY = {
       },
       {
         q: "What if the buyer just refuses to release after taking the car?",
-        a: "Every deal has an automatic release 7 days after the agreed handover date, so a seller who's done their part isn't left waiting indefinitely. If something's gone wrong before then, contact us and we'll look at the deal.",
+        a: "Tell us. We check in with both parties automatically if a sale sits unconfirmed, and we'll ask each of you directly whether the car changed hands. Funds stay in escrow until it's resolved — nothing is paid out or refunded on a timer, and no one is left waiting indefinitely without a human looking at it.",
       },
       {
         q: "Why should I trust a company I've never heard of?",
@@ -101,7 +101,7 @@ const COPY = {
       },
       {
         q: "¿Y si el comprador se lleva el auto y se niega a liberar el pago?",
-        a: "Cada transacción tiene una liberación automática 7 días después de la fecha de entrega acordada, para que un vendedor que cumplió su parte no quede esperando indefinidamente. Si algo salió mal antes de ese plazo, contáctanos y revisaremos el caso.",
+        a: "Avísanos. Si una transacción queda sin confirmar, contactamos automáticamente a ambas partes y les preguntamos directamente si el auto ya cambió de manos. Los fondos permanecen en garantía hasta resolverlo — nada se paga ni se reembolsa por un temporizador, y nadie queda esperando indefinidamente sin que una persona revise el caso.",
       },
       {
         q: "¿Por qué confiar en una empresa de la que nunca he oído hablar?",
