@@ -193,7 +193,13 @@ Deno.serve(async (req) => {
     // Marketplace sales never reach the first branch: dealCreatorRole is only
     // set for private deals, so promoterSurcharge stays 0 and the arithmetic is
     // bit-for-bit what it was before this existed.
-    const buyerPaysPromoter = attributedPromoterId !== null && dealCreatorRole === "buyer";
+    //
+    // A promoter-arranged deal is a third shape: the person who started it is
+    // the broker, and he cannot pay his own commission. The buyer pays it,
+    // which is what /promoter tells brokers ("the 1% is added to the deal")
+    // and what keeps the seller's proceeds identical to any other sale.
+    const buyerPaysPromoter = attributedPromoterId !== null &&
+      (dealCreatorRole === "buyer" || dealCreatorRole === "promoter");
     const promoterSurcharge = buyerPaysPromoter ? Math.round(priceCents * PROMOTER_FEE) : 0;
     // ── Handover date ────────────────────────────────────────────────────────
     // The day the seller hands the car over. Read from the LISTING, server-side,
