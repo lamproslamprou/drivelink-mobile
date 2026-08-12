@@ -36,7 +36,20 @@ const COPY = {
       },
       {
         q: "When does the seller get paid?",
-        a: "When the buyer releases the funds. At payment, the buyer gets a 6-digit handover code. Once they've inspected the car and have the keys and title in hand — and only then — they give the code to the seller, which triggers the payout.",
+        a: "When the buyer releases the funds. The buyer gets a 6-digit handover code once their payment has cleared. Once they've inspected the car and have the keys and title in hand — and only then — they give the code to the seller, which triggers the payout.",
+      },
+      {
+        q: "Can I pay by bank transfer instead of card?",
+        a: "On purchases over $15,000, yes — bank transfer is offered at checkout alongside card, and it costs far less to process. Card payments clear in seconds; bank transfers take about 5 business days. Bank transfer is available to buyers who have completed identity verification.",
+      },
+      {
+        q: "I paid by bank transfer. Why don't I have a handover code?",
+        a: "Because the money hasn't arrived yet. We only issue the code once your payment has actually cleared — otherwise you could collect a car against a transfer that later fails, and the seller would be left with neither. We'll email your code the moment it clears. Until then, please don't arrange to collect the vehicle.",
+        flag: true,
+      },
+      {
+        q: "What if a bank transfer doesn't go through?",
+        a: "Nothing is lost. You aren't charged, no money is held, and the listing goes back on sale automatically — we email both you and the seller to say so. Banks return transfers for ordinary reasons like available balance or account restrictions; yours can tell you which. You're free to try again by bank transfer or card.",
       },
       {
         q: "Should I ever give out my handover code early?",
@@ -88,7 +101,20 @@ const COPY = {
       },
       {
         q: "¿Cuándo recibe el pago el vendedor?",
-        a: "Cuando el comprador libera los fondos. Al pagar, el comprador recibe un código de entrega de 6 dígitos. Una vez que ha inspeccionado el auto y tiene las llaves y el título en mano — y solo entonces — le da el código al vendedor, lo que activa el pago.",
+        a: "Cuando el comprador libera los fondos. El comprador recibe un código de entrega de 6 dígitos una vez que su pago se ha acreditado. Una vez que ha inspeccionado el auto y tiene las llaves y el título en mano — y solo entonces — le da el código al vendedor, lo que activa el pago.",
+      },
+      {
+        q: "¿Puedo pagar por transferencia bancaria en vez de tarjeta?",
+        a: "En compras de más de $15,000, sí — la transferencia bancaria aparece en el checkout junto con la tarjeta, y su costo de procesamiento es mucho menor. Los pagos con tarjeta se acreditan en segundos; las transferencias bancarias tardan unos 5 días hábiles. Está disponible para compradores que hayan completado la verificación de identidad.",
+      },
+      {
+        q: "Pagué por transferencia bancaria. ¿Por qué no tengo código de entrega?",
+        a: "Porque el dinero todavía no llegó. Emitimos el código solo cuando el pago se ha acreditado de verdad — de lo contrario podrías retirar un auto con una transferencia que después falla, y el vendedor se quedaría sin auto y sin dinero. Te enviaremos el código por correo apenas se acredite. Hasta entonces, no coordines retirar el vehículo.",
+        flag: true,
+      },
+      {
+        q: "¿Y si la transferencia bancaria no se concreta?",
+        a: "No se pierde nada. No se te cobra, no se retiene dinero, y la publicación vuelve a estar a la venta automáticamente — les avisamos por correo a ti y al vendedor. Los bancos rechazan transferencias por motivos comunes como el saldo disponible o restricciones de la cuenta; tu banco puede decirte cuál fue. Puedes intentar de nuevo por transferencia o con tarjeta.",
       },
       {
         q: "¿Debo dar mi código de entrega antes de tiempo?",
