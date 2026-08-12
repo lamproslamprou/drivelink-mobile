@@ -4,7 +4,7 @@ import { useLang, Rich, LangToggle } from "./i18n.jsx";
 import logoIcon from "./assets/logo-icon.png";
 
 export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn }) {
-  const { t } = useLang();
+  const { t, lang } = useLang();
   const handleCta = signedIn ? onBrowse : onSignIn;
   // Signed-out visitors go to auth first — StartDealView needs an account to
   // attach the deal to. This is the one CTA that works with zero inventory.
@@ -58,6 +58,13 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn }) {
             <span style={styles.trustItem}>{t("lp.trustStripe")}</span>
             <span style={styles.trustItem}>{t("lp.trustId")}</span>
             <span style={styles.trustItem}>{t("lp.trustNoFee")}</span>
+            {/* The trust strip states three claims and then leaves the visitor
+                to take them on faith. This is where "but who protects me from
+                YOU" gets answered. Literal strings: i18n.jsx has no lp.faq key
+                yet — move to t() when one is added. */}
+            <button style={styles.trustLink} onClick={() => onNavigate?.("faq")}>
+              {lang === "es" ? "Cómo se protege tu dinero →" : "How your money is protected →"}
+            </button>
           </div>
 
           <div style={styles.heroStats} className="dl-hero-stats">
@@ -311,6 +318,10 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn }) {
           <div style={styles.footerLinks}>
             <button style={styles.footerLinkBtn} onClick={() => onNavigate?.("safety")}>{t("lp.foot.safety")}</button>
             <span style={{ color: "#d1d5db" }}>·</span>
+            <button style={styles.footerLinkBtn} onClick={() => onNavigate?.("faq")}>
+              {lang === "es" ? "Cómo se protege tu dinero" : "How your money is protected"}
+            </button>
+            <span style={{ color: "#d1d5db" }}>·</span>
             <button style={styles.footerLinkBtn} onClick={() => onNavigate?.("terms")}>{t("lp.foot.terms")}</button>
             <span style={{ color: "#d1d5db" }}>·</span>
             <button style={styles.footerLinkBtn} onClick={() => onNavigate?.("privacy")}>{t("lp.foot.privacy")}</button>
@@ -404,6 +415,7 @@ const styles = {
   ctaSecondary: { background: "none", border: "2px solid #e5e7eb", padding: "14px 28px", borderRadius: 12, cursor: "pointer", fontSize: 16, fontWeight: 700, color: "#374151" },
   trustStrip: { display: "flex", flexWrap: "wrap", gap: "8px 18px", marginBottom: 32, paddingTop: 20, borderTop: "1px solid #e5e7eb" },
   trustItem: { fontSize: 12.5, color: "#6b7280", fontWeight: 500, whiteSpace: "nowrap" },
+  trustLink: { background: "none", border: "none", padding: 0, cursor: "pointer", fontSize: 12.5, fontWeight: 600, color: "#2563eb", whiteSpace: "nowrap", fontFamily: "inherit" },
   heroStats: { display: "flex", gap: 32, alignItems: "center" },
   heroStat: { display: "flex", flexDirection: "column", gap: 2 },
   heroStatNum: { fontSize: 28, fontWeight: 800, color: "#0f172a" },
