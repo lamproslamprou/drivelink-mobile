@@ -5354,7 +5354,7 @@ function AdminView({ listings, users, referrals, reports, feedback, userReports,
   const [showTestData, setShowTestData] = useState(false);
   const testCount = (listings || []).filter(l => l.is_test).length;
   const scopedListings = showTestData ? listings : (listings || []).filter(l => !l.is_test);
-  const activeAndSold = scopedListings.filter(l => l.status !== "archived");
+  const activeAndSold = scopedListings.filter(l => l.status !== "archived" && l.status !== "removed");
   const totalRevenue = activeAndSold.filter(l => l.status === "sold" || l.status === "pending_confirmation").reduce((s, l) => s + (l.sale_price || 0), 0);
   const platformEarnings = activeAndSold.filter(l => l.status === "sold").reduce((s, l) => s + (l.platform_fee || Math.round((l.sale_price || 0) * 0.01)), 0);
   const totalCommissions = referrals.filter(r => r.status === "paid").reduce((s, r) => s + (r.commission_amount || 0), 0);
@@ -5451,9 +5451,9 @@ function AdminView({ listings, users, referrals, reports, feedback, userReports,
       )}
       {tab === "archived" && (
         <div style={styles.tableWrap}>
-          <div style={styles.infoBox} >📦 Archived listings are stored here for audit purposes and cannot be seen by users.</div>
-          {scopedListings.filter(l => l.status === "archived").length === 0 && <p style={{ color: "#6b7280", marginTop: 16 }}>No archived listings yet.</p>}
-          {scopedListings.filter(l => l.status === "archived").map(l => (
+          <div style={styles.infoBox} >📦 Archived and deleted listings are stored here for audit purposes and cannot be seen by users.</div>
+          {scopedListings.filter(l => l.status === "archived" || l.status === "removed").length === 0 && <p style={{ color: "#6b7280", marginTop: 16 }}>No archived listings yet.</p>}
+          {scopedListings.filter(l => l.status === "archived" || l.status === "removed").map(l => (
             <div key={l.id} style={styles.listingRow} className="app-listing-row">
               <img src={l.image} alt="" style={styles.rowImg} onError={e => { e.target.src = "https://images.unsplash.com/photo-1494976388531-d1058494cdd8?w=300&q=60"; }} />
               <div style={styles.rowInfo} className="app-row-info">
@@ -5461,7 +5461,7 @@ function AdminView({ listings, users, referrals, reports, feedback, userReports,
                 <div style={styles.rowMeta}>{fmt(l.price)} • Archived {l.archived_at ? new Date(l.archived_at).toLocaleDateString() : ""}</div>
                 {l.sale_price && <div style={styles.soldBadge}>Sold for {fmt(l.sale_price)} on {l.sold_at}</div>}
               </div>
-              <span style={{ ...styles.statusPill, background: "#f1f5f9", color: "#6b7280" }}>archived</span>
+              <span style={{ ...styles.statusPill, background: "#f1f5f9", color: "#6b7280" }}>{l.status}</span>
             </div>
           ))}
         </div>
