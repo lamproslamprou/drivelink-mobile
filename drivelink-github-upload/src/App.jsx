@@ -6111,9 +6111,11 @@ const styles = {
   legalUpdated: { fontSize: 13, color: "#9ca3af", marginBottom: 24 },
   legalDisclaimer: { background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 12, padding: "16px 20px", fontSize: 14, color: "#92400e", lineHeight: 1.6, marginBottom: 32 },
   legalBody: { fontSize: 15, color: "#374151", lineHeight: 1.7 },
-  appFooter: { maxWidth: 1200, margin: "0 auto", padding: "24px 16px 40px", display: "flex", gap: 10, rowGap: 8, flexWrap: "wrap", alignItems: "center", justifyContent: "center", fontSize: 13, boxSizing: "border-box" },
+  appFooter: { maxWidth: 1200, margin: "0 auto", padding: "24px 16px 40px", paddingBottom: "calc(40px + env(safe-area-inset-bottom, 0px))", display: "flex", gap: 10, rowGap: 8, flexWrap: "wrap", alignItems: "center", justifyContent: "center", fontSize: 13, boxSizing: "border-box" },
   appFooterLink: { background: "none", border: "none", cursor: "pointer", fontSize: 13, color: "#6b7280", padding: 0, whiteSpace: "nowrap" },
-  nav: { background: "#fff", borderBottom: "1px solid #e5e7eb", position: "sticky", top: 0, zIndex: 100 },
+  // paddingTop reserves the iOS status-bar strip when the PWA runs standalone
+  // with viewport-fit=cover. Resolves to 0px everywhere else.
+  nav: { background: "#fff", borderBottom: "1px solid #e5e7eb", position: "sticky", top: 0, zIndex: 100, paddingTop: "env(safe-area-inset-top, 0px)" },
   navInner: { maxWidth: 1200, margin: "0 auto", padding: "0 16px", height: 64, display: "flex", alignItems: "center", gap: 16, boxSizing: "border-box" },
   logo: { display: "flex", alignItems: "center", gap: 8, cursor: "pointer", flexShrink: 0 },
   logoImg: { height: 30, width: "auto", display: "block" },
