@@ -17,9 +17,9 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn }) {
       {/* NAV */}
       <nav style={styles.nav}>
         <div style={styles.navInner} className="dl-nav-inner">
-          <div style={styles.logo} onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}>
+          <div style={styles.logo} className="dl-logo" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}>
             <img src={logoIcon} alt="DriveLink" style={styles.logoImg} />
-            <span style={styles.logoText}>DriveLink</span>
+            <span style={styles.logoText} className="dl-wordmark">DriveLink</span>
           </div>
           <div style={styles.navRight} className="dl-nav-right">
             {/* Without this, a Spanish speaker landing on "/" has no way to
@@ -392,13 +392,15 @@ function FeedbackSection() {
 
 const styles = {
   page: { fontFamily: "'Inter', system-ui, sans-serif", background: "#fff", minHeight: "100vh", color: "#111827" },
-  nav: { background: "#fff", borderBottom: "1px solid #e5e7eb", position: "sticky", top: 0, zIndex: 100 },
+  // paddingTop reserves the iOS status-bar strip when the PWA runs standalone
+  // with viewport-fit=cover. Resolves to 0px everywhere else.
+  nav: { background: "#fff", borderBottom: "1px solid #e5e7eb", position: "sticky", top: 0, zIndex: 100, paddingTop: "env(safe-area-inset-top, 0px)" },
   navInner: { maxWidth: 1200, margin: "0 auto", padding: "0 24px", height: 64, display: "flex", alignItems: "center", justifyContent: "space-between" },
-  logo: { display: "flex", alignItems: "center", gap: 8, cursor: "pointer" },
+  logo: { display: "flex", alignItems: "center", gap: 8, cursor: "pointer", minWidth: 0, flex: "0 1 auto" },
   logoImg: { height: 34, width: "auto", display: "block" },
   logoIcon: { fontSize: 22 },
   logoText: { fontWeight: 800, fontSize: 20, color: "#0f172a", letterSpacing: "-0.03em" },
-  navRight: { display: "flex", gap: 12, alignItems: "center" },
+  navRight: { display: "flex", gap: 12, alignItems: "center", flexShrink: 0 },
   browseBtn: { background: "none", border: "1px solid #e5e7eb", padding: "8px 18px", borderRadius: 10, cursor: "pointer", fontSize: 14, fontWeight: 600, color: "#374151" },
   signInBtn: { background: "#0f172a", color: "#fff", border: "none", padding: "9px 20px", borderRadius: 10, cursor: "pointer", fontSize: 14, fontWeight: 600 },
   hero: { maxWidth: 1200, margin: "0 auto", padding: "80px 24px 60px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 48, alignItems: "center" },
@@ -551,6 +553,9 @@ const css = `
     .dl-nav-inner { padding: 0 16px !important; }
     .dl-nav-right { gap: 8px !important; }
     .dl-nav-right button { padding: 8px 12px !important; font-size: 13px !important; }
+    /* Four header elements do not fit in ~390px of usable width. The mark
+       alone still reads as the brand, so the wordmark goes. */
+    .dl-wordmark { display: none !important; }
     .dl-hero-banner { font-size: 11px !important; padding: 8px 14px !important; text-align: center; white-space: normal !important; }
     .dl-hero-title { font-size: 30px !important; }
     .dl-hero-sub { font-size: 15px !important; }
