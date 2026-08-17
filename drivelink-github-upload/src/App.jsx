@@ -5,6 +5,7 @@ import ResetPassword from "./ResetPassword.jsx";
 import { useLang, LangToggle, LangSwitchLink } from "./i18n.jsx";
 import Landing from "./Landing.jsx";
 import ImageUpload from "./ImageUpload.jsx";
+import CompAdForm from "./CompAdForm.jsx";
 import Messages from "./Messages.jsx";
 import ListingsMap, { geocode } from "./ListingsMap.jsx";
 import logoIcon from "./assets/logo-icon.png";
@@ -1430,6 +1431,42 @@ const denyFlaggedReferral = async (refId) => {
   };
 
 
+  // ── Admin: comp an ad placement ─────────────────────────────────────────────
+  // Writes a live placement with no payment so the ad rail can be seeded. An
+  // empty rail is the same problem as an empty listings grid: it tells a
+  // visitor nothing is happening here.
+  //
+  // Not a 100%-off discount code. Stripe rejects zero-value checkouts, and a
+  // shareable code is a liability — comping is a different action from paying
+  // and modelling it as a discounted payment makes both paths worse.
+  //
+  // The insert is gated by ad_placements_admin_comp_insert, which refuses
+  // anything that is not comped=true, amount_cents=0, status='active'. That is
+  // not decoration: without it a bug here could fabricate a paid-looking row
+  // and inflate the ad revenue figure shown on the same screen as the button.
+  //
+  // Returns { ok } rather than throwing — the form renders failures inline
+  // beside the fields rather than behind a toast that covers them.
+  const compAdPlacement = async (row) => {
+    const { error } = await supabase
+      .from("ad_placements")
+      .insert({ ...row, user_id: dbUser?.id ?? null, comped_by: dbUser?.id ?? null })
+      .select("id")
+      .single();
+
+    if (error) {
+      console.error("comp ad insert failed:", error);
+      return {
+        ok: false,
+        message: /row-level security/i.test(error.message)
+          ? "Blocked by RLS — has comped-ads-migration.sql been run on this project?"
+          : error.message,
+      };
+    }
+    showToast(`Comped placement created for ${row.business_name}.`, "success");
+    return { ok: true };
+  };
+
   // ── Admin: delete a stale ad placement ──────────────────────────────────────
   // Abandoned checkouts and finished runs only. A live placement is refused by
   // the ad_placements_admin_delete RLS policy, not just hidden in the UI — the
@@ -1979,7 +2016,7 @@ const denyFlaggedReferral = async (refId) => {
         {view === "dashboard" && <PromoterDashboard currentUser={dbUser} referrals={referrals.filter(r => r.promoter_id === currentUser?.id)} listings={listings} payouts={payouts} standingCode={promoterCode?.code || null} onSetupPayouts={setupPayouts} onRetract={retractReferral} onGetCode={() => setView("promoter")} />}
         {view === "promoter" && <PromoterCodeView currentUser={dbUser} promoterCode={promoterCode} onMint={mintPromoterCode} onSetupPayouts={setupPayouts} onViewEarnings={() => setView("dashboard")} />}
         {view === "profile" && <ProfileView dbUser={dbUser} authEmail={currentUser?.email} onUpdateProfile={updateProfile} onChangeEmail={changeEmail} onChangePassword={changePassword} onSetupPayouts={setupPayouts} onStartIdentityVerification={startIdentityVerification} />}
-       {view === "admin" && <AdminView listings={listings} users={users} riskFlags={riskFlags} onResolveRiskFlag={resolveRiskFlag} referrals={referrals} reports={reports} feedback={feedback} userReports={userReports} reviews={reviews} payouts={payouts} disputes={disputes} adPlacements={adPlacements} onDeleteAd={deleteAdPlacement} onArchive={archiveListing} onMarkSold={markSold} onConfirmReceipt={confirmReceipt} onResolveReport={resolveReport} onResolveUserReport={resolveUserReport} onToggleVerified={toggleVerified} onResetData={resetTestData} onRecordPayout={recordPayout} onPayoutViaStripe={payoutPromoterViaStripe} onResolveDispute={resolveDispute} onDeleteUser={deleteUser} onApproveFlaggedReferral={approveFlaggedReferral} onDenyFlaggedReferral={denyFlaggedReferral} />}
+       {view === "admin" && <AdminView listings={listings} users={users} riskFlags={riskFlags} onResolveRiskFlag={resolveRiskFlag} referrals={referrals} reports={reports} feedback={feedback} userReports={userReports} reviews={reviews} payouts={payouts} disputes={disputes} adPlacements={adPlacements} onDeleteAd={deleteAdPlacement} onCompAd={compAdPlacement} onRefreshAds={loadData} onArchive={archiveListing} onMarkSold={markSold} onConfirmReceipt={confirmReceipt} onResolveReport={resolveReport} onResolveUserReport={resolveUserReport} onToggleVerified={toggleVerified} onResetData={resetTestData} onRecordPayout={recordPayout} onPayoutViaStripe={payoutPromoterViaStripe} onResolveDispute={resolveDispute} onDeleteUser={deleteUser} onApproveFlaggedReferral={approveFlaggedReferral} onDenyFlaggedReferral={denyFlaggedReferral} />}
         {view === "success" && <SuccessView onHome={() => setView("home")} />}
       </main>
 
@@ -5338,7 +5375,7 @@ function StatBox({ label, value, color }) {
   return <div style={styles.statBox}><div style={{ ...styles.statValue, color }}>{value}</div><div style={styles.statLabel}>{label}</div></div>;
 }
 
-function AdminView({ listings, users, referrals, reports, feedback, userReports, reviews, payouts, disputes, adPlacements, riskFlags, onResolveRiskFlag, onDeleteAd, onArchive, onMarkSold, onConfirmReceipt, onResolveReport, onResolveUserReport, onToggleVerified, onResetData, onRecordPayout, onPayoutViaStripe, onResolveDispute, onDeleteUser, onApproveFlaggedReferral, onDenyFlaggedReferral }) {
+function AdminView({ listings, users, referrals, reports, feedback, userReports, reviews, payouts, disputes, adPlacements, riskFlags, onResolveRiskFlag, onDeleteAd, onCompAd, onRefreshAds, onArchive, onMarkSold, onConfirmReceipt, onResolveReport, onResolveUserReport, onToggleVerified, onResetData, onRecordPayout, onPayoutViaStripe, onResolveDispute, onDeleteUser, onApproveFlaggedReferral, onDenyFlaggedReferral }) {
   const [tab, setTab] = useState("listings");
   const [showDeletedUsers, setShowDeletedUsers] = useState(false);
   const deletedUserCount = (users || []).filter(u => u.deleted_at).length;
@@ -5375,9 +5412,13 @@ function AdminView({ listings, users, referrals, reports, feedback, userReports,
   };
   const runningAds = ads.filter(a => adState(a) === "running");
   const pendingAds = ads.filter(a => adState(a) === "awaiting payment");
+  // Comped rows are excluded by their explicit flag, not by their zero amount.
+  // Same result today, but it survives the day a genuinely free promotional
+  // plan exists.
   const adRevenue = ads
-    .filter(a => a.status === "active")
+    .filter(a => a.status === "active" && !a.comped)
     .reduce((s, a) => s + (a.amount_cents || 0), 0);
+  const compedAds = ads.filter(a => a.comped && adState(a) === "running");
   // Within 30 days of expiry and still running — worth an email before it lapses.
   const expiringSoon = runningAds.filter(a => {
     if (!a.end_date) return false;
@@ -5571,9 +5612,15 @@ function AdminView({ listings, users, referrals, reports, feedback, userReports,
       )}
       {tab === "ads" && (
         <div style={styles.tableWrap}>
+          <CompAdForm onComp={onCompAd} onDone={onRefreshAds} />
           <div style={{ display: "flex", gap: 24, flexWrap: "wrap", marginBottom: 16, fontSize: 14 }}>
             <div><strong>{runningAds.length}</strong> running</div>
             <div><strong>{fmt(adRevenue)}</strong> collected</div>
+            {compedAds.length > 0 && (
+              <div style={{ color: "#92400e" }}>
+                <strong>{compedAds.length}</strong> comped
+              </div>
+            )}
             {expiringSoon.length > 0 && (
               <div style={{ color: "#b45309" }}>
                 <strong>{expiringSoon.length}</strong> expiring within 30 days
@@ -5622,13 +5669,14 @@ function AdminView({ listings, users, referrals, reports, feedback, userReports,
               <div key={a.id} style={styles.listingRow} className="app-listing-row">
                 <div style={styles.rowInfo} className="app-row-info">
                   <div style={styles.rowTitle}>
-                    {a.business_name} — {fmt(a.amount_cents)}
+                    {a.business_name} — {a.comped ? "Comped" : fmt(a.amount_cents)}
                     <span style={{ color, fontWeight: 600, fontSize: 13, marginLeft: 8 }}>· {state}</span>
                   </div>
                   <div style={styles.rowMeta}>
                     {a.plan} • {a.start_date ? `${a.start_date} → ${a.end_date}` : "not yet activated"}
                     {owner?.name ? ` • ${owner.name}` : ""}
                     {daysAgo !== null && ` • started ${daysAgo === 0 ? "today" : `${daysAgo}d ago`}`}
+                    {a.comped && a.comped_reason ? ` • ${a.comped_reason}` : ""}
                   </div>
                   <div style={styles.rowMeta}>
                     <a href={a.link_url} target="_blank" rel="noopener noreferrer nofollow">{a.link_url}</a>
