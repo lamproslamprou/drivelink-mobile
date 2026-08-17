@@ -319,28 +319,6 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn }) {
           <p style={styles.footerText}>{t("lp.foot.tagline")}</p>
           <p style={styles.footerText}>{t("lp.foot.rights")}</p>
 
-          {/* ── GUIDES ────────────────────────────────────────────────────
-              Real <a href>, deliberately, and NOT an onNavigate button like
-              the legal row below.
-
-              Two reasons. First, /guides/ is a static HTML hub served out of
-              public/ before the SPA fallback in _redirects — it is not a React
-              route and onNavigate cannot reach it. Second, Googlebot follows
-              anchors and ignores buttons, so this is the crawl path into the
-              whole guides corpus.
-
-              Points at the hub rather than listing every guide. Individual
-              guides are linked from the hub page and from each other, and ten
-              links in a footer row is unreadable. Add new guides to
-              public/guides/index.html, not here. */}
-          <div style={styles.footerLinks}>
-            <a href="/guides/" style={styles.footerGuidesLink}>
-              {lang === "es"
-                ? "Guías: comprar y vender coches de forma segura"
-                : "Guides: buying and selling cars safely"}
-            </a>
-          </div>
-
           <div style={styles.footerLinks}>
             <button style={styles.footerLinkBtn} onClick={() => onNavigate?.("safety")}>{t("lp.foot.safety")}</button>
             <span style={{ color: "#d1d5db" }}>·</span>
@@ -519,12 +497,12 @@ const styles = {
   // The Guides row sits above the legal row and needs to read as a section,
   // not as another peer link. Slightly darker and heavier than the links it
   // introduces.
-  // Footer hub link. Heavier than the legal links beside it so the guides
-  // section reads as content rather than boilerplate.
-  footerGuidesLink: { fontSize: 14, fontWeight: 600, color: "#374151", textDecoration: "none" },
-  // Nav link styled to match the adjacent buttons. It is an <a> and not a
-  // button because /guides/ is static HTML outside the SPA.
-  guidesNavLink: { padding: "8px 12px", fontSize: 14, fontWeight: 500, color: "#374151", textDecoration: "none", whiteSpace: "nowrap" },
+  // Matches browseBtn exactly so the two read as peers in the nav. It is an
+  // <a> and not a button because /guides/ is static HTML outside the SPA, so
+  // it needs the extra properties a button gets for free: textDecoration,
+  // inline-flex + alignItems to centre the label inside the border, and
+  // lineHeight 1 so the box height matches the real buttons beside it.
+  guidesNavLink: { background: "none", border: "1px solid #e5e7eb", padding: "8px 18px", borderRadius: 10, cursor: "pointer", fontSize: 14, fontWeight: 600, color: "#374151", textDecoration: "none", whiteSpace: "nowrap", display: "inline-flex", alignItems: "center", lineHeight: 1 },
   feedbackSection: { padding: "56px 24px", background: "#fff" },
   feedbackBox: { maxWidth: 640, margin: "0 auto", background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: 20, padding: "36px 40px", textAlign: "center" },
   feedbackTitle: { fontSize: 24, fontWeight: 800, color: "#0f172a", marginBottom: 8, letterSpacing: "-0.02em" },
@@ -545,7 +523,6 @@ const css = `
   }
   @media (max-width: 560px) {
     .dl-byod-nav { display: none !important; }
-    .dl-guides-nav { display: none !important; }
   }
   * { box-sizing: border-box; }
   img { max-width: 100%; }
