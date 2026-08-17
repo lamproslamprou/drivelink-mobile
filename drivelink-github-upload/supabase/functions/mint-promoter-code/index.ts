@@ -1,4 +1,20 @@
+// supabase/functions/mint-promoter-code/index.ts
+//
+// POST /mint-promoter-code
+// Called by the self-serve Promoter page at /promoter when a signed-in user
+// asks for their share code.
+//
+// The minting logic itself moved to _shared/promoter.ts on 2026-08-17 so that
+// release-funds can mint a seller's code at payout time using the exact same
+// collision-retry and idempotency rules. This file is now just auth plus the
+// HTTP shape the frontend already expects.
+//
+// RESPONSE SHAPE IS UNCHANGED: { code, created } on success, { error } on
+// failure, same status codes as before. The Promoter page is live and reads
+// these fields — do not rename them.
+
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { ensurePromoterCode } from "../_shared/promoter.ts";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -11,24 +27,6 @@ const json = (body: unknown, status = 200) =>
     status,
     headers: { ...CORS, "Content-Type": "application/json" },
   });
-
-const ALPHABET = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
-
-function randomSuffix(len = 6): string {
-  const bytes = new Uint8Array(len);
-  crypto.getRandomValues(bytes);
-  let out = "";
-  for (const b of bytes) out += ALPHABET[b % ALPHABET.length];
-  return out;
-}
-
-function slugFromName(name: string | null): string {
-  const cleaned = (name ?? "")
-    .toUpperCase()
-    .replace(/[^A-Z0-9]/g, "")
-    .slice(0, 8);
-  return cleaned.length >= 2 ? cleaned : "DL";
-}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
@@ -50,53 +48,14 @@ Deno.serve(async (req) => {
   if (userErr || !userData?.user) {
     return json({ error: "Sign in to get a Promoter code." }, 401);
   }
-  const userId = userData.user.id;
 
-  const { data: existing, error: existingErr } = await admin
-    .from("promoter_codes")
-    .select("code")
-    .eq("user_id", userId)
-    .eq("active", true)
-    .maybeSingle();
+  // ensurePromoterCode never throws. A null code means it could not mint, and
+  // the reason is already in the function logs.
+  const result = await ensurePromoterCode(admin, userData.user.id);
 
-  if (existingErr) {
-    console.error("promoter_codes lookup failed:", existingErr);
-    return json({ error: "Couldn't look up your code. Try again." }, 500);
-  }
-  if (existing?.code) {
-    return json({ code: existing.code, created: false });
-  }
-
-  const { data: profile } = await admin
-    .from("users")
-    .select("name")
-    .eq("id", userId)
-    .maybeSingle();
-
-  const prefix = slugFromName(profile?.name ?? null);
-
-  for (let attempt = 0; attempt < 5; attempt++) {
-    const code = `${prefix}-${randomSuffix()}`;
-    const { error: insertErr } = await admin
-      .from("promoter_codes")
-      .insert({ code, user_id: userId, active: true });
-
-    if (!insertErr) return json({ code, created: true });
-
-    if (insertErr.code === "23505") {
-      const { data: raced } = await admin
-        .from("promoter_codes")
-        .select("code")
-        .eq("user_id", userId)
-        .eq("active", true)
-        .maybeSingle();
-      if (raced?.code) return json({ code: raced.code, created: false });
-      continue;
-    }
-
-    console.error("promoter_codes insert failed:", insertErr);
+  if (!result.code) {
     return json({ error: "Couldn't create your code. Try again." }, 500);
   }
 
-  return json({ error: "Couldn't create your code. Try again." }, 500);
+  return json({ code: result.code, created: result.created });
 });
