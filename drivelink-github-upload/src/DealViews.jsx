@@ -174,6 +174,13 @@ export function StartDealView({ currentUser, promoterCode, onBack, onNavigate, s
     return (
       <div style={dealStyles.page}>
         <div style={dealStyles.inner}>
+          {/* The other two branches of this component have always had this and
+              this one did not, which left a signed-out visitor with exactly one
+              way off the page: create an account. Someone who arrives from a
+              guide, an outreach email, or a /p/ link and is not ready to sign
+              up yet had nowhere to go and no reason to believe there was
+              anything else here. */}
+          {onBack && <button style={dealStyles.backBtn} onClick={onBack}>← Back to DriveLink</button>}
           {referrer && (
             <div style={dealStyles.inviteEyebrow}>Referred by {referrer}</div>
           )}
@@ -226,6 +233,20 @@ export function StartDealView({ currentUser, promoterCode, onBack, onNavigate, s
           </button>
           <p style={{ fontSize: 13, color: "#6b7280", marginTop: 12, textAlign: "center" }}>
             Free to set up. You're only charged when a deal goes through.
+          </p>
+          {/* Not everyone landing here has a car in mind — some arrive from a
+              guide or an ad. Without this, the only path forward is signup,
+              which loses the visitor who would happily have looked at
+              inventory first. DriveLink is a marketplace as well as an escrow
+              layer and this screen never said so. */}
+          <p style={{ fontSize: 14, color: "#6b7280", marginTop: 22, textAlign: "center" }}>
+            Don't have a car picked out yet?{" "}
+            <button
+              onClick={() => onNavigate?.("home")}
+              style={{ background: "none", border: "none", padding: 0, color: "#1d4ed8", fontSize: 14, fontWeight: 600, cursor: "pointer", textDecoration: "underline" }}
+            >
+              Browse cars listed on DriveLink
+            </button>
           </p>
         </div>
       </div>
