@@ -315,6 +315,33 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn }) {
           </div>
           <p style={styles.footerText}>{t("lp.foot.tagline")}</p>
           <p style={styles.footerText}>{t("lp.foot.rights")}</p>
+
+          {/* ── GUIDES ────────────────────────────────────────────────────
+              Real <a href> tags, deliberately, and NOT onNavigate buttons
+              like the row below.
+
+              Two reasons. First, /guides/* are static HTML files served out
+              of public/ before the SPA fallback in _redirects — they are not
+              React routes and onNavigate cannot reach them. Second, and the
+              reason this row exists at all: Googlebot follows anchors and
+              ignores buttons. Every other link on this page is a button, so
+              a guide with no anchor pointing at it is an orphan — crawled
+              late, ranked low, and effectively invisible no matter how good
+              the content is.
+
+              Add each new guide here as it ships. This row is the crawl path
+              into the whole corpus. */}
+          <div style={styles.footerLinks}>
+            <span style={styles.footerGuidesLabel}>
+              {lang === "es" ? "Guías" : "Guides"}
+            </span>
+            <a href="/guides/wire-transfer-car-scam" style={styles.footerLinkBtn}>
+              {lang === "es"
+                ? "¿Es seguro enviar una transferencia por un coche?"
+                : "Is it safe to wire money for a car?"}
+            </a>
+          </div>
+
           <div style={styles.footerLinks}>
             <button style={styles.footerLinkBtn} onClick={() => onNavigate?.("safety")}>{t("lp.foot.safety")}</button>
             <span style={{ color: "#d1d5db" }}>·</span>
@@ -490,6 +517,10 @@ const styles = {
   footerText: { fontSize: 13, color: "#6b7280" },
   footerLinks: { display: "flex", gap: 10, alignItems: "center", marginTop: 8, flexWrap: "wrap", justifyContent: "center" },
   footerLinkBtn: { background: "none", border: "none", cursor: "pointer", fontSize: 13, color: "#6b7280", padding: 0 },
+  // The Guides row sits above the legal row and needs to read as a section,
+  // not as another peer link. Slightly darker and heavier than the links it
+  // introduces.
+  footerGuidesLabel: { fontSize: 13, fontWeight: 600, color: "#374151" },
   feedbackSection: { padding: "56px 24px", background: "#fff" },
   feedbackBox: { maxWidth: 640, margin: "0 auto", background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: 20, padding: "36px 40px", textAlign: "center" },
   feedbackTitle: { fontSize: 24, fontWeight: 800, color: "#0f172a", marginBottom: 8, letterSpacing: "-0.02em" },

@@ -1,0 +1,18 @@
+User-agent: *
+Allow: /
+
+# Signed-in surfaces. Nothing here is useful in a search result and some of it
+# is per-user, so keep it out of the index.
+Disallow: /dashboard
+Disallow: /my-listings
+Disallow: /my-purchases
+Disallow: /my-offers
+Disallow: /messages
+Disallow: /profile
+Disallow: /admin
+Disallow: /favorites
+Disallow: /saved-searches
+Disallow: /reset-password
+Disallow: /purchase-complete
+
+Sitemap: https://drivelink.deals/sitemap.xml
