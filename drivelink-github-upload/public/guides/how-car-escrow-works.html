@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How Car Escrow Works — and How to Spot a Fake Escrow Site</title>
+<meta name="description" content="What actually happens to your money during a vehicle escrow transaction, step by step. Plus the specific signs of a fake escrow site, which is one of the most common ways buyers lose money on private car sales.">
+<link rel="canonical" href="https://drivelink.deals/guides/how-car-escrow-works">
+
+<meta property="og:type" content="article">
+<meta property="og:title" content="How car escrow works, and how fake escrow sites work">
+<meta property="og:description" content="What actually happens to your money during a vehicle escrow transaction, step by step. Plus the specific signs of a fake escrow site, which is one of the most common ways buyers lose money on private car sales.">
+<meta property="og:url" content="https://drivelink.deals/guides/how-car-escrow-works">
+<meta property="og:site_name" content="DriveLink">
+<meta name="twitter:card" content="summary">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<style>
+  :root{
+    --ink:#0f172a; --body:#334155; --muted:#64748b; --line:#e2e8f0; --wash:#f8fafc;
+    --blue:#1d4ed8; --warn:#b45309; --warn-wash:#fffbeb; --warn-line:#fde68a;
+  }
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{margin:0;font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;
+    color:var(--body);background:#fff;line-height:1.65;font-size:17px}
+  .wrap{max-width:720px;margin:0 auto;padding:0 20px}
+  header.site{border-bottom:1px solid var(--line);padding:18px 0}
+  header.site .wrap{display:flex;align-items:center;justify-content:space-between;gap:16px}
+  .brand{font-weight:700;font-size:19px;color:var(--ink);text-decoration:none;letter-spacing:-.01em}
+  .brand span{color:var(--blue)}
+  header.site nav a{color:var(--muted);text-decoration:none;font-size:14px;font-weight:500;margin-left:18px}
+  header.site nav a:hover{color:var(--ink)}
+  main{padding:44px 0 8px}
+  .eyebrow{font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0 0 14px}
+  h1{font-size:35px;line-height:1.18;letter-spacing:-.022em;color:var(--ink);font-weight:700;margin:0 0 20px}
+  .standfirst{font-size:19px;line-height:1.6;color:var(--ink);margin:0 0 8px}
+  .standfirst strong{font-weight:600}
+  .byline{font-size:14px;color:var(--muted);margin:24px 0 34px;padding-bottom:24px;border-bottom:1px solid var(--line)}
+  h2{font-size:23px;line-height:1.3;letter-spacing:-.015em;color:var(--ink);font-weight:600;margin:44px 0 14px}
+  h3{font-size:17px;color:var(--ink);font-weight:600;margin:28px 0 8px}
+  p{margin:0 0 16px}
+  a{color:var(--blue)}
+  strong{color:var(--ink);font-weight:600}
+  ul,ol{margin:0 0 16px;padding-left:22px}
+  li{margin:0 0 9px}
+  .callout{background:var(--warn-wash);border:1px solid var(--warn-line);border-radius:10px;padding:18px 20px;margin:26px 0}
+  .callout p{margin:0}
+  .callout p+p{margin-top:10px}
+  .callout .label{display:block;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--warn);margin-bottom:8px}
+  .compare{width:100%;border-collapse:collapse;margin:22px 0;font-size:15px}
+  .compare th,.compare td{text-align:left;padding:11px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+  .compare th{font-weight:600;color:var(--ink);font-size:13px;letter-spacing:.02em}
+  .compare td:first-child{color:var(--ink);font-weight:500}
+  .scam{border-left:3px solid var(--line);padding-left:18px;margin:0 0 26px}
+  .scam h3{margin-top:0}
+  .scam .tell{font-size:15px;color:var(--muted);margin:0}
+  .scam .tell b{color:var(--ink);font-weight:600}
+  .product{border:1px solid var(--line);border-radius:12px;background:var(--wash);padding:24px;margin:44px 0 0}
+  .product h2{margin:0 0 10px;font-size:19px}
+  .product p{font-size:16px;margin:0 0 16px}
+  .product p:last-of-type{margin-bottom:0}
+  .cta{display:inline-block;background:var(--blue);color:#fff;text-decoration:none;font-weight:600;font-size:15px;padding:11px 20px;border-radius:8px}
+  .cta:hover{background:#1e40af}
+  .related{margin:44px 0 0;padding-top:24px;border-top:1px solid var(--line)}
+  .related h2{font-size:17px;margin:0 0 12px}
+  .related ul{padding-left:20px;margin:0}
+  .related li{margin:0 0 7px;font-size:16px}
+  footer.site{border-top:1px solid var(--line);margin-top:52px;padding:26px 0 44px}
+  footer.site p{font-size:14px;color:var(--muted);margin:0 0 8px}
+  footer.site a{color:var(--muted)}
+  a:focus-visible,.cta:focus-visible{outline:2px solid var(--blue);outline-offset:2px;border-radius:3px}
+  @media (max-width:640px){
+    body{font-size:16px} h1{font-size:28px} h2{font-size:20px}
+    .standfirst{font-size:17px} main{padding-top:32px} header.site nav{display:none}
+    .compare{font-size:14px} .compare th,.compare td{padding:9px 8px}
+  }
+</style>
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "How Car Escrow Works \u2014 and How to Spot a Fake Escrow Site",
+  "description": "What actually happens to your money during a vehicle escrow transaction, step by step. Plus the specific signs of a fake escrow site, which is one of the most common ways buyers lose money on private car sales.",
+  "datePublished": "2026-08-17",
+  "dateModified": "2026-08-17",
+  "inLanguage": "en",
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://drivelink.deals/guides/how-car-escrow-works"
+  },
+  "author": {
+    "@type": "Organization",
+    "name": "DriveLink",
+    "url": "https://drivelink.deals"
+  },
+  "publisher": {
+    "@type": "Organization",
+    "name": "DriveLink",
+    "url": "https://drivelink.deals"
+  }
+}
+</script>
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "How does escrow work when buying a car?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "The buyer sends funds to a neutral third party rather than to the seller. The third party confirms it has the money and tells the seller to proceed. The buyer and seller complete the handover of the vehicle and signed title. The buyer confirms they have the car, and only then are the funds released to the seller."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Who pays the escrow fee on a car sale?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "It varies by service and is negotiable between the parties. Some charge the buyer, some the seller, some split it. What matters more than who pays is that the fee is disclosed up front as a percentage or flat amount, and that it is not deducted in a way neither party expected."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I know if an escrow site is fake?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "The strongest signal is how you found it. If the link came from the person you are transacting with, treat it as fraudulent regardless of how the site looks. Fake escrow sites are usually recently registered, accept only wire transfers or cryptocurrency, and produce invoices with wire instructions pointing at a personal account."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Is escrow worth it for a private car sale?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "For a low-value local sale where both parties meet at a bank, probably not. For anything involving significant money, distance, or a counterparty you have no way to verify, the fee is small against the amount at risk. The alternative is that one party hands over full value on trust."
+      }
+    }
+  ]
+}
+</script>
+</head>
+
+<body>
+
+<header class="site">
+  <div class="wrap">
+    <a class="brand" href="https://drivelink.deals">Drive<span>Link</span></a>
+    <nav>
+      <a href="https://drivelink.deals/browse">Browse</a>
+      <a href="https://drivelink.deals/start-deal">Secure a deal</a>
+      <a href="https://drivelink.deals/safety">Is this safe?</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+<article class="wrap">
+
+  <p class="eyebrow">How it works</p>
+
+  <h1>How car escrow works, and how fake escrow sites work</h1>
+
+  <p class="standfirst">Escrow solves one problem: <strong>somebody has to go first, and neither party wants to be that person.</strong> A third party holds the money until the car and title have actually changed hands.</p>
+
+  <p class="byline">Last updated 17 August 2026</p>
+
+
+  <p>Two strangers agree on a price for a car. The buyer will not hand over $28,000 before they have the vehicle and the title. The seller will not hand over the vehicle and title before they have the $28,000. Both positions are reasonable. In a local cash sale you resolve it by doing both at once in a parking lot, which works but is not always possible and is not always safe.</p>
+
+  <p>Escrow resolves it by removing the need for either party to go first.</p>
+
+  <h2>What actually happens, step by step</h2>
+
+  <ol>
+    <li><strong>Both parties agree on terms</strong> — the price, who pays the fee, what condition the car is in, and how long the buyer has to confirm.</li>
+    <li><strong>The buyer pays the escrow service,</strong> not the seller. The money leaves the buyer's account but does not reach the seller.</li>
+    <li><strong>The service confirms it holds cleared funds</strong> and notifies the seller. This is the moment the seller learns the money is real, which is what lets them release the car.</li>
+    <li><strong>The handover happens.</strong> The buyer takes possession of the vehicle and the signed title. Depending on the arrangement, this is in person or via a transporter.</li>
+    <li><strong>The buyer confirms receipt.</strong> Some services also use a code held by the buyer that the seller enters, so the confirmation cannot be skipped or faked.</li>
+    <li><strong>The funds are released to the seller,</strong> minus the fee. This is usually the first moment the seller's money is genuinely theirs.</li>
+  </ol>
+
+  <p>Note where the risk sits at each step. There is no point at which one party has both the money and the car. That is the entire product.</p>
+
+  <h2>What escrow does and does not protect you from</h2>
+
+  <table class="compare">
+    <thead><tr><th>Risk</th><th>Does escrow help?</th></tr></thead>
+    <tbody>
+      <tr><td>Seller takes the money and disappears</td><td>Yes. They never receive it until you confirm.</td></tr>
+      <tr><td>Buyer's payment turns out to be fraudulent</td><td>Yes. The seller does not release the car until funds are confirmed.</td></tr>
+      <tr><td>The car does not exist</td><td>Yes. No confirmation means no release.</td></tr>
+      <tr><td>The car is mechanically worse than described</td><td>Partly. You can refuse to confirm, but a mechanical dispute is still a dispute. Get an inspection.</td></tr>
+      <tr><td>The title is branded or has a lien</td><td>No. Escrow moves money; it does not audit the title. Check it yourself.</td></tr>
+      <tr><td>You simply overpaid</td><td>No.</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Fake escrow sites</h2>
+
+  <p>This deserves its own section because it is the most common way people lose money while believing they are being careful. The victim has already decided to be cautious. The scammer's job is to supply the caution.</p>
+
+  <p>It runs like this. You tell the seller you are not comfortable wiring money directly. The seller agrees enthusiastically — of course, let us use escrow — and sends a link. The site is well built. It has a logo, a Terms page, a fee schedule, sometimes a live chat widget. You create an account, you see your transaction listed with the correct vehicle and price, and you receive an invoice with wire instructions. You wire. The status updates to "funds received." Then nothing.</p>
+
+  <div class="callout">
+    <span class="label">The single reliable test</span>
+    <p>If the link came from the person you are transacting with, do not use it. Not "check it carefully first" — do not use it. A real escrow service is one you found independently and navigated to by typing the address yourself.</p>
+  </div>
+
+  <h3>The other signs, in rough order of usefulness</h3>
+
+  <ul>
+    <li><strong>Wire or cryptocurrency only.</strong> A legitimate service processes card or bank payments through a named processor. Wire-only exists because wires are irreversible.</li>
+    <li><strong>The receiving account is a personal name.</strong> Real escrow does not collect into an individual's checking account.</li>
+    <li><strong>The domain is new.</strong> Check the registration date with a WHOIS lookup. A site handling escrow that was registered five weeks ago is not a real escrow company.</li>
+    <li><strong>Near-miss domain names.</strong> A character swapped, a hyphen added, a different top-level domain from the real company.</li>
+    <li><strong>No verifiable company behind it.</strong> No registered entity, no physical address, no licensing information, or details that do not check out against public records.</li>
+    <li><strong>Pressure.</strong> Real services do not tell you the transaction expires in two hours.</li>
+  </ul>
+
+  <h2>Questions worth asking any escrow service</h2>
+
+  <ul>
+    <li>Who holds the funds while the transaction is open, and where?</li>
+    <li>What specifically triggers release to the seller?</li>
+    <li>What is the fee, who pays it, and is it disclosed before I commit?</li>
+    <li>What happens if the buyer never confirms — is there a timeout, and what does it do?</li>
+    <li>What happens if the car is not as described?</li>
+  </ul>
+
+  <p>A service that cannot answer these plainly on its own website is not one to send money to.</p>
+
+
+  <div class="product">
+    <h2>Where DriveLink fits</h2>
+    <p>DriveLink is escrow for private vehicle sales. Buyer funds are held through Stripe, the handover happens, and the money is released to the seller only after the buyer confirms they have the car — or after the seller enters a handover code that the buyer holds.</p>
+    <p>You found this page yourself, which is the right way to arrive at an escrow service. Nobody should ever send you one in a message.</p>
+    <p><a class="cta" href="https://drivelink.deals/start-deal">Secure a deal</a></p>
+  </div>
+
+  <div class="related">
+    <h2>Related guides</h2>
+    <ul>
+      <li><a href="/guides/buy-car-out-of-state-private-seller">How to safely buy a car from a private seller out of state</a></li>
+      <li><a href="/guides/facebook-marketplace-car-scams">Facebook Marketplace car scams and how they work</a></li>
+      <li><a href="/guides/cashiers-check-fraud-selling-car">Cashier&#x27;s check fraud when selling a car</a></li>
+      <li><a href="/guides/buyer-wants-to-pay-before-seeing-car">What to do when a buyer wants to pay before seeing the car</a></li>
+    </ul>
+  </div>
+
+</article>
+</main>
+
+<footer class="site">
+  <div class="wrap">
+    <p>This guide is general information about buying and selling vehicles privately, not legal or financial advice. If you have lost money, contact your bank and law enforcement first.</p>
+    <p><a href="https://drivelink.deals">DriveLink</a> &nbsp;&middot;&nbsp; <a href="https://drivelink.deals/safety">Is this safe?</a> &nbsp;&middot;&nbsp; <a href="mailto:support@drivelink.deals">support@drivelink.deals</a></p>
+  </div>
+</footer>
+
+</body>
+</html>

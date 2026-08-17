@@ -26,6 +26,9 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn }) {
                 switch — the toggle only existed once they were inside the app. */}
             <LangToggle />
             <button style={styles.byodNavBtn} onClick={handleStartDeal} className="dl-byod-nav">{t("lp.nav.secure")}</button>
+            <a href="/guides/" style={styles.guidesNavLink} className="dl-guides-nav">
+              {lang === "es" ? "Guías" : "Guides"}
+            </a>
             <button style={styles.browseBtn} onClick={onBrowse}>{t("lp.nav.browse")}</button>
             <button style={styles.signInBtn} onClick={signedIn ? onBrowse : onSignIn}>{signedIn ? t("lp.nav.app") : t("lp.nav.signin")}</button>
           </div>
@@ -317,28 +320,24 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn }) {
           <p style={styles.footerText}>{t("lp.foot.rights")}</p>
 
           {/* ── GUIDES ────────────────────────────────────────────────────
-              Real <a href> tags, deliberately, and NOT onNavigate buttons
-              like the row below.
+              Real <a href>, deliberately, and NOT an onNavigate button like
+              the legal row below.
 
-              Two reasons. First, /guides/* are static HTML files served out
-              of public/ before the SPA fallback in _redirects — they are not
-              React routes and onNavigate cannot reach them. Second, and the
-              reason this row exists at all: Googlebot follows anchors and
-              ignores buttons. Every other link on this page is a button, so
-              a guide with no anchor pointing at it is an orphan — crawled
-              late, ranked low, and effectively invisible no matter how good
-              the content is.
+              Two reasons. First, /guides/ is a static HTML hub served out of
+              public/ before the SPA fallback in _redirects — it is not a React
+              route and onNavigate cannot reach it. Second, Googlebot follows
+              anchors and ignores buttons, so this is the crawl path into the
+              whole guides corpus.
 
-              Add each new guide here as it ships. This row is the crawl path
-              into the whole corpus. */}
+              Points at the hub rather than listing every guide. Individual
+              guides are linked from the hub page and from each other, and ten
+              links in a footer row is unreadable. Add new guides to
+              public/guides/index.html, not here. */}
           <div style={styles.footerLinks}>
-            <span style={styles.footerGuidesLabel}>
-              {lang === "es" ? "Guías" : "Guides"}
-            </span>
-            <a href="/guides/wire-transfer-car-scam" style={styles.footerLinkBtn}>
+            <a href="/guides/" style={styles.footerGuidesLink}>
               {lang === "es"
-                ? "¿Es seguro enviar una transferencia por un coche?"
-                : "Is it safe to wire money for a car?"}
+                ? "Guías: comprar y vender coches de forma segura"
+                : "Guides: buying and selling cars safely"}
             </a>
           </div>
 
@@ -520,7 +519,12 @@ const styles = {
   // The Guides row sits above the legal row and needs to read as a section,
   // not as another peer link. Slightly darker and heavier than the links it
   // introduces.
-  footerGuidesLabel: { fontSize: 13, fontWeight: 600, color: "#374151" },
+  // Footer hub link. Heavier than the legal links beside it so the guides
+  // section reads as content rather than boilerplate.
+  footerGuidesLink: { fontSize: 14, fontWeight: 600, color: "#374151", textDecoration: "none" },
+  // Nav link styled to match the adjacent buttons. It is an <a> and not a
+  // button because /guides/ is static HTML outside the SPA.
+  guidesNavLink: { padding: "8px 12px", fontSize: 14, fontWeight: 500, color: "#374151", textDecoration: "none", whiteSpace: "nowrap" },
   feedbackSection: { padding: "56px 24px", background: "#fff" },
   feedbackBox: { maxWidth: 640, margin: "0 auto", background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: 20, padding: "36px 40px", textAlign: "center" },
   feedbackTitle: { fontSize: 24, fontWeight: 800, color: "#0f172a", marginBottom: 8, letterSpacing: "-0.02em" },
@@ -541,6 +545,7 @@ const css = `
   }
   @media (max-width: 560px) {
     .dl-byod-nav { display: none !important; }
+    .dl-guides-nav { display: none !important; }
   }
   * { box-sizing: border-box; }
   img { max-width: 100%; }
