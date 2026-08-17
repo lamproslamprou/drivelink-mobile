@@ -152,8 +152,9 @@ export default function CompAdForm({ onComp, onDone }) {
       <label style={styles.label}>Why comped (internal note)</label>
       <input style={styles.input} value={reason} onChange={e => setReason(e.target.value)} placeholder="Founding advertiser — free 3 months" />
 
-      <label style={styles.label}>Ad image</label>
-      <ImageUpload images={images} onChange={setImages} />
+      <div style={{ marginTop: 14 }}>
+        <ImageUpload images={images} onChange={setImages} label="Ad image" max={1} />
+      </div>
 
       {error && <div style={styles.error}>{error}</div>}
 

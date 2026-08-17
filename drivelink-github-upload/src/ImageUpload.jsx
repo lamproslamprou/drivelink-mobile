@@ -84,7 +84,12 @@ function extFor(type) {
   return "jpg";
 }
 
-export default function ImageUpload({ images = [], onChange }) {
+// `label` and `max` exist because this component is reused for two different
+// things. A car listing takes up to 20 photos; an ad placement takes exactly
+// one, and rendering "Car Photos (0/20)" on the comp-an-ad form was both wrong
+// and confusing. Defaults preserve the listing behaviour so no existing caller
+// changes.
+export default function ImageUpload({ images = [], onChange, label = "Car Photos", max = MAX_PHOTOS }) {
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState({ done: 0, total: 0 });
   const [error, setError] = useState("");
@@ -94,8 +99,12 @@ export default function ImageUpload({ images = [], onChange }) {
     e.target.value = "";
     if (!files.length) return;
 
-    if (images.length + files.length > MAX_PHOTOS) {
-      setError(`You can upload up to ${MAX_PHOTOS} photos. You have room for ${MAX_PHOTOS - images.length} more.`);
+    if (images.length + files.length > max) {
+      setError(
+        max === 1
+          ? "Only one image can be added here."
+          : `You can upload up to ${max} photos. You have room for ${max - images.length} more.`,
+      );
       return;
     }
     for (const f of files) {
@@ -172,11 +181,11 @@ export default function ImageUpload({ images = [], onChange }) {
     onChange([picked, ...next]);
   };
 
-  const remaining = MAX_PHOTOS - images.length;
+  const remaining = max - images.length;
 
   return (
     <div style={styles.wrap}>
-      <label style={styles.label}>Car Photos ({images.length}/{MAX_PHOTOS})</label>
+      <label style={styles.label}>{label} ({images.length}/{max})</label>
 
       {images.length > 0 && (
         <div style={styles.grid}>
@@ -189,7 +198,7 @@ export default function ImageUpload({ images = [], onChange }) {
                 onClick={() => removeAt(i)}
                 aria-label="Remove photo"
               >✕</button>
-              {i === 0
+              {max === 1 ? null : i === 0
                 ? <span style={styles.coverTag}>Cover</span>
                 : (
                   <button
@@ -203,12 +212,12 @@ export default function ImageUpload({ images = [], onChange }) {
         </div>
       )}
 
-      {images.length < MAX_PHOTOS && (
+      {images.length < max && (
         <label style={{ ...styles.dropZone, opacity: uploading ? 0.7 : 1, cursor: uploading ? "default" : "pointer" }}>
           <input
             type="file"
             accept="image/jpeg,image/png,image/webp"
-            multiple
+            multiple={max > 1}
             disabled={uploading}
             onChange={handleFiles}
             style={{ display: "none" }}
@@ -217,10 +226,10 @@ export default function ImageUpload({ images = [], onChange }) {
           <div style={styles.dropText}>
             {uploading
               ? `Uploading ${progress.done} of ${progress.total}…`
-              : "Click to add photo(s)"}
+              : max === 1 ? "Click to add an image" : "Click to add photo(s)"}
           </div>
           <div style={styles.dropSub}>
-            JPG, PNG or WEBP • {remaining} {remaining === 1 ? "photo" : "photos"} remaining
+            JPG, PNG or WEBP{max > 1 ? ` • ${remaining} ${remaining === 1 ? "photo" : "photos"} remaining` : ""}
             <br />
             Large photos are resized automatically
           </div>
