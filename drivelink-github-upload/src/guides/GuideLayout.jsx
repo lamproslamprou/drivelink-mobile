@@ -49,6 +49,20 @@ const CSS = `
   font-weight:400;color:var(--mute);}
 .dl-g-q[aria-expanded="true"]::after{content:"\\2013";}
 .dl-g-a{font-size:16px;color:var(--mute);padding:0 8px 20px 0;margin:0;}
+.dl-g-dl{margin-top:52px;padding:26px 28px;border:1px solid var(--line);border-radius:14px;
+  background:#F7FAFD;display:flex;gap:22px;align-items:center;}
+.dl-g-dl-icon{flex:none;width:52px;height:64px;border-radius:6px;background:#fff;
+  border:1px solid var(--line);position:relative;}
+.dl-g-dl-icon::after{content:"PDF";position:absolute;left:0;right:0;bottom:9px;text-align:center;
+  font-size:10px;font-weight:800;letter-spacing:.5px;color:#B42318;}
+.dl-g-dl-icon::before{content:"";position:absolute;left:11px;right:11px;top:13px;height:2px;
+  background:var(--line);box-shadow:0 7px 0 var(--line),0 14px 0 var(--line);}
+.dl-g-dl-body{flex:1;}
+.dl-g-dl-h{font-size:17px;font-weight:700;margin:0 0 5px;letter-spacing:-.3px;}
+.dl-g-dl-p{font-size:14.5px;color:var(--mute);margin:0 0 14px;line-height:1.5;}
+.dl-g-dl-a{display:inline-block;font-size:15px;font-weight:700;color:#0A1B33;
+  text-decoration:none;border-bottom:2px solid #3DD68C;padding-bottom:2px;}
+.dl-g-dl-a:hover{border-bottom-color:#0A1B33;}
 .dl-g-cta{margin-top:60px;padding:32px;background:#0A1B33;border-radius:16px;color:#fff;}
 .dl-g-cta h3{font-size:24px;font-weight:800;letter-spacing:-.6px;margin:0 0 12px;}
 .dl-g-cta-p{font-size:16px;color:#B9C9E0;margin:0 0 24px;}
@@ -71,6 +85,7 @@ const CSS = `
   .dl-g h2{font-size:23px;}
   .dl-g-p,.dl-g-walk li,.dl-g-flags li{font-size:16px;}
   .dl-g-cta{padding:26px 22px;}
+  .dl-g-dl{flex-direction:column;align-items:flex-start;gap:16px;padding:22px;}
 }
 `;
 
@@ -193,6 +208,28 @@ export default function GuideLayout({
           </div>
         </>
       )}
+
+      {/* The worksheet every guide in this cluster refers to. Ungated on
+          purpose — no email wall. The download is the trust-builder; making
+          someone pay for it with their address undoes the point of the page. */}
+      <div className="dl-g-dl">
+        <div className="dl-g-dl-icon" aria-hidden="true" />
+        <div className="dl-g-dl-body">
+          <p className="dl-g-dl-h">Free lien payoff worksheet and bill of sale</p>
+          <p className="dl-g-dl-p">
+            Two pages you can fill in on your phone or print. The payoff
+            arithmetic, the order things have to happen in, and a bill of sale
+            with a lien disclosure line. No email required.
+          </p>
+          <a
+            className="dl-g-dl-a"
+            href="/downloads/drivelink-lien-payoff-worksheet.pdf"
+            download
+          >
+            Download the PDF ↓
+          </a>
+        </div>
+      </div>
 
       {cta && (
         <div className="dl-g-cta">
