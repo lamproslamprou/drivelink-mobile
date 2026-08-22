@@ -12,9 +12,9 @@ import logoIcon from "./assets/logo-icon.png";
 import { StartDealView, JoinDealView } from "./DealViews.jsx";
 import FAQView from "./FAQView.jsx";
 import EscrowExplained from "./EscrowExplained.jsx";
-import LienPayoffNJ from "./LienPayoffNJ.jsx";
-import LienPayoffPA from "./LienPayoffPA.jsx";
-import LienPayoffNY from "./LienPayoffNY.jsx";
+import LienPayoffNJ from "./guides/LienPayoffNJ.jsx";
+import LienPayoffPA from "./guides/LienPayoffPA.jsx";
+import LienPayoffNY from "./guides/LienPayoffNY.jsx";
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 
 // ── MONEY IS CENTS ──────────────────────────────────────────────────────────
