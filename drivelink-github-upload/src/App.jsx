@@ -12,7 +12,9 @@ import logoIcon from "./assets/logo-icon.png";
 import { StartDealView, JoinDealView } from "./DealViews.jsx";
 import FAQView from "./FAQView.jsx";
 import EscrowExplained from "./EscrowExplained.jsx";
-import LienPayoffGuide from "./LienPayoffGuide.jsx";
+import LienPayoffNJ from "./LienPayoffNJ.jsx";
+import LienPayoffPA from "./LienPayoffPA.jsx";
+import LienPayoffNY from "./LienPayoffNY.jsx";
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 
 // ── MONEY IS CENTS ──────────────────────────────────────────────────────────
@@ -262,6 +264,8 @@ const VIEW_PATHS = {
   escrow:        "/escrow",
   // Search-traffic guide. Nested path so the cluster has somewhere to grow.
   lienPayoffNJ:  "/guides/lien-payoff-nj",
+  lienPayoffPA:  "/guides/lien-payoff-pa",
+  lienPayoffNY:  "/guides/lien-payoff-ny",
 };
 const PATH_TO_VIEW = Object.fromEntries(
   Object.entries(VIEW_PATHS).map(([v, p]) => [p, v]),
@@ -283,6 +287,8 @@ const PUBLIC_VIEWS = new Set([
   // Arrives from organic search, mid-deal, with no account and no intention of
   // making one yet. Gating a guide behind sign-in is how a guide earns nothing.
   "lienPayoffNJ",
+  "lienPayoffPA",
+  "lienPayoffNY",
   // Arrived at from an emailed recovery link, necessarily signed out.
   "resetPassword",
   // Brokers arrive here from an outreach email that has already made the case.
@@ -1829,12 +1835,21 @@ const denyFlaggedReferral = async (refId) => {
     />
   );
 
-  if (view === "lienPayoffNJ") return (
-    <LienPayoffGuide
-      onBack={() => setView(currentUser ? "home" : "landing")}
-      onStart={() => setView("escrow")}
-    />
-  );
+  // The lien guide cluster. Each takes onNavigate so the "other states" links
+  // at the foot of each page move between them without a full page load.
+  if (view === "lienPayoffNJ" || view === "lienPayoffPA" || view === "lienPayoffNY") {
+    const Guide =
+      view === "lienPayoffPA" ? LienPayoffPA :
+      view === "lienPayoffNY" ? LienPayoffNY :
+      LienPayoffNJ;
+    return (
+      <Guide
+        onBack={() => setView(currentUser ? "home" : "landing")}
+        onStart={() => setView("escrow")}
+        onNavigate={setView}
+      />
+    );
+  }
 
   if (view === "landing") return (
     <>
