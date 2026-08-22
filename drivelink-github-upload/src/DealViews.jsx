@@ -56,6 +56,7 @@ export function StartDealView({ currentUser, promoterCode, onBack, onNavigate, s
   const [error, setError] = useState(null);
   const [result, setResult] = useState(null);
   const [copied, setCopied] = useState(false);
+  const [explainerCopied, setExplainerCopied] = useState(false);
   const [referrer, setReferrer] = useState(null);
   // The form is tall enough that the submit button sits below the error and
   // onboarding messages once you have scrolled to it. Both are rendered above
@@ -170,6 +171,35 @@ export function StartDealView({ currentUser, promoterCode, onBack, onNavigate, s
     }
   }
 
+  // The deal link alone assumes the other party knows what DriveLink is. They
+  // usually don't — they met this person on Marketplace and are now being asked
+  // to route a car sale through a company they've never heard of. /escrow is
+  // written for exactly that reader, so it goes out alongside the invite rather
+  // than leaving our own user to make the case unaided.
+  const EXPLAINER_URL = `${window.location.origin}/escrow`;
+
+  async function shareExplainer() {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: "How DriveLink escrow works",
+          url: EXPLAINER_URL,
+        });
+        return;
+      } catch (e) {
+        if (e?.name === "AbortError") return;
+        // Any other failure falls through to the clipboard path below.
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(EXPLAINER_URL);
+      setExplainerCopied(true);
+      setTimeout(() => setExplainerCopied(false), 2000);
+    } catch {
+      showToast?.("Copy failed — the address is drivelink.deals/escrow", "error");
+    }
+  }
+
   if (!currentUser) {
     return (
       <div style={dealStyles.page}>
@@ -275,6 +305,20 @@ export function StartDealView({ currentUser, promoterCode, onBack, onNavigate, s
           <button style={dealStyles.primaryBtn} onClick={copyLink}>
             {copied ? "Copied" : "Copy link"}
           </button>
+
+          <div style={dealStyles.explainerRow}>
+            <div style={dealStyles.explainerText}>
+              Never heard of DriveLink? Most people haven't. Send them this
+              alongside the deal link and it explains who holds the money and
+              when it's released.
+            </div>
+            <button
+              style={{ ...dealStyles.secondaryBtn, width: "100%", marginTop: 12 }}
+              onClick={shareExplainer}
+            >
+              {explainerCopied ? "Copied" : "Send them the explainer"}
+            </button>
+          </div>
 
           <div style={dealStyles.stepsWrap}>
             <div style={dealStyles.eyebrow}>What happens next</div>
@@ -692,4 +736,6 @@ const dealStyles = {
   warnBox: { background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 12, padding: "16px 20px", fontSize: 14, color: "#92400e", lineHeight: 1.6, marginBottom: 16 },
   infoBox: { background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: 12, padding: "14px 18px", fontSize: 14, color: "#1e40af", lineHeight: 1.6 },
   finePrint: { fontSize: 12, color: "#9ca3af", textAlign: "center", marginTop: 16, lineHeight: 1.5 },
+  explainerRow: { background: "#fff", border: "1px solid #e5e7eb", borderRadius: 12, padding: "16px 20px", marginTop: 16 },
+  explainerText: { fontSize: 13, color: "#6b7280", lineHeight: 1.6 },
 };
