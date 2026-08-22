@@ -12,6 +12,7 @@ import logoIcon from "./assets/logo-icon.png";
 import { StartDealView, JoinDealView } from "./DealViews.jsx";
 import FAQView from "./FAQView.jsx";
 import EscrowExplained from "./EscrowExplained.jsx";
+import LienPayoffGuide from "./LienPayoffGuide.jsx";
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 
 // ── MONEY IS CENTS ──────────────────────────────────────────────────────────
@@ -259,6 +260,8 @@ const VIEW_PATHS = {
   faq:           "/faq",
   // Sent party-to-party mid-negotiation, not navigated to from inside the app.
   escrow:        "/escrow",
+  // Search-traffic guide. Nested path so the cluster has somewhere to grow.
+  lienPayoffNJ:  "/guides/lien-payoff-nj",
 };
 const PATH_TO_VIEW = Object.fromEntries(
   Object.entries(VIEW_PATHS).map(([v, p]) => [p, v]),
@@ -277,6 +280,9 @@ const PUBLIC_VIEWS = new Set([
   // explain what DriveLink is. The recipient has no account and no reason to
   // make one yet — a sign-in wall here kills the deal it exists to save.
   "escrow",
+  // Arrives from organic search, mid-deal, with no account and no intention of
+  // making one yet. Gating a guide behind sign-in is how a guide earns nothing.
+  "lienPayoffNJ",
   // Arrived at from an emailed recovery link, necessarily signed out.
   "resetPassword",
   // Brokers arrive here from an outreach email that has already made the case.
@@ -1820,6 +1826,13 @@ const denyFlaggedReferral = async (refId) => {
     <EscrowExplained
       onBack={() => setView(currentUser ? "home" : "landing")}
       onStart={() => setView("startDeal")}
+    />
+  );
+
+  if (view === "lienPayoffNJ") return (
+    <LienPayoffGuide
+      onBack={() => setView(currentUser ? "home" : "landing")}
+      onStart={() => setView("escrow")}
     />
   );
 
