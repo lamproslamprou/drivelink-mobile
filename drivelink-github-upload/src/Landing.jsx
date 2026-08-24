@@ -2,6 +2,7 @@ import { useState } from "react";
 import { supabase } from "./supabase.js";
 import { useLang, Rich, LangToggle } from "./i18n.jsx";
 import logoIcon from "./assets/logo-icon.png";
+import USFlag from "./USFlag.jsx";
 
 export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn }) {
   const { t, lang } = useLang();
@@ -39,7 +40,7 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn }) {
       <section style={styles.hero} className="dl-hero">
         <div style={styles.heroBannerWrap} className="dl-hero-banner-wrap">
           <div style={styles.heroBanner} className="dl-hero-banner">
-            <span style={styles.heroBannerDot} />
+            <USFlag size={13} style={{ marginRight: 8, verticalAlign: "-1px" }} />
             {t("lp.badge")}
           </div>
         </div>
@@ -317,6 +318,10 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn }) {
             <span style={{ fontWeight: 800, color: "#0f172a" }}>DriveLink</span>
           </div>
           <p style={styles.footerText}>{t("lp.foot.tagline")}</p>
+          <p style={{ ...styles.footerText, display: "flex", alignItems: "center", gap: 6 }}>
+            <USFlag size={13} />
+            {t("lp.foot.us")}
+          </p>
           <p style={styles.footerText}>{t("lp.foot.rights")}</p>
 
           <div style={styles.footerLinks}>
