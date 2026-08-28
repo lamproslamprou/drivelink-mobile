@@ -144,6 +144,7 @@ import {
   stripeClient,
   supabaseAdmin,
   findPendingReferrals,
+  addBusinessDays,
   PLATFORM_FEE,
   PROMOTER_FEE,
   AUTO_RELEASE_DAYS,
@@ -164,24 +165,34 @@ const FALLBACK_FEE_FIXED_CENTS = 30;
 const FALLBACK_ACH_FEE_PERCENT = 0.008;
 const FALLBACK_ACH_FEE_CAP_CENTS = 500;
 
+// Customer Balance / us_bank_transfer receipts (wires and ACH credits pushed
+// INTO the platform's virtual account) are not priced like card or ACH-debit
+// charges — Stripe's own docs describe this rail as carrying little to no fee
+// on the receiving side, unlike the percentage-based card/ACH-debit rate
+// cards above. Flat zero until a real test-mode wire proves otherwise (see
+// PHASE2_WIRE_RAIL_SPEC.md §5.2 and the rollout checklist) — do NOT reuse
+// FALLBACK_FEE_PERCENT or FALLBACK_ACH_FEE_PERCENT here, that would silently
+// misestimate a wire's processing cost against a rate card that doesn't
+// apply to it. A wrong value here still shows up in the admin alert, since
+// feeWasEstimated flags it the same way an estimated card/ACH fee does.
+const FALLBACK_WIRE_FEE_CENTS = 0;
+
+// $5, in cents — the underpayment/overpayment tolerance for wires (§5.4).
+// Cards and ACH debit always charge exactly the agreed total because Stripe
+// enforces it; a wire doesn't have that guarantee (intermediary bank fees,
+// buyer typos), so this absorbs small variance without blocking the sale.
+const WIRE_AMOUNT_TOLERANCE_CENTS = 500;
+
 // Buffer between ACH settlement and the earliest possible payout. Business
 // days, so a Friday settlement doesn't burn the buffer over a weekend when no
 // bank return could arrive anyway.
 const ACH_RELEASE_BUFFER_BUSINESS_DAYS = 3;
 
-// Weekends only — US bank holidays are not modelled. The consequence of that
-// simplification is a buffer that is occasionally a day short of intent, never
-// a payout before settlement, so it fails in the safe direction.
-function addBusinessDays(from: Date, days: number): Date {
-  const d = new Date(from.getTime());
-  let remaining = days;
-  while (remaining > 0) {
-    d.setUTCDate(d.getUTCDate() + 1);
-    const day = d.getUTCDay();
-    if (day !== 0 && day !== 6) remaining--;
-  }
-  return d;
-}
+// addBusinessDays() moved to _shared/helpers.ts (weekends-only business-day
+// arithmetic) — expire-stale-wires needs the identical logic for its day-2
+// reminder and 10-business-day timeout, and two copies is how this kind of
+// helper drifts (see the settleReferral comment in helpers.ts for that
+// history). Imported above.
 
 // True when the charge behind this session was a bank debit rather than a
 // card. Read off the expanded charge, never off the session's
@@ -204,10 +215,17 @@ function handoverDateFromMeta(meta: Record<string, string> | null): string | nul
 }
 
 // Conservative estimate of Stripe's cut, used only when balance_transaction
-// isn't readable. Rounds UP in both branches: overestimating a fee we do not
-// control keeps seller_net at or below the money that actually exists.
-function stripeFallbackFor(chargedTotalCents: number, bankDebit: boolean): number {
-  if (bankDebit) {
+// isn't readable. Rounds UP in the card/ACH-debit branches: overestimating a
+// fee we do not control keeps seller_net at or below the money that actually
+// exists. Takes `rail` rather than a boolean (the pre-wire shape of this
+// function) specifically so the wire branch can use its own flat estimate
+// instead of being forced into the card or ACH-debit rate card — see
+// FALLBACK_WIRE_FEE_CENTS above.
+function stripeFallbackFor(chargedTotalCents: number, rail: "card" | "ach_debit" | "wire"): number {
+  if (rail === "wire") {
+    return FALLBACK_WIRE_FEE_CENTS;
+  }
+  if (rail === "ach_debit") {
     return Math.min(
       Math.ceil(chargedTotalCents * FALLBACK_ACH_FEE_PERCENT),
       FALLBACK_ACH_FEE_CAP_CENTS,
@@ -238,6 +256,269 @@ function stripeFeeCentsFrom(pi: unknown): number | null {
   if (!bt || typeof bt !== "object") return null;
   const fee = (bt as { fee?: unknown }).fee;
   return typeof fee === "number" ? fee : null;
+}
+
+// ── settleSale() ────────────────────────────────────────────────────────
+// Extracted per PHASE2_WIRE_RAIL_SPEC.md §5.1. This is the settlement block
+// that used to live inline inside the checkout.session.completed /
+// checkout.session.async_payment_succeeded handler — fee arithmetic, the
+// listings UPDATE, the referral lookup, the admin alert, and the
+// handover-code + seller-notice emails. Moved unchanged in substance so it
+// can also be driven by a bare PaymentIntent (the wire path, §5.2), which
+// has no session.metadata to read.
+//
+// Deviates from the spec's drafted signature in one place: takes `rail`
+// ("card" | "ach_debit" | "wire") instead of a plain `isBankDebit: boolean`.
+// A boolean can't tell a wire's PaymentIntent apart from a card's, and §5.2
+// is explicit that the wire fee fallback must NOT reuse the card or
+// ACH-debit rate cards — that three-way distinction has to reach
+// stripeFallbackFor() somehow, and a boolean can't carry it. Also drops the
+// unused `stripe` client param from the spec's draft: by the time this is
+// called, the caller has already retrieved/expanded the PaymentIntent (or
+// Checkout Session) and resolved stripeFeeCents, so settleSale() itself
+// never talks to Stripe.
+//
+// Returns { ok: true, ... } on success or { ok: false, status, body } on a
+// failure the caller should turn straight into an HTTP response — mirrors
+// the original inline code's behavior of returning 500 (never claiming the
+// event) so Stripe redelivers.
+async function settleSale(
+  supabase: ReturnType<typeof supabaseAdmin>,
+  input: {
+    listingId: string;
+    buyerId: string;
+    piId: string | null;
+    meta: Record<string, string>;
+    rail: "card" | "ach_debit" | "wire";
+    stripeFeeCents: number | null;
+    chargedTotalCents: number;
+  },
+): Promise<
+  | { ok: true; carLabel: string; sellerNet: number }
+  | { ok: false; status: number; body: Record<string, unknown> }
+> {
+  const { listingId, buyerId, piId, meta, rail, stripeFeeCents: realFeeCents, chargedTotalCents } = input;
+  const bankDebit = rail === "ach_debit";
+
+  // ── What the car actually sold for ────────────────────────────────────
+  // NOT amount_total / chargedTotalCents. On a buyer-initiated BYOD deal
+  // with a Promoter referral, the buyer is charged the agreed price PLUS a
+  // 1% referral surcharge, so the charged total overstates the sale.
+  // Deriving fees from it would take 1% of the inflated figure and — worse
+  // — still deduct the promoter cut from the seller, charging the
+  // commission twice. Works unchanged for wires too (§5.5): a
+  // customer_balance PaymentIntent has no Stripe-side line items, and this
+  // was always derived purely from metadata, never from Stripe's total.
+  const agreedPriceMeta = Number(meta.agreed_price);
+  const salePrice = Number.isFinite(agreedPriceMeta) && agreedPriceMeta > 0
+    ? agreedPriceMeta
+    : chargedTotalCents;
+
+  // How much of the charged total was the referral surcharge the BUYER
+  // paid. Zero on marketplace sales and on seller-initiated deals, where
+  // the commission comes out of the seller's proceeds instead.
+  const surchargeMeta = Number(meta.promoter_surcharge);
+  const promoterSurcharge = Number.isFinite(surchargeMeta) && surchargeMeta > 0
+    ? surchargeMeta
+    : 0;
+
+  const platformFee = Math.round(salePrice * PLATFORM_FEE);
+
+  // ── Stripe's actual processing fee ────────────────────────────────────
+  const feeWasEstimated = realFeeCents === null;
+  const stripeFee = realFeeCents ?? stripeFallbackFor(chargedTotalCents, rail);
+  const effectiveFeeCents = stripeFee;
+
+  if (feeWasEstimated) {
+    console.warn(
+      "balance_transaction unavailable, estimating Stripe fee:",
+      listingId,
+      rail,
+      effectiveFeeCents,
+    );
+  }
+
+  // Only reserve a promoter cut if a pending referral actually exists.
+  const { refs: pendingRefs } = await findPendingReferrals(supabase, listingId);
+  const hasPendingRef = pendingRefs.length > 0;
+
+  const promoterFeeReserved = hasPendingRef && promoterSurcharge === 0
+    ? Math.round(salePrice * PROMOTER_FEE)
+    : 0;
+
+  // Clamp at zero — see the header comment in this file for why.
+  const rawSellerNet = salePrice - platformFee - promoterFeeReserved - stripeFee;
+  const sellerNet = Math.max(0, rawSellerNet);
+  const netWasClamped = rawSellerNet !== sellerNet;
+
+  // ── RELEASE CLOCK ─────────────────────────────────────────────────────
+  const paymentReleaseAt = new Date();
+  paymentReleaseAt.setDate(paymentReleaseAt.getDate() + AUTO_RELEASE_DAYS);
+
+  const handoverDate = handoverDateFromMeta(meta);
+
+  let releaseAt = paymentReleaseAt;
+
+  if (handoverDate) {
+    const handoverReleaseAt = new Date(`${handoverDate}T12:00:00Z`);
+    handoverReleaseAt.setDate(handoverReleaseAt.getDate() + AUTO_RELEASE_DAYS);
+
+    if (
+      Number.isFinite(handoverReleaseAt.getTime()) &&
+      handoverReleaseAt.getTime() > paymentReleaseAt.getTime()
+    ) {
+      releaseAt = handoverReleaseAt;
+    }
+  }
+
+  // ── RELEASE FLOOR ─────────────────────────────────────────────────────
+  // NULL on cards AND wires: a card charge or an incoming wire that reached
+  // this point is settled, irreversible money — "a credit push can't
+  // bounce" (§5.3). Only ACH debit gets the 3-business-day buffer, because
+  // only ACH debit can be returned days after Stripe reports it succeeded.
+  const releaseNotBefore = bankDebit
+    ? addBusinessDays(new Date(), ACH_RELEASE_BUFFER_BUSINESS_DAYS)
+    : null;
+
+  if (releaseNotBefore && releaseNotBefore.getTime() > releaseAt.getTime()) {
+    releaseAt = new Date(releaseNotBefore.getTime());
+    releaseAt.setDate(releaseAt.getDate() + AUTO_RELEASE_DAYS);
+  }
+
+  const { data: soldListing, error: listingErr } = await supabase
+    .from("listings")
+    .update({
+      status: "pending_confirmation",
+      release_not_before: releaseNotBefore ? releaseNotBefore.toISOString() : null,
+      buyer_id: buyerId,
+      sale_price: salePrice,
+      platform_fee: platformFee,
+      seller_net: sellerNet,
+      stripe_payment_intent_id: piId,
+      sold_at: todayET(),
+      paid_at: new Date().toISOString(),
+      ...(handoverDate ? { handover_date: handoverDate } : {}),
+      auto_release_at: releaseAt.toISOString(),
+    })
+    .eq("id", listingId)
+    .select("make, model, year, seller_id")
+    .single();
+
+  if (listingErr) {
+    console.error("listings update failed:", listingErr.message, listingId);
+    return {
+      ok: false,
+      status: 500,
+      body: { error: "listings update failed", detail: listingErr.message },
+    };
+  }
+
+  const [{ data: buyerRow }, { data: sellerRow }] = await Promise.all([
+    supabase.from("users").select("name, email").eq("id", buyerId).single(),
+    soldListing?.seller_id
+      ? supabase.from("users").select("name, email").eq("id", soldListing.seller_id).single()
+      : Promise.resolve({ data: null }),
+  ]);
+
+  const carLabel = soldListing
+    ? `${soldListing.year} ${soldListing.make} ${soldListing.model}`
+    : listingId;
+
+  const subject = netWasClamped
+    ? `⚠️ Sale recorded with $0 seller net — ${carLabel}`
+    : feeWasEstimated
+    ? `⚠️ Sale recorded with ESTIMATED processing fee — ${carLabel}`
+    : `New car sale — ${carLabel} (${money(salePrice)})`;
+
+  const footnote = netWasClamped
+    ? `Fees exceeded the sale price, so seller net was clamped to $0. Check this before releasing.`
+    : feeWasEstimated
+    ? `Stripe's balance_transaction wasn't readable, so the processing fee above is an ESTIMATE. Compare it to the real fee on the payment in Stripe and adjust seller_net before release if it's off.`
+    : handoverDate
+    ? `Handover is agreed for ${handoverDate}. Funds do NOT release on a timer — the buyer confirms receipt, or the seller enters the buyer's handover code. If neither happens by ${releaseAt.toISOString().slice(0, 10)}, the sale is escalated to you for manual review.`
+    : `Funds do NOT release on a timer — the buyer confirms receipt, or the seller enters the buyer's handover code. If neither happens by ${releaseAt.toISOString().slice(0, 10)}, the sale is escalated to you for manual review.`;
+
+  notifyAdmin({
+    subject,
+    html: alertHtml(
+      "New sale — payment received, awaiting buyer confirmation",
+      [
+        ["Vehicle", carLabel],
+        ["Rail", rail],
+        ...(handoverDate
+          ? [["Handover agreed for", handoverDate] as [string, unknown]]
+          : []),
+        ["Escalates to review", releaseAt.toISOString().slice(0, 10)],
+        ["Sale price", money(salePrice)],
+        ["Platform fee (1%)", money(platformFee)],
+        [
+          feeWasEstimated ? "Stripe processing (ESTIMATED)" : "Stripe processing",
+          money(stripeFee),
+        ],
+        ...(promoterFeeReserved
+          ? [["Promoter reserved", money(promoterFeeReserved)] as [string, unknown]]
+          : []),
+        ["Seller net", money(sellerNet)],
+        ["Buyer", `${buyerRow?.name ?? "—"} (${buyerRow?.email ?? "—"})`],
+        ["Seller", `${sellerRow?.name ?? "—"} (${sellerRow?.email ?? "—"})`],
+        ["Review deadline", todayET(releaseAt)],
+        ["Listing ID", listingId],
+      ],
+      footnote,
+    ),
+  });
+
+  // ── Buyer's handover code + seller's heads-up ────────────────────────
+  {
+    const { data: handover } = await supabase
+      .from("escrow_handovers")
+      .select("code")
+      .eq("listing_id", listingId)
+      .maybeSingle();
+
+    if (handover?.code && buyerRow?.email) {
+      await sendEmail({
+        to: buyerRow.email,
+        subject: `Your handover code for the ${carLabel}`,
+        html: `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;color:#0f172a;max-width:520px;">
+          <h2 style="font-size:18px;margin:0 0 14px;">Payment received — your money is held safely</h2>
+          <p style="font-size:15px;line-height:1.55;">We're holding your ${money(salePrice)} for the <b>${carLabel}</b>. The seller has not been paid.</p>
+          <div style="background:#FFF8E7;border:1px solid #FFB020;border-radius:8px;padding:16px;margin:20px 0;">
+            <div style="font-size:12px;font-weight:700;color:#7c5000;letter-spacing:0.5px;">YOUR HANDOVER CODE</div>
+            <div style="font-size:32px;font-family:monospace;letter-spacing:8px;font-weight:700;margin:8px 0;">${handover.code}</div>
+            <div style="font-size:14px;color:#7c5000;line-height:1.6;">
+              Give this to the seller <b>only after</b> the car and the signed title are in your hands. The moment they enter it, the money is theirs.<br><br>
+              <b>Don't text or email it. Read it out in person.</b>
+            </div>
+          </div>
+          <p style="font-size:14px;line-height:1.55;color:#374151;">If something isn't right, don't give out the code — report a problem at <a href="https://drivelink.deals" style="color:#B87300;">drivelink.deals</a> instead and we'll hold the funds while we look into it.</p>
+          <p style="font-size:14px;line-height:1.55;color:#374151;"><b>DriveLink will never ask you for this code.</b> Nobody from DriveLink will call, email or message you to request it. If someone does, it isn't us.</p>
+          <p style="font-size:12px;color:#6b7280;margin-top:24px;">DriveLink · drivelink.deals</p>
+        </div>`,
+      });
+    }
+
+    if (sellerRow?.email) {
+      await sendEmail({
+        to: sellerRow.email,
+        subject: `Payment received for your ${carLabel}`,
+        html: `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;color:#0f172a;max-width:520px;">
+          <h2 style="font-size:18px;margin:0 0 14px;">The buyer has paid — ${money(salePrice)} is in escrow</h2>
+          <p style="font-size:15px;line-height:1.55;">Your net proceeds of <b>${money(sellerNet)}</b> are held by DriveLink and released when the handover is confirmed.</p>
+          <p style="font-size:15px;line-height:1.55;">The buyer has a <b>6-digit handover code</b>. Once they have the car and the signed title, ask them for it and enter it on your listing — that releases your funds straight away. They can also confirm receipt themselves in the app.</p>
+          <p style="font-size:14px;line-height:1.55;color:#374151;">Nothing releases automatically. If neither happens, we'll check in with both of you.</p>
+          ${releaseNotBefore
+            ? `<div style="background:#FFF8E7;border-left:3px solid #FFB020;padding:12px 14px;margin:18px 0;font-size:14px;line-height:1.55;">
+                This buyer paid by bank transfer, which has now cleared. Bank payments carry a short settlement hold, so funds can be released from <b>${releaseNotBefore.toISOString().slice(0, 10)}</b>. You can hand over the vehicle before then — the code just won't pay out until that date.
+              </div>`
+            : ""}
+          <p style="font-size:12px;color:#6b7280;margin-top:24px;">DriveLink · drivelink.deals</p>
+        </div>`,
+      });
+    }
+  }
+
+  return { ok: true, carLabel, sellerNet };
 }
 
 Deno.serve(async (req) => {
@@ -477,324 +758,180 @@ Deno.serve(async (req) => {
         return jsonResponse({ received: true, awaitingSettlement: true });
       }
 
-      // ── What the car actually sold for ────────────────────────────────────
-      // NOT amount_total. On a buyer-initiated BYOD deal with a Promoter
-      // referral, the buyer is charged the agreed price PLUS a 1% referral
-      // surcharge, so amount_total overstates the sale. Deriving fees from it
-      // would take 1% of the inflated figure and — worse — still deduct the
-      // promoter cut from the seller, charging the commission twice.
+      // ── Settle ─────────────────────────────────────────────────────────
+      // Card and ACH-debit both settle through settleSale() (§5.1) — the
+      // only difference between them is `rail`, which drives the fee
+      // fallback rate card and whether release_not_before gets the 3-day
+      // ACH buffer. See PHASE2_WIRE_RAIL_SPEC.md for why this is now a real
+      // function instead of inline code: a third caller (the wire path
+      // below, driven by a bare PaymentIntent with no session.metadata)
+      // needed the same logic without a Checkout Session.
       //
-      // create-checkout-session stamps both numbers. Fall back to amount_total
-      // for sessions created before this existed, where the two are equal.
-      const agreedPriceMeta = Number(session.metadata?.agreed_price);
-      const salePrice = Number.isFinite(agreedPriceMeta) && agreedPriceMeta > 0
-        ? agreedPriceMeta
-        : (session.amount_total ?? 0);
-
-      // How much of amount_total was the referral surcharge the BUYER paid.
-      // Zero on marketplace sales and on seller-initiated deals, where the
-      // commission comes out of the seller's proceeds instead.
-      const surchargeMeta = Number(session.metadata?.promoter_surcharge);
-      const promoterSurcharge = Number.isFinite(surchargeMeta) && surchargeMeta > 0
-        ? surchargeMeta
-        : 0;
-
-      const platformFee = Math.round(salePrice * PLATFORM_FEE);
-
-      // ── Stripe's actual processing fee ────────────────────────────────────
-      const realFeeCents = stripeFeeCentsFrom(paymentIntent);
-      const feeWasEstimated = realFeeCents === null;
-      // The fallback still rounds UP: overestimating the fee we don't control
-      // keeps seller_net at or below the real balance. The old ceil-to-dollars
-      // is gone — this is the exact cent figure Stripe reports.
-      // Estimated against what was actually CHARGED, not the agreed price —
-      // Stripe's fee applies to amount_total, which includes any referral
-      // surcharge.
-      const chargedTotal = session.amount_total ?? salePrice;
-      // Which rate card applies is read off the actual charge, not off what
-      // Checkout offered. Getting this wrong costs the seller real money on
-      // every ACH sale where balance_transaction isn't readable.
+      // Which rate card / release-floor behavior applies is read off the
+      // actual charge (isBankDebit), never off what Checkout offered.
+      // Getting this wrong costs the seller real money on every ACH sale
+      // where balance_transaction isn't readable.
       const bankDebit = isBankDebit(paymentIntent);
-      const stripeFee = realFeeCents ?? stripeFallbackFor(chargedTotal, bankDebit);
-      const effectiveFeeCents = stripeFee;
+      const rail: "card" | "ach_debit" = bankDebit ? "ach_debit" : "card";
+      const realFeeCents = stripeFeeCentsFrom(paymentIntent);
+      // Fallback for the (effectively theoretical) case where Stripe's own
+      // amount_total is absent on a paid session — in practice this is
+      // always present once payment_status === "paid", so this mirrors the
+      // original inline fallback chain in every real case.
+      const chargedTotalCents = session.amount_total ?? 0;
 
-      if (feeWasEstimated) {
-        console.warn(
-          "balance_transaction unavailable, estimating Stripe fee:",
-          listing_id,
-          effectiveFeeCents,
-        );
-      }
+      const settled = await settleSale(supabase, {
+        listingId: listing_id,
+        buyerId: buyer_id,
+        piId,
+        meta,
+        rail,
+        stripeFeeCents: realFeeCents,
+        chargedTotalCents,
+      });
 
-      // Only reserve a promoter cut if a pending referral actually exists.
-      // findPendingReferrals covers marketplace rows (listing_id) and BYOD
-      // rows (deal_id) — the plain listing_id filter used here before could
-      // never see a broker's referral.
-      const { refs: pendingRefs } = await findPendingReferrals(supabase, listing_id);
-      const hasPendingRef = pendingRefs.length > 0;
-
-      // Who absorbs the commission.
-      //
-      // Buyer paid it (promoterSurcharge > 0): it is already sitting in
-      // amount_total on top of the agreed price. Reserving it again from the
-      // seller would charge it twice, so the seller's deduction is zero.
-      //
-      // Seller pays it (surcharge 0): the marketplace behaviour, and what a
-      // seller-initiated BYOD deal does. Comes out of their proceeds.
-      const promoterFeeReserved = hasPendingRef && promoterSurcharge === 0
-        ? Math.round(salePrice * PROMOTER_FEE)
-        : 0;
-
-      // Clamp at zero. On a sale small enough that fees exceed the price, a
-      // negative seller_net would become a negative transfer amount and throw
-      // inside release-funds. Record zero and let the alert flag it.
-      // The seller nets the agreed price less DriveLink's cut, less Stripe's
-      // processing fee, less the promoter cut ONLY when they are the one
-      // paying it.
-      //
-      // Deliberate: when the buyer paid the surcharge, Stripe's fee was
-      // charged on the larger total, so the seller absorbs processing on the
-      // broker's commission too — roughly $9 on a $30,000 car. Judged not
-      // worth the complexity of splitting; revisit if a seller queries it.
-      const rawSellerNet = salePrice - platformFee - promoterFeeReserved - stripeFee;
-      const sellerNet = Math.max(0, rawSellerNet);
-      const netWasClamped = rawSellerNet !== sellerNet;
-
-      // ── RELEASE CLOCK ─────────────────────────────────────────────────────
-      // Anchored to the LATER of (payment + 7d) and (handover + 7d).
-      //
-      // This used to be payment + 7d unconditionally, which meant that on any
-      // sale where the seller couldn't hand the car over promptly, the escrow
-      // released to the seller before the buyer ever saw the vehicle. The
-      // buyer's only recourse at that point was a dispute against money that
-      // had already left the platform.
-      //
-      // handover_date arrives as a plain YYYY-MM-DD in session metadata,
-      // written there by create-checkout-session (which reads it server-side
-      // from the listing — never from the browser). Absent or unparseable, the
-      // behaviour is byte-for-byte what it was before: payment + 7d. That is
-      // deliberate, so this function is safe to deploy on its own, ahead of
-      // the checkout change that starts populating the field.
-      //
-      // Noon UTC, not midnight: a calendar date two people agreed on carries
-      // no time of day, and midnight sits close enough to a DST boundary to
-      // shift the result by a day twice a year. Noon UTC is 7-8am ET whatever
-      // the season. This matches guard_listings_handover() in the database —
-      // the two must agree, or the trigger will quietly push the date around
-      // after this function writes it.
-      const paymentReleaseAt = new Date();
-      paymentReleaseAt.setDate(paymentReleaseAt.getDate() + AUTO_RELEASE_DAYS);
-
-      const handoverDate = handoverDateFromMeta(meta);
-
-      let releaseAt = paymentReleaseAt;
-
-      if (handoverDate) {
-        const handoverReleaseAt = new Date(`${handoverDate}T12:00:00Z`);
-        handoverReleaseAt.setDate(handoverReleaseAt.getDate() + AUTO_RELEASE_DAYS);
-
-        // Math.max over getTime() rather than comparing Dates directly — `>`
-        // on two Date objects coerces to string in some paths and compares
-        // lexically, which is exactly the kind of bug that would silently
-        // release money early.
-        if (
-          Number.isFinite(handoverReleaseAt.getTime()) &&
-          handoverReleaseAt.getTime() > paymentReleaseAt.getTime()
-        ) {
-          releaseAt = handoverReleaseAt;
-        }
-      }
-
-      // ── RELEASE FLOOR ─────────────────────────────────────────────────────
-      // NULL on cards: a card charge that reached this point is settled money
-      // and every existing sale behaves exactly as it did before ACH existed.
-      //
-      // On a bank debit, settlement + 3 business days. Stripe's own docs note
-      // that in rare cases an ACH failure arrives from the bank AFTER the
-      // payment has transitioned to succeeded, and the money for that failure
-      // comes out of the platform balance. This is the window that covers.
-      //
-      // It does NOT cover the 60-day unauthorized-return window. See the
-      // header. Nothing here does.
-      const releaseNotBefore = bankDebit
-        ? addBusinessDays(new Date(), ACH_RELEASE_BUFFER_BUSINESS_DAYS)
-        : null;
-
-      // The escalation deadline must never land before funds are even
-      // releasable, or auto-release-cron would email both parties that their
-      // sale is being paused for inaction during days when acting was
-      // impossible. On a card this is a no-op.
-      if (releaseNotBefore && releaseNotBefore.getTime() > releaseAt.getTime()) {
-        releaseAt = new Date(releaseNotBefore.getTime());
-        releaseAt.setDate(releaseAt.getDate() + AUTO_RELEASE_DAYS);
-      }
-
-      const { data: soldListing, error: listingErr } = await supabase
-        .from("listings")
-        .update({
-          status: "pending_confirmation",
-          // NULL on cards — see above.
-          release_not_before: releaseNotBefore ? releaseNotBefore.toISOString() : null,
-          buyer_id,
-          sale_price: salePrice,
-          platform_fee: platformFee,
-          seller_net: sellerNet,
-          stripe_payment_intent_id: piId,
-          sold_at: todayET(),
-          // Precise payment instant. sold_at is a date and cannot carry this.
-          // Read by evaluate_listing_risk() for INSTANT_CONFIRM / FAST_CLOSE.
-          paid_at: new Date().toISOString(),
-          // Persisted so the agreed date survives on the listing itself, not
-          // only in Stripe metadata. guard_listings_handover() takes over from
-          // here: once this row is pending_confirmation the date can be pushed
-          // later (a slipped handover) but never pulled earlier.
-          ...(handoverDate ? { handover_date: handoverDate } : {}),
-          auto_release_at: releaseAt.toISOString(),
-        })
-        .eq("id", listing_id)
-        .select("make, model, year, seller_id")
-        .single();
-
-      // The buyer has been charged. Anything that stops the listing from
-      // recording that is a retryable fault, not a finished job — return 500
-      // and let Stripe redeliver rather than emailing a human to go and fix
-      // the database by hand.
-      //
-      // No admin email on this path: Stripe retries several times over ~3
-      // days, and one alert per attempt is noise. If every attempt fails,
-      // Stripe's endpoint-failure notification is the thing that should reach
-      // you — confirm it's enabled in the dashboard.
-      if (listingErr) {
-        console.error("listings update failed:", listingErr.message, listing_id);
-        return jsonResponse({ error: "listings update failed", detail: listingErr.message }, 500);
+      // The buyer has been charged. A settlement failure is a retryable
+      // fault, not a finished job — return 500 and let Stripe redeliver
+      // rather than emailing a human to go fix the database by hand. No
+      // admin email on this path: Stripe retries several times over ~3 days,
+      // and one alert per attempt is noise. Stripe's own endpoint-failure
+      // notification is the signal that retries are being exhausted.
+      if (!settled.ok) {
+        return jsonResponse(settled.body, settled.status);
       }
 
       // Referral stays "pending" — it's marked "paid" and credited to the
       // promoter's balance in release-funds, same moment the seller is paid,
       // same as the existing confirmReceipt() behavior.
+      //
+      // WARNING FOR FUTURE ACH/WIRE WORK PRESERVED FROM THE PRE-EXTRACTION
+      // CODE: the handover-code email inside settleSale() must only ever run
+      // from a path that has confirmed money has actually settled
+      // (payment_status === "paid" for Checkout, or a wire's
+      // payment_intent.succeeded). Mailing it earlier would let a buyer take
+      // delivery of a car against a payment that can still fail.
+    }
 
-      const [{ data: buyerRow }, { data: sellerRow }] = await Promise.all([
-        supabase.from("users").select("name, email").eq("id", buyer_id).single(),
-        soldListing?.seller_id
-          ? supabase.from("users").select("name, email").eq("id", soldListing.seller_id).single()
-          : Promise.resolve({ data: null }),
-      ]);
-
-      const carLabel = soldListing
-        ? `${soldListing.year} ${soldListing.make} ${soldListing.model}`
-        : listing_id;
-
-      // Anything that needs a human eye goes in the subject line, in priority
-      // order — a failed row update outranks a clamped net outranks an
-      // estimated fee.
-      const subject = netWasClamped
-        ? `⚠️ Sale recorded with $0 seller net — ${carLabel}`
-        : feeWasEstimated
-        ? `⚠️ Sale recorded with ESTIMATED processing fee — ${carLabel}`
-        : `New car sale — ${carLabel} (${money(salePrice)})`;
-
-      const footnote = netWasClamped
-        ? `Fees exceeded the sale price, so seller net was clamped to $0. Check this before releasing.`
-        : feeWasEstimated
-        ? `Stripe's balance_transaction wasn't readable, so the processing fee above is an ESTIMATE. Compare it to the real fee on the payment in Stripe and adjust seller_net before release if it's off.`
-        : handoverDate
-        ? `Handover is agreed for ${handoverDate}. Funds do NOT release on a timer — the buyer confirms receipt, or the seller enters the buyer's handover code. If neither happens by ${releaseAt.toISOString().slice(0, 10)}, the sale is escalated to you for manual review.`
-        : `Funds do NOT release on a timer — the buyer confirms receipt, or the seller enters the buyer's handover code. If neither happens by ${releaseAt.toISOString().slice(0, 10)}, the sale is escalated to you for manual review.`;
-
-      notifyAdmin({
-        subject,
-        html: alertHtml(
-          "New sale — payment received, awaiting buyer confirmation",
-          [
-            ["Vehicle", carLabel],
-            ...(handoverDate
-              ? [["Handover agreed for", handoverDate] as [string, unknown]]
-              : []),
-            ["Escalates to review", releaseAt.toISOString().slice(0, 10)],
-            ["Sale price", money(salePrice)],
-            ["Platform fee (1%)", money(platformFee)],
-            [
-              feeWasEstimated ? "Stripe processing (ESTIMATED)" : "Stripe processing",
-              money(stripeFee),
-            ],
-            ...(promoterFeeReserved
-              ? [["Promoter reserved", money(promoterFeeReserved)] as [string, unknown]]
-              : []),
-            ["Seller net", money(sellerNet)],
-            ["Buyer", `${buyerRow?.name ?? "—"} (${buyerRow?.email ?? "—"})`],
-            ["Seller", `${sellerRow?.name ?? "—"} (${sellerRow?.email ?? "—"})`],
-            ["Review deadline", todayET(releaseAt)],
-            ["Listing ID", listing_id],
-          ],
-          footnote,
-        ),
+    // ── WIRE / ACH-CREDIT SETTLED (Customer Balance) ─────────────────────────
+    // Domestic wire rail, PHASE2_WIRE_RAIL_SPEC.md §5.2. A customer_balance
+    // PaymentIntent (created by create-wire-session — not built this session;
+    // this handler is dormant until that function exists and the payment
+    // method is turned on) fires payment_intent.succeeded when the buyer's
+    // bank transfer lands, with no Checkout Session anywhere in the flow.
+    //
+    // Every other PaymentIntent also fires this same event (a card or ACH
+    // Checkout creates one under the hood) — those are already fully handled
+    // above via checkout.session.completed / async_payment_succeeded and must
+    // NOT be re-settled here. Guarded on metadata.rail === "wire", stamped by
+    // create-wire-session, rather than trying to infer "wire-ness" from the
+    // PaymentIntent's shape.
+    //
+    // Retrieved fresh from Stripe's API (not read off event.data.object)
+    // for the same reason every other handler in this file does that: works
+    // whether Stripe sends a thin or full event payload, and the expand here
+    // costs nothing extra — it's the same API call, not a second one.
+    if (event.type === "payment_intent.succeeded") {
+      const eventPiId = (event.data.object as { id: string }).id;
+      const pi = await stripe.paymentIntents.retrieve(eventPiId, {
+        expand: ["latest_charge.balance_transaction"],
       });
+      const meta = (pi.metadata ?? {}) as Record<string, string>;
 
-      // ── Buyer's handover code + seller's heads-up ────────────────────────
-      // The code is created by trg_issue_handover_code, which fires on the
-      // status flip to pending_confirmation in the UPDATE above — so it exists
-      // by the time this SELECT runs. Read it back rather than generating one
-      // here: two sources of truth for a release credential is how you end up
-      // with a buyer holding a code the seller's entry will never match.
-      //
-      // Sent even though the app shows the code too. Email is the buyer's copy
-      // of record at a parking lot with no signal, which is exactly where this
-      // gets used.
-      //
-      // WARNING FOR THE ACH WORK: this block must move to
-      // checkout.session.async_payment_succeeded before us_bank_account is
-      // added to payment_method_types. On a delayed-notification method,
-      // checkout.session.completed fires days before the money settles, and
-      // mailing the code here would let a buyer take delivery of a car against
-      // a payment that can still fail.
-      {
-        const { data: handover } = await supabase
-          .from("escrow_handovers")
-          .select("code")
-          .eq("listing_id", listing_id)
-          .maybeSingle();
+      if (meta.rail === "wire" && meta.listing_id) {
+        const listing_id = meta.listing_id;
+        const buyer_id = meta.buyer_id;
 
-        if (handover?.code && buyerRow?.email) {
-          await sendEmail({
-            to: buyerRow.email,
-            subject: `Your handover code for the ${carLabel}`,
-            html: `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;color:#0f172a;max-width:520px;">
-              <h2 style="font-size:18px;margin:0 0 14px;">Payment received — your money is held safely</h2>
-              <p style="font-size:15px;line-height:1.55;">We're holding your ${money(salePrice)} for the <b>${carLabel}</b>. The seller has not been paid.</p>
-              <div style="background:#FFF8E7;border:1px solid #FFB020;border-radius:8px;padding:16px;margin:20px 0;">
-                <div style="font-size:12px;font-weight:700;color:#7c5000;letter-spacing:0.5px;">YOUR HANDOVER CODE</div>
-                <div style="font-size:32px;font-family:monospace;letter-spacing:8px;font-weight:700;margin:8px 0;">${handover.code}</div>
-                <div style="font-size:14px;color:#7c5000;line-height:1.6;">
-                  Give this to the seller <b>only after</b> the car and the signed title are in your hands. The moment they enter it, the money is theirs.<br><br>
-                  <b>Don't text or email it. Read it out in person.</b>
-                </div>
-              </div>
-              <p style="font-size:14px;line-height:1.55;color:#374151;">If something isn't right, don't give out the code — report a problem at <a href="https://drivelink.deals" style="color:#B87300;">drivelink.deals</a> instead and we'll hold the funds while we look into it.</p>
-              <p style="font-size:14px;line-height:1.55;color:#374151;"><b>DriveLink will never ask you for this code.</b> Nobody from DriveLink will call, email or message you to request it. If someone does, it isn't us.</p>
-              <p style="font-size:12px;color:#6b7280;margin-top:24px;">DriveLink · drivelink.deals</p>
-            </div>`,
+        // ── Underpayment / overpayment tolerance, §5.4 ──────────────────────
+        // Cards and ACH debit always charge exactly the agreed total because
+        // Stripe enforces the charged amount. A wire doesn't: an
+        // intermediary bank can clip a fee, or the buyer can fat-finger the
+        // amount. Compare what was agreed (metadata) against what actually
+        // landed (pi.amount_received).
+        const agreedPriceMeta = Number(meta.agreed_price);
+        const surchargeMeta = Number(meta.promoter_surcharge);
+        const agreedPrice = Number.isFinite(agreedPriceMeta) && agreedPriceMeta > 0 ? agreedPriceMeta : 0;
+        const surcharge = Number.isFinite(surchargeMeta) && surchargeMeta > 0 ? surchargeMeta : 0;
+        const expected = agreedPrice + surcharge;
+        const received = pi.amount_received ?? 0;
+        const diff = received - expected;
+
+        if (diff < -WIRE_AMOUNT_TOLERANCE_CENTS) {
+          // More than $5 short: do NOT settle. Leave the listing in
+          // awaiting_payment and flag for a human — same posture as a
+          // clamped seller-net or an estimated fee already gets.
+          notifyAdmin({
+            subject: `⚠️ Wire underpaid — ${listing_id}`,
+            html: alertHtml(
+              "Wire payment received but underpaid by more than $5",
+              [
+                ["Listing ID", listing_id],
+                ["Buyer ID", buyer_id ?? "—"],
+                ["Expected", money(expected)],
+                ["Received", money(received)],
+                ["Shortfall", money(-diff)],
+                ["PaymentIntent", pi.id],
+              ],
+              "Listing left in awaiting_payment — this payment was NOT settled. Review manually before releasing anything; contact the buyer about the difference or refund/reconcile by hand.",
+            ),
           });
+          await claimEvent();
+          return jsonResponse({ received: true, wireUnderpaid: true });
         }
 
-        if (sellerRow?.email) {
-          await sendEmail({
-            to: sellerRow.email,
-            subject: `Payment received for your ${carLabel}`,
-            html: `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;color:#0f172a;max-width:520px;">
-              <h2 style="font-size:18px;margin:0 0 14px;">The buyer has paid — ${money(salePrice)} is in escrow</h2>
-              <p style="font-size:15px;line-height:1.55;">Your net proceeds of <b>${money(sellerNet)}</b> are held by DriveLink and released when the handover is confirmed.</p>
-              <p style="font-size:15px;line-height:1.55;">The buyer has a <b>6-digit handover code</b>. Once they have the car and the signed title, ask them for it and enter it on your listing — that releases your funds straight away. They can also confirm receipt themselves in the app.</p>
-              <p style="font-size:14px;line-height:1.55;color:#374151;">Nothing releases automatically. If neither happens, we'll check in with both of you.</p>
-              ${releaseNotBefore
-                ? `<div style="background:#FFF8E7;border-left:3px solid #FFB020;padding:12px 14px;margin:18px 0;font-size:14px;line-height:1.55;">
-                    This buyer paid by bank transfer, which has now cleared. Bank payments carry a short settlement hold, so funds can be released from <b>${releaseNotBefore.toISOString().slice(0, 10)}</b>. You can hand over the vehicle before then — the code just won't pay out until that date.
-                  </div>`
-                : ""}
-              <p style="font-size:12px;color:#6b7280;margin-top:24px;">DriveLink · drivelink.deals</p>
-            </div>`,
+        if (diff > WIRE_AMOUNT_TOLERANCE_CENTS) {
+          // More than $5 over: do NOT auto-refund (Stripe can't reverse an
+          // incoming wire the way it reverses a card charge, and this is a
+          // documented non-goal). Settle at the agreed price and flag for
+          // manual buyer contact about the difference.
+          notifyAdmin({
+            subject: `⚠️ Wire overpaid — ${listing_id}`,
+            html: alertHtml(
+              "Wire payment received, overpaid by more than $5",
+              [
+                ["Listing ID", listing_id],
+                ["Buyer ID", buyer_id ?? "—"],
+                ["Expected", money(expected)],
+                ["Received", money(received)],
+                ["Overage", money(diff)],
+                ["PaymentIntent", pi.id],
+              ],
+              "Settling at the agreed price. DriveLink does not auto-refund overpayments — contact the buyer about the difference by hand.",
+            ),
           });
+          // Fall through and settle at `expected`.
         }
+
+        // diff within ±$5 (or over, handled above): settle at `expected`.
+        // Confirmed with Lampros 2026-08-28: DriveLink's platform fee
+        // absorbs an under-$5 shortfall — seller_net is computed from
+        // `expected` as if the full amount arrived, never reduced for a
+        // few-dollar clip. settleSale() derives salePrice from
+        // meta.agreed_price directly, so passing chargedTotalCents: expected
+        // only affects the fee-fallback rate-card estimate, matching intent.
+        const stripeFeeCents = stripeFeeCentsFrom(pi);
+
+        const settled = await settleSale(supabase, {
+          listingId: listing_id,
+          buyerId: buyer_id,
+          piId: pi.id,
+          meta,
+          rail: "wire",
+          stripeFeeCents,
+          chargedTotalCents: expected,
+        });
+
+        if (!settled.ok) {
+          return jsonResponse(settled.body, settled.status);
+        }
+
+        await claimEvent();
+        return jsonResponse({ received: true });
       }
+
+      // Not a wire PaymentIntent (or missing listing_id) — nothing to do
+      // here. Falls through to the bottom claimEvent()/return: Checkout's
+      // own PaymentIntents already settled via checkout.session.completed /
+      // async_payment_succeeded above, and this event needs no extra work.
     }
 
     // ── ACH BOUNCED ────────────────────────────────────────────────────────

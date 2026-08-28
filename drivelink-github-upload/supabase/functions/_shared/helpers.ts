@@ -383,6 +383,38 @@ export const AUTO_RELEASE_DAYS = 7;
 // than being buried in one edge function.
 export const ACH_MIN_CENTS = 1_500_000;
 
+// Business days before an unclaimed wire (Customer Balance / us_bank_transfer)
+// abandons: expire-stale-wires reopens the listing and alerts admin at this
+// point. Ship at 10 (not the 5 first proposed) — a too-long timeout only
+// costs a locked listing a few extra days, a too-short one means chasing a
+// wire that was always going to clear. 10 gives real data on actual wire
+// behavior before tightening. Named here rather than a literal inside
+// expire-stale-wires so create-wire-session's buyer-facing copy ("arrives
+// within N business days") and the cron's actual timeout can't drift apart —
+// see PHASE2_WIRE_RAIL_SPEC.md §8/§9.
+export const WIRE_ABANDONMENT_TIMEOUT_BUSINESS_DAYS = 10;
+
+// Weekends only — US bank holidays are not modelled. The consequence of that
+// simplification is a buffer that is occasionally a day short of intent,
+// never a payout before settlement (stripe-webhook) or a reminder/timeout
+// firing early (expire-stale-wires), so it fails in the safe direction in
+// both callers.
+//
+// Moved here from a local function in stripe-webhook/index.ts (2026-08-28,
+// Phase 2 wire rail) so expire-stale-wires can use the exact same
+// arithmetic for its day-2 reminder and its timeout — two copies of this is
+// exactly the kind of drift the settleReferral comment above warns about.
+export function addBusinessDays(from: Date, days: number): Date {
+  const d = new Date(from.getTime());
+  let remaining = days;
+  while (remaining > 0) {
+    d.setUTCDate(d.getUTCDate() + 1);
+    const day = d.getUTCDay();
+    if (day !== 0 && day !== 6) remaining--;
+  }
+  return d;
+}
+
 // ── Completion emails ────────────────────────────────────────────────────────
 //
 // The last word to a human in the entire flow. Until 2026-08-07 there wasn't
