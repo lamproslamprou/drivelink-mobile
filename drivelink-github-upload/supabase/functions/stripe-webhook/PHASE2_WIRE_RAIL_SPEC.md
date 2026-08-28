@@ -1,7 +1,8 @@
 # Phase 2 — Domestic Wire Rail
 
 Status: **spec only, not built.** Written to hand to a build session.
-Scoped: 2026-08-25 (decisions) / 2026-08-27 (this document).
+Scoped: 2026-08-25 (decisions) / 2026-08-27 (this document) / 2026-08-28
+(open questions below resolved with Lampros — see each section).
 Against: `supabase/functions/stripe-webhook/index.ts` as of this date (Task 1's
 `ACH_MIN_CENTS` move and TDZ fix already applied — see that commit).
 
@@ -30,25 +31,24 @@ not `checkout.session.completed`. **No fix needed here.** This spec adds a
 third path into that same already-correct anchoring logic; it does not change
 how the anchor is computed.
 
-## 3. Payment mechanism (assumption — confirm before building)
+## 3. Payment mechanism — confirmed: Stripe Customer Balance
 
-The Aug 25 decision describes a funding-instructions screen showing
-"routing, virtual account number, reference code, exact amount" — that is a
-precise match for Stripe's **Customer Balance** payment method
-(`payment_method_types: ["customer_balance"]`,
+**Confirmed with Lampros 2026-08-28.** The Aug 25 decision describes a
+funding-instructions screen showing "routing, virtual account number,
+reference code, exact amount" — a precise match for Stripe's **Customer
+Balance** payment method (`payment_method_types: ["customer_balance"]`,
 `payment_method_options.customer_balance.funding_type: "us_bank_transfer"`).
 Creating a PaymentIntent this way and confirming it returns
 `next_action.display_bank_transfer_instructions`, which carries exactly
 those four fields per Stripe's API. When the buyer's bank sends the wire or
 ACH credit into that virtual account, Stripe fires `payment_intent.succeeded`
 on the underlying PaymentIntent — no Checkout Session is involved at any
-point in this flow.
+point in this flow. It's also USD/US-bank-transfer only, which lines up
+exactly with the domestic-only, no-SWIFT constraint from §1 — not a
+coincidence; that's part of why this is the right fit rather than Stripe
+Treasury or a third-party BaaS.
 
-This spec is written against that mechanism. **If a different rail is
-intended** (Stripe Treasury Financial Accounts + `ReceivedCredit` objects, or
-a third-party BaaS), the trigger event name in §5.2 changes but the
-settlement logic, idempotency approach, and data model below do not — confirm
-this assumption in the build session before writing webhook code.
+Everything below is written against this mechanism.
 
 ## 4. New function: `create-wire-session`
 
@@ -69,13 +69,17 @@ shared pieces (promoter attribution lookup, handover date parsing) into
 logic already drifted once between `release-funds` and `auto-release-cron`
 (see the `settleReferral` comment in `helpers.ts` for that history).
 
-Gating: **high-value only**, per the decision. The threshold isn't specified
-in the Aug 25 notes — open question, see §9. Recommend gating on the same
+Gating: **high-value only**, per the decision. **Confirmed with Lampros
+2026-08-28: shares `ACH_MIN_CENTS` ($15k)** rather than getting its own
+constant. (Revised from this spec's first draft, which argued for a lower
+wire-specific floor on the theory that wires carry none of ACH debit's
+60-day return risk — but that risk is what gates *identity verification*,
+not what sets the dollar threshold itself; the threshold is a cost/friction
+trade-off, and arranging a wire is if anything more friction for the buyer
+than linking a bank account for ACH debit through Checkout. No reason to
+offer wires below the point ACH debit already covers.) Gate on the same
 `chargedTotal` figure used for `achEligible` (price + any buyer-paid
-surcharge), for consistency, but confirm whether wire eligibility should
-share `ACH_MIN_CENTS` or get its own constant (a wire makes sense at a lower
-floor than ACH debit, since it carries none of the 60-day return risk that
-justifies ACH's floor).
+surcharge), for consistency.
 
 What it does, on top of the shared lookups:
 
@@ -242,8 +246,8 @@ diff = received - expected
 ```
 
 - `diff >= -500` (received is expected, or up to $5 under): proceed with
-  settlement using `expected` as `salePrice` — the shortfall is absorbed
-  (confirm by whom — see open question below) rather than blocking the sale
+  settlement using `expected` as `salePrice` — the shortfall is absorbed by
+  DriveLink's platform fee (confirmed below) rather than blocking the sale
   over a few dollars an intermediary bank clipped.
 - `diff < -500` (more than $5 short): **do not** run `settleSale()`. Flag for
   manual review the same way a clamped seller-net or estimated fee already
@@ -257,13 +261,9 @@ diff = received - expected
   arrived) and raise the same kind of admin alert for manual contact with the
   buyer about the difference.
 
-**Open question for the build session:** "under, absorbed" doesn't specify
-who absorbs it. Two readings: (a) `seller_net` is computed from `expected`
-as if the full amount arrived, so DriveLink's platform fee absorbs the
-shortfall; or (b) `seller_net` is reduced by `diff`, so the seller absorbs
-it. (a) matches "absorbed" more literally (nobody's payout changes) and
-matches the spirit of a $5 tolerance existing so nobody has to think about
-it — recommend (a) unless there's a reason to shift it to the seller.
+**Confirmed with Lampros 2026-08-28:** DriveLink's platform fee absorbs the
+shortfall — `seller_net` is computed from `expected` as if the full amount
+arrived. The seller's payout is never reduced by an under-$5 shortfall.
 
 ### 5.5 No line items
 
@@ -296,13 +296,11 @@ schedule as the existing stale-listing sweepers:
 - **At the timeout** (§9): do NOT silently expire. Per the decision, this
   must "alert rather than fire silently" — `notifyAdmin` with the listing,
   buyer, seller, and elapsed time, for a human to actually chase before
-  anything closes out. Whether the listing auto-reopens to `active` at
-  timeout (mirroring what `checkout.session.async_payment_failed` does for a
-  bounced ACH debit) or stays locked pending that manual review is not
-  specified in the Aug 25 notes — recommend auto-reopening (consistent with
-  the ACH-bounce precedent, and a car sitting locked forever is explicitly
-  the failure being designed against) while still sending the alert, rather
-  than choosing between "reopen" and "alert" — do both.
+  anything closes out. **Confirmed with Lampros 2026-08-28: auto-reopen +
+  alert, both** — the listing reopens to `active` automatically (mirroring
+  what `checkout.session.async_payment_failed` does for a bounced ACH debit)
+  and the admin alert still fires. A car does not sit locked forever, and
+  a human still finds out.
 
 ## 7. Data model additions
 
@@ -334,39 +332,36 @@ will catch.
 
 ## 8. New constant
 
-`ACH_MIN_CENTS` now lives in `_shared/helpers.ts` (Task 1). If wire
-eligibility gets its own floor rather than sharing `ACH_MIN_CENTS` (see open
-question, §9), add it there too, following the same pattern —
-`export const WIRE_MIN_CENTS = ...` next to `ACH_MIN_CENTS` and
-`AUTO_RELEASE_DAYS`. The abandonment timeout (§9) should also be a named
-constant in `helpers.ts` — `WIRE_ABANDONMENT_TIMEOUT_BUSINESS_DAYS` — rather
-than a literal inside `expire-stale-wires`, so it can be tightened later
-(per §9) without hunting through a cron function for a magic number, and so
-`create-wire-session`'s buyer-facing copy ("your wire should arrive within N
-business days") and the cron's actual timeout can't drift apart the way the
-Aug 25 notes flagged as a general risk pattern in this codebase (see
-`settleReferral`'s comment on `release-funds`/`confirm-handover` drifting).
+`ACH_MIN_CENTS` now lives in `_shared/helpers.ts` (Task 1) and is reused
+as-is for wire gating (§4) — no `WIRE_MIN_CENTS` needed. The abandonment
+timeout (§9) should be its own named constant in `helpers.ts` —
+`WIRE_ABANDONMENT_TIMEOUT_BUSINESS_DAYS` — rather than a literal inside
+`expire-stale-wires`, so it can be tightened later (per §9) without hunting
+through a cron function for a magic number, and so `create-wire-session`'s
+buyer-facing copy ("your wire should arrive within N business days") and the
+cron's actual timeout can't drift apart the way the Aug 25 notes flagged as a
+general risk pattern in this codebase (see `settleReferral`'s comment on
+`release-funds`/`confirm-handover` drifting).
 
-## 9. Open decision: timeout length
+## 9. Timeout length — confirmed: 10 business days
 
-Aug 25 agreed on 5 business days, with a note to consider shipping at 10 and
-tightening after seeing real wire behavior. Recommend shipping at **10** —
-consistent with the "consider" framing, and the cost of a too-long timeout
-(a locked listing for a few extra days) is smaller than the cost of a
-too-short one (chasing a legitimate slow wire, or reopening a listing whose
-payment then arrives late and has to be manually reconciled back in). Make it
-the `WIRE_ABANDONMENT_TIMEOUT_BUSINESS_DAYS` constant from §8 either way, so
-tightening later is a one-line change.
+**Confirmed with Lampros 2026-08-28.** Aug 25 agreed on 5 business days as a
+baseline, with a note to consider shipping at 10 and tightening after seeing
+real wire behavior — ship at **10**. The failure modes aren't symmetric: a
+too-long timeout costs a locked listing for a few extra days; a too-short one
+means chasing a wire that was always going to clear, or reopening a listing
+right as a late payment lands and having to manually reconcile it back in.
+10 gives real data on actual wire behavior before tightening. Ship it as the
+`WIRE_ABANDONMENT_TIMEOUT_BUSINESS_DAYS` constant from §8, so tightening
+later is a one-line change.
 
 ## 10. Rollout / testing checklist
 
-- [ ] Confirm the Customer Balance mechanism assumption (§3) before writing
-      any code.
-- [ ] Confirm wire eligibility threshold and whether it shares
-      `ACH_MIN_CENTS` (§4, §8).
-- [ ] Confirm underpayment absorption lands on platform fee vs. seller net
-      (§5.4).
-- [ ] Confirm auto-reopen-at-timeout vs. stay-locked (§6).
+All four open questions from the first draft (mechanism, threshold,
+underpayment absorption, timeout behavior) were confirmed with Lampros
+2026-08-28 — see §3, §4, §5.4, §6. What's left is build-time verification,
+not decisions:
+
 - [ ] `settleSale()` extraction: run existing card and ACH-debit flows
       through it post-refactor before adding the wire path — this is a
       refactor of already-shipped, real-money code, and needs to be proven
