@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<script src="/guides/lang.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Craigslist Car Scams: The Ones That Still Work</title>
 <meta name="description" content="Craigslist vehicle scams have barely changed in a decade because they keep working. The main variants, the specific tells, and what to do differently on a platform with no profiles and no accountability.">
@@ -17,6 +18,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/guides/lang.css">
 
 <style>
   :root{
@@ -30,6 +32,7 @@
   .wrap{max-width:720px;margin:0 auto;padding:0 20px}
   header.site{border-bottom:1px solid var(--line);padding:18px 0}
   header.site .wrap{display:flex;align-items:center;justify-content:space-between;gap:16px}
+  header.site nav{display:flex;align-items:center}
   .brand{font-weight:700;font-size:19px;color:var(--ink);text-decoration:none;letter-spacing:-.01em}
   .brand span{color:var(--blue)}
   header.site nav a{color:var(--muted);text-decoration:none;font-size:14px;font-weight:500;margin-left:18px}
@@ -154,15 +157,28 @@
   <div class="wrap">
     <a class="brand" href="https://drivelink.deals">Drive<span>Link</span></a>
     <nav>
-      <a href="https://drivelink.deals/browse">Browse</a>
-      <a href="https://drivelink.deals/start-deal">Secure a deal</a>
-      <a href="https://drivelink.deals/safety">Is this safe?</a>
+      <div data-lang="en">
+        <a href="https://drivelink.deals/browse">Browse</a>
+        <a href="https://drivelink.deals/start-deal">Secure a deal</a>
+        <a href="https://drivelink.deals/safety">Is this safe?</a>
+      </div>
+      <div data-lang="es">
+        <a href="https://drivelink.deals/browse">Explorar</a>
+        <a href="https://drivelink.deals/start-deal">Asegurar un trato</a>
+        <a href="https://drivelink.deals/safety">¿Es esto seguro?</a>
+      </div>
+      <div class="lang-toggle" data-lang-toggle role="group" aria-label="Language">
+        <button type="button" data-lang-btn="en">EN</button>
+        <button type="button" data-lang-btn="es">ES</button>
+      </div>
     </nav>
   </div>
 </header>
 
 <main>
 <article class="wrap">
+
+<div data-lang="en">
 
   <p class="eyebrow">Scams</p>
 
@@ -258,13 +274,119 @@
     </ul>
   </div>
 
+</div>
+
+<div data-lang="es">
+
+  <p class="eyebrow">Estafas</p>
+
+  <h1>Estafas de autos en Craigslist y cómo evitarlas</h1>
+
+  <p class="standfirst">Craigslist no tiene perfiles, ni calificaciones, ni historial de transacciones — lo cual lo hace excelente para encontrar autos y <strong>muy difícil distinguir a un vendedor real de uno fabricado hasta que interactúas con él.</strong></p>
+
+  <p class="byline">Última actualización: 17 de agosto de 2026</p>
+
+
+  <p>Las estafas de abajo llevan más de una década funcionando con muy poca variación. Persisten porque la plataforma no tiene ningún mecanismo para detenerlas y porque son baratas de ejecutar a gran volumen.</p>
+
+  <div class="scam">
+    <h3>Falsa "protección de compra" de Craigslist</h3>
+    <p>La estafa más característica de Craigslist. Después de que preguntas, recibes un mensaje con apariencia oficial — logos de Craigslist, un número de referencia, a veces la afirmación de que la transacción está garantizada o de que eBay la está administrando. Te dicen que envíes el pago a Craigslist, o a un agente de garantía (escrow), y que el auto será enviado con un período de inspección.</p>
+    <p class="tell"><b>La señal:</b> Craigslist no tiene ninguna protección de compra, ninguna garantía (escrow), ninguna garantía para el comprador, y no administra transacciones. Cualquier mensaje que diga lo contrario es fraudulento, sin excepción.</p>
+  </div>
+
+  <div class="scam">
+    <h3>El vendedor ausente</h3>
+    <p>Con un precio bastante por debajo del mercado. El vendedor es militar y está en despliegue, se está mudando por trabajo, o está gestionando un patrimonio. El auto ya está con un transportista. Envías el pago y llega con una ventana de devolución. No hay ningún auto; las fotos vienen de un anuncio que se vendió en otro lugar hace meses.</p>
+    <p class="tell"><b>La señal:</b> una razón por la que no se puede ver el auto, más urgencia sobre el pago.</p>
+  </div>
+
+  <div class="scam">
+    <h3>Lavado de título y de autos declarados pérdida total</h3>
+    <p>Un auto real con un historial realmente malo — inundación, pérdida total, o declarado como chatarra — movido a través de estados con reglas de marcado más débiles hasta que la marca ya no aparece en los documentos. El vendedor suele ser un "curbstoner", un revendedor sin licencia que se hace pasar por dueño particular para evitar obligaciones de divulgación.</p>
+    <p class="tell"><b>La señal:</b> un historial de registro que salta entre varios estados en poco tiempo, un vendedor con varios vehículos en venta, o un nombre en el título que no es el suyo. Compra el reporte de historial tú mismo.</p>
+  </div>
+
+  <div class="scam">
+    <h3>El enlace de garantía (escrow)</h3>
+    <p>Planteas dudas sobre el pago. El vendedor propone una garantía (escrow) y envía un enlace. El sitio es convincente, la transacción aparece en tu cuenta, y la factura especifica una transferencia bancaria. El dominio tiene semanas de antigüedad y el sitio le pertenece al vendedor.</p>
+    <p class="tell"><b>La señal:</b> el enlace vino del vendedor. Esa es toda la prueba que necesitas.</p>
+  </div>
+
+  <div class="scam">
+    <h3>El sobrepago</h3>
+    <p>Apunta a los vendedores. Un comprador envía un cheque por más del precio y pide que le devuelvas la diferencia, usualmente a un transportista. El cheque se revierte; el dinero que enviaste no.</p>
+    <p class="tell"><b>La señal:</b> cualquier sobrepago, cualquier solicitud de reenviar fondos.</p>
+  </div>
+
+  <div class="scam">
+    <h3>El anuncio señuelo</h3>
+    <p>Un auto inusualmente bueno a un precio inusualmente bueno. Ya se vendió, pero el "vendedor" tiene otro, o un colega lo tiene, o hay un vehículo similar en un lote cercano. El anuncio existe para generar contactos para algo completamente distinto — a veces un concesionario, a veces algo peor.</p>
+    <p class="tell"><b>La señal:</b> el auto específico nunca está disponible, pero siempre hay una alternativa.</p>
+  </div>
+
+  <h2>Cómo leer un anuncio de Craigslist</h2>
+
+  <p>Como no hay ningún perfil que revisar, el texto del anuncio es lo único que tienes:</p>
+
+  <ul>
+    <li><strong>Haz una búsqueda inversa de las fotos.</strong> Si aparecen en anuncios de otras ciudades, están robadas.</li>
+    <li><strong>Fíjate en fotos de stock o de estudio</strong> en un anuncio particular. Los vendedores particulares fotografían los autos en su entrada de casa.</li>
+    <li><strong>Presta atención a los datos de contacto escritos con letras</strong> — "cinco cinco cinco" en vez de dígitos — una técnica para evadir los filtros de la plataforma.</li>
+    <li><strong>Fíjate en texto que parece escrito en otro lugar</strong>, en particular descripciones de estilo concesionario o números de inventario en una venta supuestamente particular.</li>
+    <li><strong>Compáralo con el precio de mercado.</strong> Significativamente por debajo del mercado sin explicación es la señal individual más confiable que existe.</li>
+  </ul>
+
+  <div class="callout">
+    <span class="label">Las dos reglas</span>
+    <p>Ves el auto en persona antes de que se mueva cualquier dinero, y nunca aceptas un método de pago elegido por la otra parte porque no se puede revertir.</p>
+    <p>Casi todas las estafas de esta página requieren que rompas una de esas dos reglas.</p>
+  </div>
+
+  <h2>Cómo reunirse de forma segura</h2>
+
+  <ul>
+    <li>De día, en un lugar público, idealmente una zona de intercambio seguro de una estación de policía — muchos departamentos tienen zonas señalizadas</li>
+    <li>Lleva a alguien contigo</li>
+    <li>Dile a otra persona a dónde vas y cuándo esperas volver</li>
+    <li>No lleves una gran cantidad de efectivo a un primer encuentro; completa el pago en un banco</li>
+    <li>Fotografía el título y la identificación del vendedor en el encuentro, y verifica que los nombres coincidan</li>
+    <li>Si algo se siente mal, vete. Habrá otro auto.</li>
+  </ul>
+
+
+  <div class="product">
+    <h2>Dónde encaja DriveLink</h2>
+    <p>DriveLink es un mercado para ventas privadas de vehículos con garantía (escrow) en cada trato — lo cual resuelve lo que Craigslist no puede, ya que no hay forma de verificar a la persona del otro lado.</p>
+    <p>Explora lo que está publicado con nosotros, o trae un auto que encontraste en Craigslist y usa nuestro servicio solo para el pago.</p>
+    <p><a class="cta" href="https://drivelink.deals/start-deal">Asegurar un trato</a></p>
+  </div>
+
+  <div class="related">
+    <h2>Guías relacionadas</h2>
+    <ul>
+      <li><a href="/guides/buy-car-out-of-state-private-seller">Cómo comprar de forma segura un auto de un vendedor particular fuera de tu estado</a></li>
+      <li><a href="/guides/facebook-marketplace-car-scams">Estafas de autos en Facebook Marketplace y cómo funcionan</a></li>
+      <li><a href="/guides/how-car-escrow-works">Cómo funciona la garantía (escrow) para autos, y cómo funcionan los sitios de garantía falsos</a></li>
+      <li><a href="/guides/cashiers-check-fraud-selling-car">Fraude con cheques de caja al vender un auto</a></li>
+    </ul>
+  </div>
+
+</div>
+
 </article>
 </main>
 
 <footer class="site">
   <div class="wrap">
-    <p>This guide is general information about buying and selling vehicles privately, not legal or financial advice. If you have lost money, contact your bank and law enforcement first.</p>
-    <p><a href="https://drivelink.deals">DriveLink</a> &nbsp;&middot;&nbsp; <a href="https://drivelink.deals/safety">Is this safe?</a> &nbsp;&middot;&nbsp; <a href="mailto:support@drivelink.deals">support@drivelink.deals</a></p>
+    <div data-lang="en">
+      <p>This guide is general information about buying and selling vehicles privately, not legal or financial advice. If you have lost money, contact your bank and law enforcement first.</p>
+      <p><a href="https://drivelink.deals">DriveLink</a> &nbsp;&middot;&nbsp; <a href="https://drivelink.deals/safety">Is this safe?</a> &nbsp;&middot;&nbsp; <a href="mailto:support@drivelink.deals">support@drivelink.deals</a></p>
+    </div>
+    <div data-lang="es">
+      <p>Esta guía es información general sobre comprar y vender vehículos de forma privada, no es asesoría legal ni financiera. Si perdiste dinero, contacta primero a tu banco y a las autoridades.</p>
+      <p><a href="https://drivelink.deals">DriveLink</a> &nbsp;&middot;&nbsp; <a href="https://drivelink.deals/safety">¿Es esto seguro?</a> &nbsp;&middot;&nbsp; <a href="mailto:support@drivelink.deals">support@drivelink.deals</a></p>
+    </div>
   </div>
 </footer>
 

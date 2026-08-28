@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<script src="/guides/lang.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Is DriveLink Legit? How to Check Us Out Before You Send Money</title>
 <meta name="description" content="A straight answer about who DriveLink is, how the money is actually held, what we cannot do, and how to verify any marketplace or escrow service independently — including this one.">
@@ -17,6 +18,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/guides/lang.css">
 
 <style>
   :root{
@@ -30,6 +32,7 @@
   .wrap{max-width:720px;margin:0 auto;padding:0 20px}
   header.site{border-bottom:1px solid var(--line);padding:18px 0}
   header.site .wrap{display:flex;align-items:center;justify-content:space-between;gap:16px}
+  header.site nav{display:flex;align-items:center}
   .brand{font-weight:700;font-size:19px;color:var(--ink);text-decoration:none;letter-spacing:-.01em}
   .brand span{color:var(--blue)}
   header.site nav a{color:var(--muted);text-decoration:none;font-size:14px;font-weight:500;margin-left:18px}
@@ -85,7 +88,7 @@
   "@context": "https://schema.org",
   "@type": "Article",
   "headline": "Is DriveLink Legit? How to Check Us Out Before You Send Money",
-  "description": "A straight answer about who DriveLink is, how the money is actually held, what we cannot do, and how to verify any escrow service independently \u2014 including this one.",
+  "description": "A straight answer about who DriveLink is, how the money is actually held, what we cannot do, and how to verify any escrow service independently — including this one.",
   "datePublished": "2026-08-17",
   "dateModified": "2026-08-17",
   "inLanguage": "en",
@@ -154,15 +157,28 @@
   <div class="wrap">
     <a class="brand" href="https://drivelink.deals">Drive<span>Link</span></a>
     <nav>
-      <a href="https://drivelink.deals/browse">Browse</a>
-      <a href="https://drivelink.deals/start-deal">Secure a deal</a>
-      <a href="https://drivelink.deals/safety">Is this safe?</a>
+      <div data-lang="en">
+        <a href="https://drivelink.deals/browse">Browse</a>
+        <a href="https://drivelink.deals/start-deal">Secure a deal</a>
+        <a href="https://drivelink.deals/safety">Is this safe?</a>
+      </div>
+      <div data-lang="es">
+        <a href="https://drivelink.deals/browse">Explorar</a>
+        <a href="https://drivelink.deals/start-deal">Asegurar un trato</a>
+        <a href="https://drivelink.deals/safety">¿Es esto seguro?</a>
+      </div>
+      <div class="lang-toggle" data-lang-toggle role="group" aria-label="Language">
+        <button type="button" data-lang-btn="en">EN</button>
+        <button type="button" data-lang-btn="es">ES</button>
+      </div>
     </nav>
   </div>
 </header>
 
 <main>
 <article class="wrap">
+
+<div data-lang="en">
 
   <p class="eyebrow">About us</p>
 
@@ -253,13 +269,114 @@
     </ul>
   </div>
 
+</div>
+
+<div data-lang="es">
+
+  <p class="eyebrow">Sobre nosotros</p>
+
+  <h1>¿Es legítimo DriveLink?</h1>
+
+  <p class="standfirst">No deberías tomar nuestra palabra sin más, y esta página no te lo va a pedir. <strong>Aquí está quiénes somos, dónde está exactamente tu dinero, y cómo verificar todo esto de forma independiente.</strong></p>
+
+  <p class="byline">Última actualización: 17 de agosto de 2026</p>
+
+
+  <p>Si estás leyendo esto, probablemente alguien te sugirió usar DriveLink para un trato de auto, o nos encontraste mientras buscabas una forma de pagarlo de forma segura. De cualquier forma, estás por considerar enviar dinero a una empresa de la que no habías oído hablar esta mañana. Eso merece una respuesta real y no una página de marketing.</p>
+
+  <h2>Quiénes somos</h2>
+
+  <p>DriveLink LLC es una sociedad de responsabilidad limitada registrada en Nueva Jersey. Operamos un mercado para ventas privadas de vehículos con garantía (escrow) incorporada en cada trato. Puedes publicar un auto con nosotros, o traer un auto que encontraste en cualquier otro lugar y usar nuestro servicio solo para el pago. De cualquier forma, el mecanismo es el mismo: comprador y vendedor acuerdan un trato, nosotros retenemos el dinero, ocurre la entrega, y liberamos los fondos al vendedor.</p>
+
+  <p>Somos una empresa nueva, formada este año. No vamos a fingir una trayectoria que no tenemos, y deberías tomar eso en cuenta. Lo que podemos ofrecer en lugar de un historial largo es un mecanismo que es público, específico, y verificable.</p>
+
+  <h2>Dónde está realmente tu dinero</h2>
+
+  <p>Esta es la pregunta que importa y merece una respuesta directa.</p>
+
+  <ul>
+    <li><strong>Los pagos se procesan y se retienen a través de Stripe</strong>, un procesador de pagos regulado, no en una cuenta bancaria de DriveLink de la que podamos disponer.</li>
+    <li><strong>Al vendedor se le paga por transferencia</strong>, y esa transferencia se activa por una de dos cosas: que el comprador confirme que tiene el vehículo, o que el vendedor ingrese un código de entrega de seis dígitos que solo tiene el comprador.</li>
+    <li><strong>Nada se libera automáticamente si el comprador no responde.</strong> Si un comprador deja de responder, la transacción pasa a revisión manual en vez de pagarse por defecto.</li>
+    <li><strong>Las transacciones más grandes requieren verificación de identidad</strong> del comprador a través de Stripe Identity.</li>
+    <li><strong>Los pagos financiados por banco tienen una retención de liquidación</strong> antes de liberarse, porque un débito bancario se puede revertir durante un período después de que parece haberse acreditado.</li>
+  </ul>
+
+  <h2>Cómo verificarnos a nosotros — y a cualquier servicio de garantía</h2>
+
+  <p>Aplica todo esto con nosotros. Si fallamos en algo de esto, no nos uses.</p>
+
+  <ol>
+    <li><strong>¿Llegaste aquí por tu cuenta?</strong> Si alguien con quien estás negociando te envió un enlace a cualquier sitio de garantía, esa es la señal de advertencia más grande en las ventas privadas de vehículos. Escribe la dirección tú mismo. Si un vendedor te envió aquí, búscanos de forma independiente antes de hacer cualquier otra cosa.</li>
+    <li><strong>Verifica el registro de la empresa.</strong> Nueva Jersey publica una búsqueda de entidades comerciales. Busca el nombre tú mismo en vez de confiar en un número de registro que te demos nosotros.</li>
+    <li><strong>Verifica la antigüedad del dominio.</strong> Una búsqueda WHOIS muestra cuándo se registró un dominio. Los sitios de garantía falsos suelen tener semanas de antigüedad. El nuestro no es nuevo, pero verifícalo en vez de creerlo.</li>
+    <li><strong>Fíjate en cómo se reciben los pagos.</strong> Procesamos tarjetas y pagos bancarios a través de Stripe. <strong>Nunca te pediremos que transfieras fondos a una cuenta personal, y no aceptamos criptomonedas.</strong> Cualquier mensaje que diga ser nuestro y pida cualquiera de las dos cosas es fraudulento — repórtanoslo a support@drivelink.deals.</li>
+    <li><strong>Verifica que la tarifa esté indicada antes de comprometerte.</strong> La nuestra es 1% del precio de venta, indicada en el sitio y no revelada al final.</li>
+    <li><strong>Verifica que las condiciones de liberación estén por escrito.</strong> Las nuestras están en esta página y en nuestra página de seguridad. Un servicio que no te diga qué activa la liberación no es uno para usar.</li>
+  </ol>
+
+  <div class="callout">
+    <span class="label">Suplantación</span>
+    <p>Como los sitios de garantía falsos frecuentemente clonan sitios reales, confirma que el dominio en tu barra de direcciones diga exactamente <strong>drivelink.deals</strong>. Direcciones similares con un carácter extra, un guión, o una terminación distinta no somos nosotros. Solo enviamos correos desde ese dominio.</p>
+  </div>
+
+  <h2>Lo que no hacemos</h2>
+
+  <p>Ser claros sobre nuestros límites es parte de ser verificables:</p>
+
+  <ul>
+    <li><strong>No inspeccionamos vehículos.</strong> La garantía te protege de no recibir un auto. No te protege de recibir uno decepcionante. Paga por una inspección independiente previa a la compra.</li>
+    <li><strong>No auditamos títulos.</strong> No verificamos gravámenes, marcas del título, ni historial de propiedad. Compra tú mismo un reporte de historial del vehículo y verifica el título contra la identificación del vendedor en la entrega.</li>
+    <li><strong>No somos un banco</strong> y no prestamos, financiamos, ni aseguramos.</li>
+    <li><strong>No garantizamos que un precio de venta sea justo.</strong> Sí mostramos información de precios generada por IA para ayudarte a juzgar si un precio es razonable, pero es un dato para tu decisión, no una tasación ni una valoración. El juicio final es tuyo.</li>
+    <li><strong>No podemos recuperar dinero enviado fuera de nuestra plataforma.</strong> Si le transfieres fondos directamente a un vendedor, no tenemos visibilidad ni forma de ayudar.</li>
+  </ul>
+
+  <h2>Preguntas razonables para hacernos</h2>
+
+  <p>Escribe a <a href="mailto:support@drivelink.deals">support@drivelink.deals</a> y pregunta cualquier cosa de esta lista. Si somos evasivos sobre algo de esto, eso te dice algo.</p>
+
+  <ul>
+    <li>¿Quién retiene los fondos durante una transacción y bajo qué mecanismo?</li>
+    <li>¿Qué activa exactamente la liberación al vendedor?</li>
+    <li>¿Qué pasa si el comprador nunca confirma?</li>
+    <li>¿Qué pasa si el auto no es como se describió?</li>
+    <li>¿Cuál es el nombre de su entidad legal y en qué estado están registrados?</li>
+  </ul>
+
+
+  <div class="product">
+    <h2>Dónde encaja DriveLink</h2>
+    <p>DriveLink es un mercado para ventas privadas de vehículos con garantía (escrow) en cada trato. Puedes publicar un auto con nosotros gratis, o traer un auto que encontraste en cualquier lugar y usar nuestro servicio solo para el pago.</p>
+    <p>Si leíste hasta aquí y quieres continuar, un trato toma unos minutos para configurarse. Si todavía no estás seguro, no nos uses — enviar dinero a un servicio del que desconfías es exactamente el comportamiento del que depende toda esta categoría de fraude.</p>
+    <p><a class="cta" href="https://drivelink.deals/start-deal">Asegurar un trato</a></p>
+  </div>
+
+  <div class="related">
+    <h2>Guías relacionadas</h2>
+    <ul>
+      <li><a href="/guides/buy-car-out-of-state-private-seller">Cómo comprar de forma segura un auto de un vendedor particular fuera de tu estado</a></li>
+      <li><a href="/guides/facebook-marketplace-car-scams">Estafas de autos en Facebook Marketplace y cómo funcionan</a></li>
+      <li><a href="/guides/how-car-escrow-works">Cómo funciona la garantía (escrow) para autos, y cómo funcionan los sitios de garantía falsos</a></li>
+      <li><a href="/guides/cashiers-check-fraud-selling-car">Fraude con cheques de caja al vender un auto</a></li>
+    </ul>
+  </div>
+
+</div>
+
 </article>
 </main>
 
 <footer class="site">
   <div class="wrap">
-    <p>This guide is general information about buying and selling vehicles privately, not legal or financial advice. If you have lost money, contact your bank and law enforcement first.</p>
-    <p><a href="https://drivelink.deals">DriveLink</a> &nbsp;&middot;&nbsp; <a href="https://drivelink.deals/safety">Is this safe?</a> &nbsp;&middot;&nbsp; <a href="mailto:support@drivelink.deals">support@drivelink.deals</a></p>
+    <div data-lang="en">
+      <p>This guide is general information about buying and selling vehicles privately, not legal or financial advice. If you have lost money, contact your bank and law enforcement first.</p>
+      <p><a href="https://drivelink.deals">DriveLink</a> &nbsp;&middot;&nbsp; <a href="https://drivelink.deals/safety">Is this safe?</a> &nbsp;&middot;&nbsp; <a href="mailto:support@drivelink.deals">support@drivelink.deals</a></p>
+    </div>
+    <div data-lang="es">
+      <p>Esta guía es información general sobre comprar y vender vehículos de forma privada, no es asesoría legal ni financiera. Si perdiste dinero, contacta primero a tu banco y a las autoridades.</p>
+      <p><a href="https://drivelink.deals">DriveLink</a> &nbsp;&middot;&nbsp; <a href="https://drivelink.deals/safety">¿Es esto seguro?</a> &nbsp;&middot;&nbsp; <a href="mailto:support@drivelink.deals">support@drivelink.deals</a></p>
+    </div>
   </div>
 </footer>
 

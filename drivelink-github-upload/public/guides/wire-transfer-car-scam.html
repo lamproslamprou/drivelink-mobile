@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<script src="/guides/lang.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Is It Safe to Wire Money for a Car? What Actually Happens When You Send It</title>
 <meta name="description" content="A wire transfer for a car is final the moment it lands. There is no chargeback and no reversal right. Here is how the recall process really works, the four scams that rely on wires, and what to do in the first hours if you have already sent one.">
@@ -17,6 +18,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/guides/lang.css">
 
 <style>
   :root{
@@ -44,6 +46,7 @@
 
   header.site{border-bottom:1px solid var(--line);padding:18px 0}
   header.site .wrap{display:flex;align-items:center;justify-content:space-between;gap:16px}
+  header.site nav{display:flex;align-items:center}
   .brand{font-weight:700;font-size:19px;color:var(--ink);text-decoration:none;letter-spacing:-.01em}
   .brand span{color:var(--blue)}
   header.site nav a{color:var(--muted);text-decoration:none;font-size:14px;font-weight:500;margin-left:18px}
@@ -174,15 +177,28 @@
   <div class="wrap">
     <a class="brand" href="https://drivelink.deals">Drive<span>Link</span></a>
     <nav>
-      <a href="https://drivelink.deals/browse">Browse</a>
-      <a href="https://drivelink.deals/start-deal">Secure a deal</a>
-      <a href="https://drivelink.deals/safety">Is this safe?</a>
+      <div data-lang="en">
+        <a href="https://drivelink.deals/browse">Browse</a>
+        <a href="https://drivelink.deals/start-deal">Secure a deal</a>
+        <a href="https://drivelink.deals/safety">Is this safe?</a>
+      </div>
+      <div data-lang="es">
+        <a href="https://drivelink.deals/browse">Explorar</a>
+        <a href="https://drivelink.deals/start-deal">Asegurar un trato</a>
+        <a href="https://drivelink.deals/safety">¿Es esto seguro?</a>
+      </div>
+      <div class="lang-toggle" data-lang-toggle role="group" aria-label="Language">
+        <button type="button" data-lang-btn="en">EN</button>
+        <button type="button" data-lang-btn="es">ES</button>
+      </div>
     </nav>
   </div>
 </header>
 
 <main>
 <article class="wrap">
+
+<div data-lang="en">
 
   <p class="eyebrow">Paying for a car</p>
 
@@ -198,7 +214,7 @@
 
   <div class="callout">
     <span class="label">If you sent a wire in the last few hours</span>
-    <p>Stop reading and call your bank's wire department now, not the branch. Ask them to attempt a <strong>recall</strong> and say the words "fraud" and "unauthorized inducement". Then skip to <a href="#already-sent">what to do if you have already sent one</a>.</p>
+    <p>Stop reading and call your bank's wire department now, not the branch. Ask them to attempt a <strong>recall</strong> and say the words "fraud" and "unauthorized inducement". Then skip to <a href="#already-sent-en">what to do if you have already sent one</a>.</p>
     <p>Recalls succeed almost only while the money is still sitting in the receiving account. That is usually a window of hours.</p>
   </div>
 
@@ -270,7 +286,7 @@
 
   <p>If a seller refuses every option that does not end in an irreversible payment, that refusal is the entire answer. A legitimate seller has no reason to care whether the money reaches them by wire or by escrow, as long as it reaches them.</p>
 
-  <h2 id="already-sent">If you have already sent one</h2>
+  <h2 id="already-sent-en">If you have already sent one</h2>
 
   <p>Speed is the only thing that matters, and every hour reduces the odds considerably. In order:</p>
 
@@ -291,13 +307,132 @@
     <p><a class="cta" href="https://drivelink.deals/start-deal">Secure a deal</a></p>
   </div>
 
+</div>
+
+<div data-lang="es">
+
+  <p class="eyebrow">Pagar por un auto</p>
+
+  <h1>¿Es seguro enviar dinero por transferencia bancaria para comprar un auto? Esto es lo que pasa en realidad cuando lo envías</h1>
+
+  <p class="standfirst">No — no a un vendedor particular que no has conocido, y no antes de tener el título en tus manos. <strong>Una transferencia bancaria (wire) es definitiva en el momento en que llega.</strong> No hay contracargo, no hay botón de disputa, y no tienes ningún derecho legal a recuperarla.</p>
+
+  <p class="byline">Última actualización: 17 de agosto de 2026</p>
+
+  <p>La mayoría de las personas que hacen esta pregunta ya les pidieron que enviaran el dinero por transferencia bancaria. El vendedor tiene una razón por la que tiene que ser así — está fuera del estado, se va de despliegue militar, el auto está en una terminal de embarque, tiene otro comprador que viene el sábado. La pregunta de fondo casi nunca es <em>si una transferencia bancaria es segura en general</em>. Es <em>qué me pasa a mí si esta persona está mintiendo</em>.</p>
+
+  <p>Así que aquí está esa respuesta primero, luego la mecánica, y después qué hacer si ya la enviaste.</p>
+
+  <div class="callout">
+    <span class="label">Si enviaste una transferencia en las últimas horas</span>
+    <p>Deja de leer y llama ahora mismo al departamento de transferencias (wires) de tu banco, no a la sucursal. Pídeles que intenten un <strong>recall</strong> (solicitud de reversión) y usa las palabras "fraude" e "inducción no autorizada". Luego ve directo a <a href="#already-sent-es">qué hacer si ya enviaste una</a>.</p>
+    <p>Los recalls tienen éxito casi únicamente mientras el dinero todavía está en la cuenta receptora. Eso suele ser una ventana de horas.</p>
+  </div>
+
+  <h2>Por qué una transferencia bancaria no se puede deshacer</h2>
+
+  <p>Una transferencia bancaria no es una instrucción de pago que tu banco pueda rastrear y recuperar después. Es una liquidación. Cuando tu banco la envía, los fondos se mueven de forma irrevocable entre bancos y se acreditan en la cuenta del destinatario como dinero bueno y definitivo. Ese es todo el propósito del sistema — existe para que los cierres de bienes raíces y las liquidaciones comerciales puedan ocurrir sin ningún riesgo de que el pago se evapore después.</p>
+
+  <p>Las protecciones al consumidor a las que estás acostumbrado vienen de otro lugar. Un contracargo de tarjeta de crédito existe porque las reglas de la red de tarjetas crean uno. Una reversión de débito o ACH existe porque la Regulación E te da ese derecho para transferencias no autorizadas. Ninguno de esos marcos cubre una transferencia bancaria que enviaste a propósito, al número de cuenta que te dieron, por un auto que pensabas comprar. En el lenguaje que usan los bancos, tú la <strong>autorizaste</strong>. Que te hayan engañado para autorizarla no cambia la liquidación.</p>
+
+  <table class="compare">
+    <thead>
+      <tr><th>Método de pago</th><th>¿Se puede deshacer después del hecho?</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Tarjeta de crédito</td><td>Sí — derechos de contracargo según las reglas de la red de tarjetas, típicamente 60–120 días</td></tr>
+      <tr><td>ACH / débito bancario</td><td>A veces — derechos de devolución limitados, y los débitos no autorizados se pueden disputar</td></tr>
+      <tr><td>Cheque de caja</td><td>No para ti como pagador; y el cheque mismo puede resultar falsificado después</td></tr>
+      <tr><td>Efectivo</td><td>No</td></tr>
+      <tr><td>Transferencia bancaria (wire)</td><td>No — definitiva al liquidarse, solo solicitudes de recall, sin derecho a devolución</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Qué es en realidad un "recall"</h3>
+
+  <p>Tu banco puede enviar una solicitud de recall al banco receptor. Es una solicitud, no una orden. El banco receptor no está obligado a actuar sobre ella, y en la mayoría de los casos no puede actuar sobre ella, porque no puede sacar dinero de la cuenta de un cliente sin el consentimiento de ese cliente a menos que un tribunal se lo ordene. Si el destinatario ya retiró o movió los fondos — lo cual en una estafa de autos sucede rápido, a menudo dentro de la primera hora — no queda nada para devolver.</p>
+
+  <p>Esta es la parte que más sorprende a la gente. El banco no está siendo poco servicial. Simplemente no tiene la autoridad que tú asumes que tiene.</p>
+
+  <h2>Las cuatro estafas que dependen de que hagas una transferencia bancaria</h2>
+
+  <p>Cada una de estas existe porque una transferencia bancaria es irreversible. Quita la transferencia y la estafa no funciona.</p>
+
+  <div class="scam">
+    <h3>El vendedor que no puede reunirse contigo</h3>
+    <p>El auto tiene un precio 20–30% por debajo del mercado. El vendedor está desplegado en el extranjero, se está mudando por trabajo, o está liquidando el patrimonio de un familiar. Te enviará el auto, tendrás cinco días para inspeccionarlo, y solo necesitas transferir un depósito o el monto completo para iniciar el proceso de envío. No hay ningún auto. A menudo las fotos se toman de un anuncio real que se vendió hace meses en otro estado.</p>
+    <p class="tell"><b>La señal:</b> una razón creíble por la que nunca puedes ver el vehículo en persona, combinada con urgencia específicamente sobre el pago.</p>
+  </div>
+
+  <div class="scam">
+    <h3>El sitio de garantía (escrow) falso</h3>
+    <p>Dices que no te sientes cómodo transfiriendo directamente, y el vendedor está de acuerdo — con mucho entusiasmo. Sugiere un servicio de garantía y te envía un enlace. El sitio se ve profesional, tiene un logo y una página de Términos, y te envía por correo una factura con instrucciones de transferencia. Se registró hace tres semanas y le pertenece al vendedor. Algunos de estos clonan compañías de garantía reales hasta en el diseño, cambiando solo un carácter en el dominio.</p>
+    <p class="tell"><b>La señal:</b> el vendedor eligió el servicio de garantía y te dio el enlace. Una garantía real es algo que <em>tú</em> eliges y a lo que navegas de forma independiente — nunca una URL que llega en un mensaje de la otra parte.</p>
+  </div>
+
+  <div class="scam">
+    <h3>El título que nunca llega</h3>
+    <p>Esta involucra un auto real y un encuentro real, por eso funciona con personas que hicieron todo lo demás bien. Pagas, te vas manejando, y el título firmado está en camino por correo porque está en el banco, o con la exesposa, o siendo reemplazado por el DMV. Nunca llega. Ahora eres dueño de un vehículo que no puedes registrar, no puedes asegurar correctamente, y no puedes revender legalmente.</p>
+    <p class="tell"><b>La señal:</b> cualquier explicación de por qué el título no está físicamente presente en la entrega. No existe una versión aceptable de esto.</p>
+  </div>
+
+  <div class="scam">
+    <h3>La reversión del sobrepago</h3>
+    <p>Esta apunta a los vendedores. Un comprador envía más del precio pedido — un error del transportista, un error contable — y te pide que le transfieras de vuelta la diferencia. Su pago original era un cheque fraudulento o una cuenta comprometida y será revertido. Tu transferencia de vuelta no lo será. Pierdes la diferencia, y a menudo también el auto.</p>
+    <p class="tell"><b>La señal:</b> cualquier sobrepago, por cualquier razón, seguido de una solicitud de enviar parte de vuelta por un método distinto al que llegó.</p>
+  </div>
+
+  <h2>Lo que realmente te protege</h2>
+
+  <p>El consejo común — reunirse en un lugar público, revisar el VIN, hacer una inspección previa a la compra — vale la pena hacerlo, y nada de eso resuelve el pago. Puedes reunirte con una persona real, inspeccionar un auto real, y aun así entregar $28,000 antes de tener el título, porque los dos eventos son simultáneos y uno de los dos tiene que ir primero.</p>
+
+  <p>Lo que elimina el riesgo es <strong>no ser el que va primero</strong>. En concreto:</p>
+
+  <ul>
+    <li><strong>Nunca pagues antes de la entrega.</strong> Ningún depósito para reservar un vehículo que no has visto. Un depósito a un desconocido es un pago irrecuperable por nada.</li>
+    <li><strong>Nunca aceptes un enlace de garantía que te envíen.</strong> Si quieres garantía (escrow), busca el servicio tú mismo, escribe la dirección tú mismo, y confirma que la empresa existe de forma independiente a lo que te dijo el vendedor.</li>
+    <li><strong>El título firmado está físicamente presente, o te retiras.</strong> Verifica que el nombre en el título coincida con la identificación oficial de la persona que te vende. Una discrepancia significa que el vendedor no es dueño del auto.</li>
+    <li><strong>Usa un método donde el dinero quede retenido.</strong> Garantía de un tercero (escrow), o completar la transferencia dentro del banco del vendedor con ambos presentes, para que los fondos y el título se muevan en el mismo momento.</li>
+  </ul>
+
+  <p>Si un vendedor rechaza toda opción que no termine en un pago irreversible, ese rechazo es toda la respuesta que necesitas. Un vendedor legítimo no tiene ninguna razón para que le importe si el dinero le llega por transferencia bancaria o por garantía, mientras le llegue.</p>
+
+  <h2 id="already-sent-es">Si ya enviaste una</h2>
+
+  <p>La velocidad es lo único que importa, y cada hora reduce las probabilidades considerablemente. En orden:</p>
+
+  <ol>
+    <li><strong>Llama directamente al departamento de transferencias de tu banco.</strong> No a la sucursal, no al servicio al cliente general. Pídeles que intenten un recall por motivo de fraude. Si la transferencia todavía no se ha transmitido, pide la cancelación directa en su lugar — eso tiene muchas más probabilidades de funcionar.</li>
+    <li><strong>Contacta tú mismo al banco receptor.</strong> Tienes los datos de ruta y de cuenta de las instrucciones que te dieron. Su departamento de fraude puede poner una retención en la cuenta incluso si no pueden devolverte tus fondos, lo cual importa si aparecen otras víctimas.</li>
+    <li><strong>Presenta una denuncia ante el IC3 del FBI</strong> en <a href="https://www.ic3.gov" rel="nofollow noopener" target="_blank">ic3.gov</a>. Su Equipo de Recuperación de Activos puede congelar cuentas nacionales en algunos casos, y su efectividad cae drásticamente después de aproximadamente 72 horas.</li>
+    <li><strong>Presenta un reporte policial</strong> en tu propia jurisdicción. Necesitarás el número de reporte para el banco, para el IC3, y para cualquier gestión de seguro o impuestos más adelante.</li>
+    <li><strong>Conserva todo.</strong> Toma captura de pantalla del anuncio antes de que desaparezca, y guarda el hilo completo de mensajes, el número de teléfono, las instrucciones de transferencia, y los datos de la cuenta. No borres ni bloquees al vendedor — el hilo es evidencia.</li>
+  </ol>
+
+  <p>La recuperación es posible pero poco común, y depende casi por completo de si los fondos siguen en la cuenta receptora cuando llega el congelamiento. Por eso la primera llamada importa más que todo lo demás junto.</p>
+
+  <div class="product">
+    <h2>Dónde encaja DriveLink</h2>
+    <p>DriveLink es un mercado para ventas privadas de vehículos con garantía (escrow) en cada trato. Publica tu auto con nosotros, o trae un auto que encontraste en cualquier lugar — de cualquier forma, el dinero del comprador se recolecta y se retiene con nosotros, las dos partes completan la entrega, y los fondos se liberan al vendedor después.</p>
+    <p>Nadie tiene que ir primero, y no hay ningún pago irreversible entre dos desconocidos.</p>
+    <p><a class="cta" href="https://drivelink.deals/start-deal">Asegurar un trato</a></p>
+  </div>
+
+</div>
+
 </article>
 </main>
 
 <footer class="site">
   <div class="wrap">
-    <p>This guide is general information about payment methods, not legal or financial advice. If you have lost money, contact your bank and law enforcement first.</p>
-    <p><a href="https://drivelink.deals">DriveLink</a> &nbsp;·&nbsp; <a href="https://drivelink.deals/safety">Is this safe?</a> &nbsp;·&nbsp; <a href="mailto:support@drivelink.deals">support@drivelink.deals</a></p>
+    <div data-lang="en">
+      <p>This guide is general information about payment methods, not legal or financial advice. If you have lost money, contact your bank and law enforcement first.</p>
+      <p><a href="https://drivelink.deals">DriveLink</a> &nbsp;·&nbsp; <a href="https://drivelink.deals/safety">Is this safe?</a> &nbsp;·&nbsp; <a href="mailto:support@drivelink.deals">support@drivelink.deals</a></p>
+    </div>
+    <div data-lang="es">
+      <p>Esta guía es información general sobre métodos de pago, no es asesoría legal ni financiera. Si perdiste dinero, contacta primero a tu banco y a las autoridades.</p>
+      <p><a href="https://drivelink.deals">DriveLink</a> &nbsp;·&nbsp; <a href="https://drivelink.deals/safety">¿Es esto seguro?</a> &nbsp;·&nbsp; <a href="mailto:support@drivelink.deals">support@drivelink.deals</a></p>
+    </div>
   </div>
 </footer>
 

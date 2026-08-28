@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<script src="/guides/lang.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>A Buyer Wants to Pay Before Seeing the Car. What Should You Do?</title>
 <meta name="description" content="A buyer offering to pay upfront sight-unseen is sometimes genuine and sometimes the opening move of a fraud. How to tell the difference, and how to structure a remote sale so you are not exposed either way.">
@@ -17,6 +18,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/guides/lang.css">
 
 <style>
   :root{
@@ -30,6 +32,7 @@
   .wrap{max-width:720px;margin:0 auto;padding:0 20px}
   header.site{border-bottom:1px solid var(--line);padding:18px 0}
   header.site .wrap{display:flex;align-items:center;justify-content:space-between;gap:16px}
+  header.site nav{display:flex;align-items:center}
   .brand{font-weight:700;font-size:19px;color:var(--ink);text-decoration:none;letter-spacing:-.01em}
   .brand span{color:var(--blue)}
   header.site nav a{color:var(--muted);text-decoration:none;font-size:14px;font-weight:500;margin-left:18px}
@@ -140,7 +143,7 @@
       "name": "How can I sell a car to a remote buyer safely?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Confirm the funds before the vehicle moves. Either the money lands in your account and your own bank confirms it, or a third party holds it and confirms it before telling you to release. Everything else \u2014 the walkthrough video, the inspection, the transport arrangements \u2014 is logistics and can be handled normally."
+        "text": "Confirm the funds before the vehicle moves. Either the money lands in your account and your own bank confirms it, or a third party holds it and confirms it before telling you to release. Everything else — the walkthrough video, the inspection, the transport arrangements — is logistics and can be handled normally."
       }
     }
   ]
@@ -154,15 +157,28 @@
   <div class="wrap">
     <a class="brand" href="https://drivelink.deals">Drive<span>Link</span></a>
     <nav>
-      <a href="https://drivelink.deals/browse">Browse</a>
-      <a href="https://drivelink.deals/start-deal">Secure a deal</a>
-      <a href="https://drivelink.deals/safety">Is this safe?</a>
+      <div data-lang="en">
+        <a href="https://drivelink.deals/browse">Browse</a>
+        <a href="https://drivelink.deals/start-deal">Secure a deal</a>
+        <a href="https://drivelink.deals/safety">Is this safe?</a>
+      </div>
+      <div data-lang="es">
+        <a href="https://drivelink.deals/browse">Explorar</a>
+        <a href="https://drivelink.deals/start-deal">Asegurar un trato</a>
+        <a href="https://drivelink.deals/safety">¿Es esto seguro?</a>
+      </div>
+      <div class="lang-toggle" data-lang-toggle role="group" aria-label="Language">
+        <button type="button" data-lang-btn="en">EN</button>
+        <button type="button" data-lang-btn="es">ES</button>
+      </div>
     </nav>
   </div>
 </header>
 
 <main>
 <article class="wrap">
+
+<div data-lang="en">
 
   <p class="eyebrow">Selling privately</p>
 
@@ -251,13 +267,112 @@
     </ul>
   </div>
 
+</div>
+
+<div data-lang="es">
+
+  <p class="eyebrow">Vender de forma particular</p>
+
+  <h1>Qué hacer cuando un comprador quiere pagar antes de ver el auto</h1>
+
+  <p class="standfirst">No es automáticamente una estafa — los compradores remotos son reales, en particular para vehículos de entusiastas y especializados. Pero <strong>un pago por adelantado que no pediste es la maniobra de apertura más común en el fraude del lado del vendedor</strong>, así que hay que manejarlo, no simplemente aceptarlo.</p>
+
+  <p class="byline">Última actualización: 17 de agosto de 2026</p>
+
+
+  <p>El mensaje normalmente se lee bien. El comprador es educado, específico sobre el auto, y ofrece pagar el total de inmediato sin regatear. Para un vendedor que ha pasado tres semanas lidiando con ofertas bajas y gente que no se presenta, es un alivio.</p>
+
+  <p>Ese alivio es exactamente lo que la versión fraudulenta está comprando.</p>
+
+  <h2>Cuándo es genuino</h2>
+
+  <p>Las compras remotas ocurren constantemente y de forma legítima, en particular para:</p>
+
+  <ul>
+    <li>Vehículos de entusiastas, coleccionistas, o especializados, donde el auto específico importa más que la conveniencia</li>
+    <li>Modelos que son escasos en la región del comprador</li>
+    <li>Compradores que ya pagaron por una inspección independiente en un taller cerca de ti</li>
+    <li>Compradores que no pueden viajar fácilmente pero genuinamente están comprando para sí mismos</li>
+  </ul>
+
+  <p>Un comprador remoto genuino se comporta de formas reconocibles. Hace preguntas detalladas sobre el vehículo en vez de sobre el pago. Quiere un video del recorrido, registros de servicio, y fotos de cosas específicas. Usualmente quiere una inspección y está dispuesto a pagarla. Está tranquilo respecto a los tiempos y totalmente cómodo con que confirmes los fondos antes de que el auto se mueva.</p>
+
+  <h2>Cuándo no lo es</h2>
+
+  <p>La versión fraudulenta tiene una forma consistente. Cualquiera de estas vale la pena para detenerse a pensar. Dos juntas significan que hay que parar.</p>
+
+  <table class="compare">
+    <thead><tr><th>Señal</th><th>Qué suele significar</th></tr></thead>
+    <tbody>
+      <tr><td>Apenas pregunta sobre el auto</td><td>No está comprando un auto. Está ejecutando un pago.</td></tr>
+      <tr><td>Ofrece el precio pedido completo de inmediato</td><td>El precio es irrelevante cuando no piensas pagar.</td></tr>
+      <tr><td>Envía más del precio</td><td>La estafa del sobrepago. El excedente es todo el punto.</td></tr>
+      <tr><td>Te pide que reenvíes dinero a un transportista</td><td>La misma estafa. El "transportista" es el estafador.</td></tr>
+      <tr><td>Elige el método de pago e insiste</td><td>Necesita que sea irreversible de tu lado.</td></tr>
+      <tr><td>Urgencia sobre la recogida, flexibilidad en todo lo demás</td><td>Necesita que el auto desaparezca antes de que el pago sea rechazado.</td></tr>
+      <tr><td>No quiere hablar ni hacer videollamada en absoluto</td><td>No es concluyente, pero combinado con lo anterior importa.</td></tr>
+      <tr><td>Mala coherencia entre la historia y los detalles</td><td>Comprando para un familiar, pagando desde la cuenta de un tercero, dirección que no coincide.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout">
+    <span class="label">La regla que cubre todas las versiones</span>
+    <p>Nunca envíes dinero de vuelta por un canal distinto al que llegó. Ni a un transportista, ni por un sobrepago, ni por un trato cancelado. Esta sola regla vence a toda la familia de estafas de sobrepago.</p>
+  </div>
+
+  <h2>Cómo estructurarlo para estar seguro de cualquier forma</h2>
+
+  <p>No necesitas decidir si el comprador es honesto. Necesitas una estructura en la que eso no importe.</p>
+
+  <ol>
+    <li><strong>Establece tú mismo el método de pago.</strong> Esta es tu venta. Indica cómo aceptas el pago antes de discutir la logística, y no cambies de opinión porque el comprador prefiera otra cosa. A un comprador genuino no le importará mucho.</li>
+    <li><strong>Confirma los fondos con tu propio banco, no con el comprador.</strong> No una captura de pantalla, no un correo de confirmación, no una referencia de transacción. Entra a tu cuenta y verifícalo, o llama a tu banco.</li>
+    <li><strong>No entregues el auto ni el título hasta que esa confirmación exista.</strong> Incluyendo a un transportista. Que un transportista llegue temprano no es una razón para entregar; es una razón para sospechar.</li>
+    <li><strong>Ofrece una inspección en vez de un depósito.</strong> Si un comprador quiere mostrar compromiso, invítalo a pagar una inspección independiente en un taller de su elección. Es una señal real de intención y no te cuesta nada.</li>
+    <li><strong>Mantén toda la negociación por escrito.</strong> Si algo sale mal, el hilo es lo que vas a necesitar.</li>
+  </ol>
+
+  <h2>Qué decir</h2>
+
+  <p>No necesitas acusar a nadie. Una frase neutral lo resuelve:</p>
+
+  <p><em>"Con gusto vendo de forma remota — lo hago a través de una garantía (escrow) para que ambos estemos cubiertos. Un tercero retiene los fondos, tú recibes el auto y el título, y luego se libera el dinero. Funciona igual para los dos."</em></p>
+
+  <p>Un comprador real dice que está bien. Uno fraudulento presenta razones por las que la garantía no funcionará, sugiere un servicio distinto y te envía un enlace, o deja de responder. Cualquiera de esas tres es tu respuesta, y no has perdido nada.</p>
+
+
+  <div class="product">
+    <h2>Dónde encaja DriveLink</h2>
+    <p>DriveLink es un mercado para ventas privadas de vehículos con garantía (escrow) incorporada en cada transacción. Los fondos del comprador se recolectan y se retienen antes de que entregues el auto, así que una venta remota deja de depender de si juzgaste correctamente a un desconocido.</p>
+    <p>También te da algo neutral que proponer. Publica con nosotros para llegar directamente a compradores, o trae al comprador que ya tienes.</p>
+    <p><a class="cta" href="https://drivelink.deals/start-deal">Asegurar un trato</a></p>
+  </div>
+
+  <div class="related">
+    <h2>Guías relacionadas</h2>
+    <ul>
+      <li><a href="/guides/buy-car-out-of-state-private-seller">Cómo comprar de forma segura un auto de un vendedor particular fuera de tu estado</a></li>
+      <li><a href="/guides/facebook-marketplace-car-scams">Estafas de autos en Facebook Marketplace y cómo funcionan</a></li>
+      <li><a href="/guides/how-car-escrow-works">Cómo funciona la garantía (escrow) para autos, y cómo funcionan los sitios de garantía falsos</a></li>
+      <li><a href="/guides/cashiers-check-fraud-selling-car">Fraude con cheques de caja al vender un auto</a></li>
+    </ul>
+  </div>
+
+</div>
+
 </article>
 </main>
 
 <footer class="site">
   <div class="wrap">
-    <p>This guide is general information about buying and selling vehicles privately, not legal or financial advice. If you have lost money, contact your bank and law enforcement first.</p>
-    <p><a href="https://drivelink.deals">DriveLink</a> &nbsp;&middot;&nbsp; <a href="https://drivelink.deals/safety">Is this safe?</a> &nbsp;&middot;&nbsp; <a href="mailto:support@drivelink.deals">support@drivelink.deals</a></p>
+    <div data-lang="en">
+      <p>This guide is general information about buying and selling vehicles privately, not legal or financial advice. If you have lost money, contact your bank and law enforcement first.</p>
+      <p><a href="https://drivelink.deals">DriveLink</a> &nbsp;&middot;&nbsp; <a href="https://drivelink.deals/safety">Is this safe?</a> &nbsp;&middot;&nbsp; <a href="mailto:support@drivelink.deals">support@drivelink.deals</a></p>
+    </div>
+    <div data-lang="es">
+      <p>Esta guía es información general sobre comprar y vender vehículos de forma privada, no es asesoría legal ni financiera. Si perdiste dinero, contacta primero a tu banco y a las autoridades.</p>
+      <p><a href="https://drivelink.deals">DriveLink</a> &nbsp;&middot;&nbsp; <a href="https://drivelink.deals/safety">¿Es esto seguro?</a> &nbsp;&middot;&nbsp; <a href="mailto:support@drivelink.deals">support@drivelink.deals</a></p>
+    </div>
   </div>
 </footer>
 

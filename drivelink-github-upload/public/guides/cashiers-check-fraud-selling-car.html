@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<script src="/guides/lang.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Cashier&#x27;s Check Fraud When Selling a Car: Why It Works</title>
 <meta name="description" content="A counterfeit cashier&#x27;s check can clear into your account and be reversed weeks later, leaving you liable for the full amount. Why bank funds availability rules create this gap, and how to verify a check properly before you hand over a car.">
@@ -17,6 +18,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/guides/lang.css">
 
 <style>
   :root{
@@ -30,6 +32,7 @@
   .wrap{max-width:720px;margin:0 auto;padding:0 20px}
   header.site{border-bottom:1px solid var(--line);padding:18px 0}
   header.site .wrap{display:flex;align-items:center;justify-content:space-between;gap:16px}
+  header.site nav{display:flex;align-items:center}
   .brand{font-weight:700;font-size:19px;color:var(--ink);text-decoration:none;letter-spacing:-.01em}
   .brand span{color:var(--blue)}
   header.site nav a{color:var(--muted);text-decoration:none;font-size:14px;font-weight:500;margin-left:18px}
@@ -154,15 +157,28 @@
   <div class="wrap">
     <a class="brand" href="https://drivelink.deals">Drive<span>Link</span></a>
     <nav>
-      <a href="https://drivelink.deals/browse">Browse</a>
-      <a href="https://drivelink.deals/start-deal">Secure a deal</a>
-      <a href="https://drivelink.deals/safety">Is this safe?</a>
+      <div data-lang="en">
+        <a href="https://drivelink.deals/browse">Browse</a>
+        <a href="https://drivelink.deals/start-deal">Secure a deal</a>
+        <a href="https://drivelink.deals/safety">Is this safe?</a>
+      </div>
+      <div data-lang="es">
+        <a href="https://drivelink.deals/browse">Explorar</a>
+        <a href="https://drivelink.deals/start-deal">Asegurar un trato</a>
+        <a href="https://drivelink.deals/safety">¿Es esto seguro?</a>
+      </div>
+      <div class="lang-toggle" data-lang-toggle role="group" aria-label="Language">
+        <button type="button" data-lang-btn="en">EN</button>
+        <button type="button" data-lang-btn="es">ES</button>
+      </div>
     </nav>
   </div>
 </header>
 
 <main>
 <article class="wrap">
+
+<div data-lang="en">
 
   <p class="eyebrow">Selling privately</p>
 
@@ -255,13 +271,116 @@
     </ul>
   </div>
 
+</div>
+
+<div data-lang="es">
+
+  <p class="eyebrow">Vender de forma particular</p>
+
+  <h1>Fraude con cheques de caja al vender un auto</h1>
+
+  <p class="standfirst">La parte peligrosa no es que el cheque sea falso. Es que <strong>tu banco a menudo pondrá los fondos a tu disposición antes de descubrir que el cheque es falso</strong> — y cuando lo descubre, el dinero sale de vuelta de tu cuenta.</p>
+
+  <p class="byline">Última actualización: 17 de agosto de 2026</p>
+
+
+  <p>Los vendedores piden un cheque de caja porque suena como la opción cuidadosa. Lo emite un banco, se libra contra los propios fondos del banco, y culturalmente se trata como equivalente al efectivo. Esa reputación es exactamente lo que hace efectiva la versión falsificada.</p>
+
+  <h2>Por qué el dinero puede desaparecer semanas después</h2>
+
+  <p>Cuando depositas un cheque, las reglas federales exigen que tu banco te dé acceso a parte o la totalidad de los fondos rápidamente — a menudo el siguiente día hábil. Esa disponibilidad es una regla sobre el acceso a tu cuenta. No es una declaración de que el cheque ha sido verificado, y no es una promesa de tu banco de que el dinero es real.</p>
+
+  <p>La verificación ocurre por separado y de forma más lenta. El cheque tiene que llegar a la institución contra la que dice estar librado, y esa institución tiene que confirmar que lo emitió. Para una buena falsificación, eso puede tomar días o semanas. Cuando regresa rechazado, tu banco revierte el crédito y tú eres responsable por el monto completo, más lo que hayas gastado de él.</p>
+
+  <p>Para ese momento, el auto ya se fue y el comprador es inalcanzable.</p>
+
+  <div class="callout">
+    <span class="label">La frase que importa</span>
+    <p>"Los fondos están disponibles" no es lo mismo que "el cheque se acreditó". Los cajeros dicen la primera frase de forma rutinaria. Pregunta específicamente si el cheque ha sido verificado por el banco emisor, y prepárate para que la respuesta sea que no.</p>
+  </div>
+
+  <h2>Las tres versiones que realmente vas a encontrar</h2>
+
+  <div class="scam">
+    <h3>La falsificación directa</h3>
+    <p>El comprador llega, te entrega un cheque de caja de apariencia profesional por el monto acordado, se lleva el auto y el título firmado. El cheque es una falsificación, a menudo una buena, impresa en un papel que se siente genuino con el número de ruta de un banco real. Semanas después tu cuenta es debitada.</p>
+    <p class="tell"><b>La señal:</b> a menudo ninguna en el encuentro. Por eso la verificación tiene que ocurrir antes de la entrega, no después.</p>
+  </div>
+
+  <div class="scam">
+    <h3>El sobrepago</h3>
+    <p>El cheque se emite por más del precio acordado. La explicación es un agente de envíos, una empresa de transporte, un error contable del lado del comprador. Te piden que lo deposites y envíes la diferencia a un tercero — usualmente por transferencia bancaria, que es irreversible. El cheque se revierte; tu transferencia no.</p>
+    <p class="tell"><b>La señal:</b> cualquier sobrepago, seguido de una solicitud de reenviar parte de él. No existe una versión legítima de este arreglo.</p>
+  </div>
+
+  <div class="scam">
+    <h3>El comprador remoto con transportista</h3>
+    <p>Un comprador que compra sin ver el auto desde otro estado envía un cheque de caja y organiza su propio transporte. El transportista llega puntualmente, a veces antes de que hayas depositado el cheque. El auto sale del estado, a menudo del país, antes de que el cheque sea rechazado.</p>
+    <p class="tell"><b>La señal:</b> un comprador que nunca ve el auto combinado con urgencia inusual sobre la recogida.</p>
+  </div>
+
+  <h2>Cómo verificar un cheque correctamente</h2>
+
+  <ol>
+    <li><strong>Busca tú mismo el número de teléfono del banco emisor.</strong> Búscalo, o usa un número del sitio web oficial del banco. Nunca llames al número impreso en el cheque — en una falsificación, ese número llega al cómplice del estafador, quien confirmará cualquier cosa con gusto.</li>
+    <li><strong>Dales el número del cheque, el monto, y la cuenta contra la que está librado.</strong> Pregunta si ese cheque fue emitido. Algunos bancos lo confirmarán, algunos solo te dirán que la cuenta existe, y algunos no lo discutirán por teléfono en absoluto — lo cual en sí mismo es una razón para pasar al siguiente paso.</li>
+    <li><strong>Mejor: reúnete en una sucursal del banco emisor.</strong> Haz que el comprador presente el cheque en el mostrador y que el banco lo verifique frente a ti. Esto es lo más cercano a la certeza que existe.</li>
+    <li><strong>Lo mejor: evita el cheque por completo.</strong> Completa la transacción dentro del banco del comprador, con los fondos transferidos a tu cuenta mientras ambos están ahí presentes, o usa un servicio de garantía (escrow) que confirme los fondos antes de que liberes el auto.</li>
+  </ol>
+
+  <p>Cualquiera que sea la ruta que tomes, <strong>no entregues el vehículo ni firmes el título hasta que el pago sea confirmado por alguien que no sea el comprador.</strong> Que el comprador te diga que es bueno no es una confirmación. Un documento que se ve oficial no es una confirmación.</p>
+
+  <h2>Cosas que los vendedores preguntan sobre esto</h2>
+
+  <h3>¿Es un cheque certificado más seguro que un cheque de caja?</h3>
+
+  <p>No. Ambos se falsifican, y ambos crean el mismo vacío entre la disponibilidad de fondos y la verificación real. La distinción importa legalmente pero no de forma práctica para tu riesgo.</p>
+
+  <h3>¿Y una transferencia bancaria a mi cuenta?</h3>
+
+  <p>Una transferencia bancaria genuinamente recibida es definitiva y segura para ti como vendedor — esa irreversibilidad juega a tu favor aquí. La trampa es confirmar que realmente llegó. No aceptes una captura de pantalla, un número de confirmación, o un correo reenviado como prueba. Entra a tu propia cuenta y ve los fondos, o llama a tu propio banco.</p>
+
+  <h3>¿Y las apps de pagos entre personas?</h3>
+
+  <p>La mayoría tiene límites de transacción muy por debajo del precio de un auto, y varias permiten que los pagos se reviertan después del hecho si la cuenta de origen estaba comprometida. No están diseñadas para esto y las protecciones no encajan.</p>
+
+  <h3>¿Debería simplemente aceptar efectivo?</h3>
+
+  <p>El efectivo es definitivo, lo cual es bueno. Los problemas son los billetes falsificados y el riesgo físico de que un desconocido llegue con decenas de miles de dólares, o sepa que ahora tú los tienes. Si aceptas efectivo, cuéntalo en un banco y deposítalo de inmediato, en la misma sucursal.</p>
+
+
+  <div class="product">
+    <h2>Dónde encaja DriveLink</h2>
+    <p>DriveLink es un mercado para ventas privadas de vehículos con garantía (escrow) en cada trato, y elimina este problema por completo del lado del vendedor. Los fondos del comprador se recolectan y se confirman antes de que se te indique proceder, así que nunca entregas un auto contra un pago que podría revertirse.</p>
+    <p>Publica tu auto con nosotros gratis, o usa solo la garantía con un comprador que ya encontraste.</p>
+    <p><a class="cta" href="https://drivelink.deals/start-deal">Asegurar un trato</a></p>
+  </div>
+
+  <div class="related">
+    <h2>Guías relacionadas</h2>
+    <ul>
+      <li><a href="/guides/buy-car-out-of-state-private-seller">Cómo comprar de forma segura un auto de un vendedor particular fuera de tu estado</a></li>
+      <li><a href="/guides/facebook-marketplace-car-scams">Estafas de autos en Facebook Marketplace y cómo funcionan</a></li>
+      <li><a href="/guides/how-car-escrow-works">Cómo funciona la garantía (escrow) para autos, y cómo funcionan los sitios de garantía falsos</a></li>
+      <li><a href="/guides/buyer-wants-to-pay-before-seeing-car">Qué hacer cuando un comprador quiere pagar antes de ver el auto</a></li>
+    </ul>
+  </div>
+
+</div>
+
 </article>
 </main>
 
 <footer class="site">
   <div class="wrap">
-    <p>This guide is general information about buying and selling vehicles privately, not legal or financial advice. If you have lost money, contact your bank and law enforcement first.</p>
-    <p><a href="https://drivelink.deals">DriveLink</a> &nbsp;&middot;&nbsp; <a href="https://drivelink.deals/safety">Is this safe?</a> &nbsp;&middot;&nbsp; <a href="mailto:support@drivelink.deals">support@drivelink.deals</a></p>
+    <div data-lang="en">
+      <p>This guide is general information about buying and selling vehicles privately, not legal or financial advice. If you have lost money, contact your bank and law enforcement first.</p>
+      <p><a href="https://drivelink.deals">DriveLink</a> &nbsp;&middot;&nbsp; <a href="https://drivelink.deals/safety">Is this safe?</a> &nbsp;&middot;&nbsp; <a href="mailto:support@drivelink.deals">support@drivelink.deals</a></p>
+    </div>
+    <div data-lang="es">
+      <p>Esta guía es información general sobre comprar y vender vehículos de forma privada, no es asesoría legal ni financiera. Si perdiste dinero, contacta primero a tu banco y a las autoridades.</p>
+      <p><a href="https://drivelink.deals">DriveLink</a> &nbsp;&middot;&nbsp; <a href="https://drivelink.deals/safety">¿Es esto seguro?</a> &nbsp;&middot;&nbsp; <a href="mailto:support@drivelink.deals">support@drivelink.deals</a></p>
+    </div>
   </div>
 </footer>
 

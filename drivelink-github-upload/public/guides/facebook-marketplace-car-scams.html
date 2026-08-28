@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<script src="/guides/lang.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Facebook Marketplace Car Scams: How They Actually Work</title>
 <meta name="description" content="The seven vehicle scams that run constantly on Facebook Marketplace, what each one is trying to get from you, and the specific tell that identifies it before you lose money.">
@@ -17,6 +18,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/guides/lang.css">
 
 <style>
   :root{
@@ -30,6 +32,7 @@
   .wrap{max-width:720px;margin:0 auto;padding:0 20px}
   header.site{border-bottom:1px solid var(--line);padding:18px 0}
   header.site .wrap{display:flex;align-items:center;justify-content:space-between;gap:16px}
+  header.site nav{display:flex;align-items:center}
   .brand{font-weight:700;font-size:19px;color:var(--ink);text-decoration:none;letter-spacing:-.01em}
   .brand span{color:var(--blue)}
   header.site nav a{color:var(--muted);text-decoration:none;font-size:14px;font-weight:500;margin-left:18px}
@@ -154,15 +157,28 @@
   <div class="wrap">
     <a class="brand" href="https://drivelink.deals">Drive<span>Link</span></a>
     <nav>
-      <a href="https://drivelink.deals/browse">Browse</a>
-      <a href="https://drivelink.deals/start-deal">Secure a deal</a>
-      <a href="https://drivelink.deals/safety">Is this safe?</a>
+      <div data-lang="en">
+        <a href="https://drivelink.deals/browse">Browse</a>
+        <a href="https://drivelink.deals/start-deal">Secure a deal</a>
+        <a href="https://drivelink.deals/safety">Is this safe?</a>
+      </div>
+      <div data-lang="es">
+        <a href="https://drivelink.deals/browse">Explorar</a>
+        <a href="https://drivelink.deals/start-deal">Asegurar un trato</a>
+        <a href="https://drivelink.deals/safety">¿Es esto seguro?</a>
+      </div>
+      <div class="lang-toggle" data-lang-toggle role="group" aria-label="Language">
+        <button type="button" data-lang-btn="en">EN</button>
+        <button type="button" data-lang-btn="es">ES</button>
+      </div>
     </nav>
   </div>
 </header>
 
 <main>
 <article class="wrap">
+
+<div data-lang="en">
 
   <p class="eyebrow">Scams</p>
 
@@ -261,13 +277,122 @@
     </ul>
   </div>
 
+</div>
+
+<div data-lang="es">
+
+  <p class="eyebrow">Estafas</p>
+
+  <h1>Estafas de autos en Facebook Marketplace y cómo funcionan</h1>
+
+  <p class="standfirst">Marketplace tiene autos reales y vendedores reales. También tiene un conjunto estable de estafas que se repiten casi palabra por palabra — <strong>y casi todas necesitan que envíes dinero antes de tener el vehículo.</strong></p>
+
+  <p class="byline">Última actualización: 17 de agosto de 2026</p>
+
+
+  <p>Estas no son sofisticadas. Funcionan porque se ejecutan a un volumen enorme contra personas que están emocionadas por un auto y un poco apuradas. Leerlas una vez las hace obvias para siempre.</p>
+
+  <div class="scam">
+    <h3>El auto que está en otro lugar</h3>
+    <p>Con un precio bastante por debajo del mercado. El vendedor está desplegado, mudándose, pasando por un divorcio, o gestionando el patrimonio de un familiar fallecido. El auto está con una empresa de transporte y llegará con un período de inspección de cinco días. Solo necesitas enviar el pago para liberarlo. No hay ningún auto, y las fotos se toman de un anuncio real que se vendió hace meses.</p>
+    <p class="tell"><b>La señal:</b> una razón por la que nunca puedes ver el vehículo en persona, junto con urgencia específicamente sobre el pago.</p>
+  </div>
+
+  <div class="scam">
+    <h3>El sitio de garantía que eligió el vendedor</h3>
+    <p>Dices que no te sientes cómodo enviando dinero directamente. El vendedor está de acuerdo de inmediato y sugiere un servicio de garantía (escrow), con un enlace. El sitio se ve profesional y te envía por correo una factura con instrucciones de transferencia. Se registró recientemente y le pertenece al vendedor. Algunos clonan compañías de garantía reales exactamente, cambiando un carácter en el dominio.</p>
+    <p class="tell"><b>La señal:</b> el vendedor eligió el servicio y envió el enlace. Una garantía real es algo que tú eliges y a lo que navegas de forma independiente.</p>
+  </div>
+
+  <div class="scam">
+    <h3>El depósito para reservarlo</h3>
+    <p>Supuestamente hay varias personas interesadas. El vendedor se ofrece a quitar el anuncio a cambio de un depósito pequeño — $200, $500, algo que se siente proporcional frente a un auto de $20,000. Lo envías y la cuenta desaparece. Esta funciona porque el monto es lo suficientemente pequeño como para que la gente asuma el riesgo conscientemente.</p>
+    <p class="tell"><b>La señal:</b> cualquier solicitud de dinero antes de haber visto el vehículo. El monto no importa.</p>
+  </div>
+
+  <div class="scam">
+    <h3>El reporte de historial falso</h3>
+    <p>Pides un reporte de historial y el vendedor te envía un enlace a un sitio del que nunca has oído hablar, a veces ofreciéndose a reembolsarte la tarifa. El sitio recolecta los datos de tu tarjeta, o produce un reporte limpio para cualquier VIN que ingreses. De cualquier forma, el reporte no vale nada.</p>
+    <p class="tell"><b>La señal:</b> un reporte de un sitio que te presentó el vendedor. Compra el tuyo propio de un proveedor que hayas encontrado tú mismo.</p>
+  </div>
+
+  <div class="scam">
+    <h3>La reversión del sobrepago</h3>
+    <p>Esta apunta a los vendedores. Un comprador envía más del precio pedido — un error del transportista, un error contable — y te pide que devuelvas la diferencia. Su pago original era fraudulento y se revierte. Tu devolución no. Pierdes la diferencia, y a menudo también el auto.</p>
+    <p class="tell"><b>La señal:</b> cualquier sobrepago seguido de una solicitud de enviar parte de vuelta por un canal distinto.</p>
+  </div>
+
+  <div class="scam">
+    <h3>El código de verificación</h3>
+    <p>Un comprador o vendedor te pide que demuestres que eres real enviándole un código que están por mandarte por mensaje de texto. El código es un restablecimiento de contraseña o una verificación de cuenta de un servicio a tu nombre. Entregarlo entrega la cuenta. Esto suele ser el preludio de un robo de identidad más que de un fraude de vehículos.</p>
+    <p class="tell"><b>La señal:</b> cualquiera que pida un código que llega a tu teléfono. No existe una versión legítima de esta solicitud.</p>
+  </div>
+
+  <div class="scam">
+    <h3>El título que está en camino</h3>
+    <p>Un auto real, un encuentro real, una persona real. Pagas y te vas manejando, y el título firmado está en el correo porque está en el banco o con un excónyuge o siendo reemplazado. Nunca llega. Ahora eres dueño de un auto que no puedes registrar, asegurar correctamente, ni revender legalmente.</p>
+    <p class="tell"><b>La señal:</b> cualquier explicación de por qué el título no está físicamente presente en la entrega.</p>
+  </div>
+
+  <h2>Lo que en realidad distingue un anuncio real de uno falso</h2>
+
+  <p>Nada en el anuncio en sí es confiable. Las fotos son robadas, los precios se fijan para atraer, y las descripciones se copian. La señal viene de lo que pasa cuando interactúas.</p>
+
+  <ul>
+    <li><strong>Pide una foto específica.</strong> No más fotos — una específica: la placa del VIN en el marco de la puerta, el odómetro con la fecha de hoy escrita en un papel al lado, la rueda trasera del lado del conductor. Alguien que tiene el auto tarda noventa segundos. Alguien que no lo tiene se demora, envía otra cosa, o se pone a la defensiva.</li>
+    <li><strong>Haz una pregunta que las fotos no puedan responder.</strong> ¿Hay alguna luz de advertencia en el tablero al arrancar en frío? ¿El aire acondicionado enfría bien? Un dueño real responde de inmediato y con especificidad, a menudo con alguna salvedad.</li>
+    <li><strong>Propón reunirte.</strong> La respuesta a "¿puedo ir a verlo el sábado?" distingue lo real de lo falso más rápido que cualquier otra cosa.</li>
+    <li><strong>Mira el perfil.</strong> Creado recientemente, sin historial, sin fotos, publicando varios vehículos en ciudades distantes — todo esto importa. Ninguno es concluyente por sí solo.</li>
+  </ul>
+
+  <div class="callout">
+    <span class="label">La única regla que cubre las siete</span>
+    <p>No envías dinero antes de tener el vehículo, y no aceptas un método de pago elegido por la otra parte porque no se puede revertir. Cada una de las estafas anteriores necesita al menos una de esas dos cosas.</p>
+  </div>
+
+  <h2>Si ya enviaste dinero</h2>
+
+  <ol>
+    <li><strong>Si pagaste con tarjeta,</strong> llama a tu emisor y disputa el cargo. Esta es la mejor posición en la que puedes estar.</li>
+    <li><strong>Si hiciste una transferencia bancaria,</strong> llama de inmediato al departamento de transferencias de tu banco y pide un recall por motivo de fraude. La velocidad lo es todo — los recalls tienen éxito principalmente mientras los fondos siguen en la cuenta receptora.</li>
+    <li><strong>Si usaste una app de pagos entre personas,</strong> repórtalo en la app y a tu banco. La recuperación es poco probable pero el reporte importa.</li>
+    <li><strong>Presenta una denuncia ante el IC3</strong> en <a href="https://www.ic3.gov" rel="nofollow noopener" target="_blank">ic3.gov</a> y ante tu policía local.</li>
+    <li><strong>Toma captura de todo antes de que desaparezca</strong> — el anuncio, el perfil, el hilo completo de mensajes. No bloquees la cuenta; el hilo es evidencia.</li>
+  </ol>
+
+
+  <div class="product">
+    <h2>Dónde encaja DriveLink</h2>
+    <p>DriveLink es un mercado para ventas privadas de vehículos donde cada trato pasa por garantía (escrow). Retenemos los fondos del comprador, ocurre la entrega, y el dinero se libera al vendedor después.</p>
+    <p>Puedes explorar autos publicados con nosotros, o traer un trato que encontraste en Marketplace y hacer que solo el pago pase por nosotros. El anuncio no tiene que ser nuestro.</p>
+    <p><a class="cta" href="https://drivelink.deals/start-deal">Asegurar un trato</a></p>
+  </div>
+
+  <div class="related">
+    <h2>Guías relacionadas</h2>
+    <ul>
+      <li><a href="/guides/buy-car-out-of-state-private-seller">Cómo comprar de forma segura un auto de un vendedor particular fuera de tu estado</a></li>
+      <li><a href="/guides/how-car-escrow-works">Cómo funciona la garantía (escrow) para autos, y cómo funcionan los sitios de garantía falsos</a></li>
+      <li><a href="/guides/cashiers-check-fraud-selling-car">Fraude con cheques de caja al vender un auto</a></li>
+      <li><a href="/guides/buyer-wants-to-pay-before-seeing-car">Qué hacer cuando un comprador quiere pagar antes de ver el auto</a></li>
+    </ul>
+  </div>
+
+</div>
+
 </article>
 </main>
 
 <footer class="site">
   <div class="wrap">
-    <p>This guide is general information about buying and selling vehicles privately, not legal or financial advice. If you have lost money, contact your bank and law enforcement first.</p>
-    <p><a href="https://drivelink.deals">DriveLink</a> &nbsp;&middot;&nbsp; <a href="https://drivelink.deals/safety">Is this safe?</a> &nbsp;&middot;&nbsp; <a href="mailto:support@drivelink.deals">support@drivelink.deals</a></p>
+    <div data-lang="en">
+      <p>This guide is general information about buying and selling vehicles privately, not legal or financial advice. If you have lost money, contact your bank and law enforcement first.</p>
+      <p><a href="https://drivelink.deals">DriveLink</a> &nbsp;&middot;&nbsp; <a href="https://drivelink.deals/safety">Is this safe?</a> &nbsp;&middot;&nbsp; <a href="mailto:support@drivelink.deals">support@drivelink.deals</a></p>
+    </div>
+    <div data-lang="es">
+      <p>Esta guía es información general sobre comprar y vender vehículos de forma privada, no es asesoría legal ni financiera. Si perdiste dinero, contacta primero a tu banco y a las autoridades.</p>
+      <p><a href="https://drivelink.deals">DriveLink</a> &nbsp;&middot;&nbsp; <a href="https://drivelink.deals/safety">¿Es esto seguro?</a> &nbsp;&middot;&nbsp; <a href="mailto:support@drivelink.deals">support@drivelink.deals</a></p>
+    </div>
   </div>
 </footer>
 

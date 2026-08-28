@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<script src="/guides/lang.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Guides — Buying and Selling Cars Privately Without Getting Scammed | DriveLink</title>
 <meta name="description" content="Practical guides on paying for a car safely, spotting private-party vehicle scams, and how escrow actually works. Written for people mid-transaction.">
@@ -14,6 +15,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/guides/lang.css">
 <style>
   :root{
     --ink:#0f172a; --body:#334155; --muted:#64748b; --line:#e2e8f0; --wash:#f8fafc;
@@ -28,6 +30,7 @@
   header.site .wrap{display:flex;align-items:center;justify-content:space-between;gap:16px}
   .brand{font-weight:700;font-size:19px;color:var(--ink);text-decoration:none;letter-spacing:-.01em}
   .brand span{color:var(--blue)}
+  header.site nav{display:flex;align-items:center}
   header.site nav a{color:var(--muted);text-decoration:none;font-size:14px;font-weight:500;margin-left:18px}
   header.site nav a:hover{color:var(--ink)}
   main{padding:44px 0 8px}
@@ -166,15 +169,28 @@
   <div class="wrap">
     <a class="brand" href="https://drivelink.deals">Drive<span>Link</span></a>
     <nav>
-      <a href="https://drivelink.deals/browse">Browse</a>
-      <a href="https://drivelink.deals/start-deal">Secure a deal</a>
-      <a href="https://drivelink.deals/safety">Is this safe?</a>
+      <div data-lang="en">
+        <a href="https://drivelink.deals/browse">Browse</a>
+        <a href="https://drivelink.deals/start-deal">Secure a deal</a>
+        <a href="https://drivelink.deals/safety">Is this safe?</a>
+      </div>
+      <div data-lang="es">
+        <a href="https://drivelink.deals/browse">Explorar</a>
+        <a href="https://drivelink.deals/start-deal">Asegurar un trato</a>
+        <a href="https://drivelink.deals/safety">&iquest;Es esto seguro?</a>
+      </div>
     </nav>
+    <div class="lang-toggle" data-lang-toggle role="group" aria-label="Language">
+      <button type="button" data-lang-btn="en">EN</button>
+      <button type="button" data-lang-btn="es">ES</button>
+    </div>
   </div>
 </header>
 
 <main>
 <article class="wrap">
+
+<div data-lang="en">
   <p class="eyebrow">Guides</p>
   <h1>Buying and selling cars privately, without getting scammed</h1>
   <p class="standfirst">Practical writing for people in the middle of a transaction — how the money actually moves, what the common frauds look like from the inside, and what to do if something has already gone wrong.</p>
@@ -241,13 +257,90 @@
     <p>It works on a car you found anywhere — the listing does not have to be with us.</p>
     <p><a class="cta" href="https://drivelink.deals/start-deal">Secure a deal</a></p>
   </div>
+</div>
+
+<div data-lang="es">
+  <p class="eyebrow">Guías</p>
+  <h1>Comprar y vender autos de forma privada, sin que te estafen</h1>
+  <p class="standfirst">Contenido práctico para gente en medio de una transacción — cómo se mueve realmente el dinero, cómo se ven por dentro los fraudes más comunes, y qué hacer si algo ya salió mal.</p>
+  <p class="byline">Trece guías &middot; gratis, sin registro</p>
+
+  <ul class="glist">
+      <li class="gitem">
+        <a class="gtitle" href="/guides/wire-transfer-car-scam">¿Es seguro enviar una transferencia bancaria por un auto?</a>
+        <p class="gdesc">Una transferencia bancaria es definitiva en cuanto llega. Cómo funcionan realmente las reversiones, las cuatro estafas que dependen de las transferencias, y qué hacer en las primeras horas si ya enviaste una.</p>
+      </li>
+      <li class="gitem">
+        <a class="gtitle" href="/guides/facebook-marketplace-car-scams">Estafas de autos en Facebook Marketplace</a>
+        <p class="gdesc">Las siete estafas de vehículos que corren constantemente en Marketplace, qué busca obtener cada una, y la señal específica que la identifica.</p>
+      </li>
+      <li class="gitem">
+        <a class="gtitle" href="/guides/craigslist-car-scams">Estafas de autos en Craigslist</a>
+        <p class="gdesc">Las estafas de vehículos en Craigslist casi no han cambiado en una década porque siguen funcionando. Las variantes principales y qué hacer diferente en una plataforma sin perfiles.</p>
+      </li>
+      <li class="gitem">
+        <a class="gtitle" href="/guides/how-car-escrow-works">Cómo funciona el escrow de autos</a>
+        <p class="gdesc">Qué pasa realmente con tu dinero durante una transacción de escrow de vehículos, paso a paso — además de cómo detectar un sitio de escrow falso.</p>
+      </li>
+      <li class="gitem">
+        <a class="gtitle" href="/guides/is-drivelink-legit">¿Es DriveLink legítimo?</a>
+        <p class="gdesc">Quiénes somos, exactamente dónde está tu dinero, qué no podemos hacer, y cómo verificar cualquier servicio de escrow de forma independiente — incluido este.</p>
+      </li>
+      <li class="gitem">
+        <a class="gtitle" href="/guides/buy-car-out-of-state-private-seller">Comprar un auto fuera de tu estado</a>
+        <p class="gdesc">Las compras fuera del estado fallan en tres puntos: el pago, el título y el registro. El orden de operaciones que te protege.</p>
+      </li>
+      <li class="gitem">
+        <a class="gtitle" href="/guides/sell-car-to-out-of-state-buyer">Vender a un comprador de otro estado</a>
+        <p class="gdesc">Los compradores remotos amplían tu grupo de compradores y suben tu precio. Confirmación de pago, manejo del título, transporte, y cómo terminar tu responsabilidad.</p>
+      </li>
+      <li class="gitem">
+        <a class="gtitle" href="/guides/buying-a-car-sight-unseen-checklist">Comprar un auto sin verlo en persona</a>
+        <p class="gdesc">Una lista práctica para un vehículo que no puedes inspeccionar en persona: qué verificar, qué pedir, y dónde fallan las compras remotas.</p>
+      </li>
+      <li class="gitem">
+        <a class="gtitle" href="/guides/cashiers-check-fraud-selling-car">Fraude con cheques de caja al vender</a>
+        <p class="gdesc">Un cheque de caja falsificado puede acreditarse en tu cuenta y revertirse semanas después, dejándote responsable. Cómo verificar uno correctamente.</p>
+      </li>
+      <li class="gitem">
+        <a class="gtitle" href="/guides/buyer-wants-to-pay-before-seeing-car">Un comprador quiere pagar antes de ver el auto</a>
+        <p class="gdesc">A veces es genuino, a veces es el primer paso de un fraude. Cómo distinguirlos, y cómo estructurar una venta remota para que no importe.</p>
+      </li>
+      <li class="gitem">
+        <a class="gtitle" href="/guides/lien-payoff-nj">Comprar un auto con gravamen — Nueva Jersey</a>
+        <p class="gdesc">El vendedor todavía debe dinero por el auto. Por qué los vendedores en Nueva Jersey no pueden mostrar el título, cómo funciona realmente una liquidación, y el orden que protege tu dinero.</p>
+      </li>
+      <li class="gitem">
+        <a class="gtitle" href="/guides/lien-payoff-pa">Comprar un auto con gravamen — Pensilvania</a>
+        <p class="gdesc">Pensilvania reúne toda la transferencia frente a un notario. Un gravamen sin liberar significa que no hay nada que notariar, así que el gravamen bloquea la cita directamente.</p>
+      </li>
+      <li class="gitem">
+        <a class="gtitle" href="/guides/lien-payoff-ny">Comprar un auto con gravamen — Nueva York</a>
+        <p class="gdesc">Nueva York imprime al acreedor del gravamen al frente del título. Si lo aceptas sin liberación, el DMV advierte que te pueden quitar el auto por embargo.</p>
+      </li>
+  </ul>
+
+  <div class="product">
+    <h2>Dónde encaja DriveLink</h2>
+    <p>DriveLink es escrow para ventas privadas de vehículos. El dinero del comprador se retiene hasta que el auto y el título firmado cambian de manos, así ninguna de las dos partes tiene que arriesgarse primero.</p>
+    <p>Funciona con un auto que encontraste en cualquier lugar — el anuncio no tiene que estar con nosotros.</p>
+    <p><a class="cta" href="https://drivelink.deals/start-deal">Asegurar un trato</a></p>
+  </div>
+</div>
+
 </article>
 </main>
 
 <footer class="site">
   <div class="wrap">
-    <p>These guides are general information about buying and selling vehicles privately, not legal or financial advice. If you have lost money, contact your bank and law enforcement first.</p>
-    <p><a href="https://drivelink.deals">DriveLink</a> &middot; <a href="https://drivelink.deals/safety">Is this safe?</a> &middot; <a href="mailto:support@drivelink.deals">support@drivelink.deals</a></p>
+    <div data-lang="en">
+      <p>These guides are general information about buying and selling vehicles privately, not legal or financial advice. If you have lost money, contact your bank and law enforcement first.</p>
+      <p><a href="https://drivelink.deals">DriveLink</a> &middot; <a href="https://drivelink.deals/safety">Is this safe?</a> &middot; <a href="mailto:support@drivelink.deals">support@drivelink.deals</a></p>
+    </div>
+    <div data-lang="es">
+      <p>Estas guías son información general sobre comprar y vender vehículos de forma privada, no son asesoría legal ni financiera. Si perdiste dinero, contacta primero a tu banco y a las autoridades.</p>
+      <p><a href="https://drivelink.deals">DriveLink</a> &middot; <a href="https://drivelink.deals/safety">&iquest;Es esto seguro?</a> &middot; <a href="mailto:support@drivelink.deals">support@drivelink.deals</a></p>
+    </div>
   </div>
 </footer>
 

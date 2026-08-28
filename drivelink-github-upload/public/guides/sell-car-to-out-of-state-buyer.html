@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<script src="/guides/lang.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>How to Sell a Car to an Out-of-State Buyer Safely</title>
 <meta name="description" content="Selling to a remote buyer widens your buyer pool and raises your sale price, but it changes what you have to get right. Payment confirmation, title handling, transport, and the paperwork that protects you after the car leaves.">
@@ -17,6 +18,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/guides/lang.css">
 
 <style>
   :root{
@@ -30,6 +32,7 @@
   .wrap{max-width:720px;margin:0 auto;padding:0 20px}
   header.site{border-bottom:1px solid var(--line);padding:18px 0}
   header.site .wrap{display:flex;align-items:center;justify-content:space-between;gap:16px}
+  header.site nav{display:flex;align-items:center}
   .brand{font-weight:700;font-size:19px;color:var(--ink);text-decoration:none;letter-spacing:-.01em}
   .brand span{color:var(--blue)}
   header.site nav a{color:var(--muted);text-decoration:none;font-size:14px;font-weight:500;margin-left:18px}
@@ -140,7 +143,7 @@
       "name": "Is it safe to mail the title to an out-of-state buyer?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Only after payment is fully confirmed and irreversible. If you are using escrow, the title normally travels with the vehicle or is couriered on confirmation. Never mail a signed title in advance of payment \u2014 a signed open title is effectively a transferable ownership document."
+        "text": "Only after payment is fully confirmed and irreversible. If you are using escrow, the title normally travels with the vehicle or is couriered on confirmation. Never mail a signed title in advance of payment — a signed open title is effectively a transferable ownership document."
       }
     }
   ]
@@ -154,15 +157,28 @@
   <div class="wrap">
     <a class="brand" href="https://drivelink.deals">Drive<span>Link</span></a>
     <nav>
-      <a href="https://drivelink.deals/browse">Browse</a>
-      <a href="https://drivelink.deals/start-deal">Secure a deal</a>
-      <a href="https://drivelink.deals/safety">Is this safe?</a>
+      <div data-lang="en">
+        <a href="https://drivelink.deals/browse">Browse</a>
+        <a href="https://drivelink.deals/start-deal">Secure a deal</a>
+        <a href="https://drivelink.deals/safety">Is this safe?</a>
+      </div>
+      <div data-lang="es">
+        <a href="https://drivelink.deals/browse">Explorar</a>
+        <a href="https://drivelink.deals/start-deal">Asegurar un trato</a>
+        <a href="https://drivelink.deals/safety">¿Es esto seguro?</a>
+      </div>
+      <div class="lang-toggle" data-lang-toggle role="group" aria-label="Language">
+        <button type="button" data-lang-btn="en">EN</button>
+        <button type="button" data-lang-btn="es">ES</button>
+      </div>
     </nav>
   </div>
 </header>
 
 <main>
 <article class="wrap">
+
+<div data-lang="en">
 
   <p class="eyebrow">Selling privately</p>
 
@@ -256,13 +272,117 @@
     </ul>
   </div>
 
+</div>
+
+<div data-lang="es">
+
+  <p class="eyebrow">Vender de forma particular</p>
+
+  <h1>Cómo vender un auto a un comprador fuera de tu estado</h1>
+
+  <p class="standfirst">Rechazar compradores fuera de tu estado te cuesta dinero — a menudo son los que están dispuestos a pagar bien por un auto específico. <strong>Todo el trabajo consiste en confirmar que el dinero es real antes de que el vehículo se mueva</strong>, y protegerte con la documentación después.</p>
+
+  <p class="byline">Última actualización: 17 de agosto de 2026</p>
+
+
+  <p>Los vendedores rechazan a compradores remotos porque se siente más riesgoso. En la práctica es un proceso manejable con tres puntos que requieren atención, y el beneficio es real: un comprador fuera del estado suele ser alguien que quiere tu auto específico y no cualquier auto, que es como las ventas privadas consiguen sus mejores precios.</p>
+
+  <h2>Punto uno: el pago</h2>
+
+  <p>Aquí es donde ocurren las pérdidas del lado del vendedor, y el principio es simple. <strong>El dinero lo confirmas tú, o un tercero neutral, antes de que el vehículo se mueva.</strong> No lo confirma el comprador. No lo confirma un documento que el comprador te dio.</p>
+
+  <table class="compare">
+    <thead><tr><th>Método</th><th>Tu exposición al riesgo</th></tr></thead>
+    <tbody>
+      <tr><td>Cheque de caja</td><td>Alta. Las falsificaciones se acreditan provisionalmente y se revierten semanas después, dejándote responsable por el monto completo.</td></tr>
+      <tr><td>Cheque personal</td><td>Muy alta. No.</td></tr>
+      <tr><td>App de pagos entre personas</td><td>Alta. Los límites suelen ser demasiado bajos de todos modos, y los pagos de cuentas comprometidas se pueden revertir.</td></tr>
+      <tr><td>Transferencia bancaria recibida</td><td>Baja, una vez genuinamente recibida. Verifícalo entrando a tu propia cuenta — nunca por una captura de pantalla o un correo de confirmación.</td></tr>
+      <tr><td>Garantía (escrow)</td><td>Baja. Los fondos los confirma un tercero antes de que te indiquen liberar el auto.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout">
+    <span class="label">Dos reglas, y vencen a la mayoría de los intentos</span>
+    <p>Nunca aceptes un sobrepago y devuelvas la diferencia — eso es una estafa en todos los casos, sin excepción.</p>
+    <p>Nunca entregues el auto según el horario de un transportista. Si el transporte ya está reservado y el pago no está confirmado, el transporte espera.</p>
+  </div>
+
+  <h2>Punto dos: el título y la documentación</h2>
+
+  <p>Firma el título según las reglas de tu estado, y verifica si el tuyo requiere notarización — varios la requieren, y un título sin notariar en uno de esos estados no es una transferencia válida. Si la requiere, organiza un notario con anticipación; muchos bancos tienen uno, lo cual combina bien con completar el pago ahí mismo.</p>
+
+  <p>Completa un contrato de compraventa aunque tu estado no lo requiera. Ambos nombres y direcciones, el VIN, el precio, la fecha, la lectura del odómetro, y una declaración de "tal cual está". Ambas partes firman. Tú te quedas con una copia. Si el comprador después alega que representaste mal el vehículo, este documento es la mayor parte de tu defensa.</p>
+
+  <p>Registra la lectura del odómetro tanto en el título como en el contrato de compraventa. Las reglas federales de divulgación aplican a la mayoría de los vehículos y una discrepancia después es un problema serio.</p>
+
+  <h3>Termina tu responsabilidad legal</h3>
+
+  <p>Este es el paso que los vendedores olvidan, y es el que genera las llamadas telefónicas seis meses después sobre una infracción de peaje en otro estado.</p>
+
+  <ul>
+    <li><strong>Quita tus placas</strong> antes de que el auto se vaya, a menos que tu estado transfiera las placas con el vehículo. La mayoría no lo hace.</li>
+    <li><strong>Presenta un aviso de venta o liberación de responsabilidad</strong> ante tu DMV, usualmente dentro de unos días. Muchos estados ahora lo permiten en línea y toma minutos.</li>
+    <li><strong>Cancela tu seguro del vehículo</strong> — pero solo después de que realmente se haya ido y el pago esté liquidado, no antes.</li>
+    <li><strong>Guarda copias de todo</strong>: el título firmado por ambos lados, el contrato de compraventa, la divulgación del odómetro, la confirmación de la presentación. Fotografía el título antes de entregarlo.</li>
+  </ul>
+
+  <h2>Punto tres: el transporte</h2>
+
+  <p>Normalmente el comprador organiza y paga el transporte. Tu participación es limitada pero no nula:</p>
+
+  <ul>
+    <li>Verifica que la empresa de transporte existe de forma independiente a lo que te dijo el comprador</li>
+    <li>Fotografía el vehículo minuciosamente justo antes de cargarlo, desde todos los ángulos, incluyendo daños existentes</li>
+    <li>Lee el conocimiento de embarque y asegúrate de que la condición anotada coincida con la realidad antes de firmar</li>
+    <li>No entregues las llaves ni el título hasta que el pago esté confirmado, sin importar quién esté parado en tu entrada</li>
+  </ul>
+
+  <h2>Qué decir cuando te contacta un comprador remoto</h2>
+
+  <p>Establecer los términos desde el principio evita la mayoría de la incomodidad después:</p>
+
+  <p><em>"Con gusto vendo fuera del estado. Uso garantía (escrow) para que ambos estemos cubiertos — un tercero retiene los fondos, tú recibes el auto y el título, y luego el dinero se me libera a mí. Puedo hacer un video completo del auto y eres bienvenido a organizar una inspección en cualquier taller cercano."</em></p>
+
+  <p>Ese mensaje hace tres cosas a la vez. Muestra que tienes experiencia, establece el método de pago antes de que el comprador proponga uno, y le ofrece al comprador algo real para que el requisito de garantía no se lea como desconfianza.</p>
+
+  <h3>¿Qué pasa con el impuesto sobre la venta y el registro?</h3>
+
+  <p>No es tu responsabilidad. El comprador paga el impuesto sobre la venta y registra el vehículo en su propio estado, en su propio tiempo. Tus obligaciones terminan al firmar el título correctamente, divulgar el odómetro, y presentar tu aviso de venta.</p>
+
+
+  <div class="product">
+    <h2>Dónde encaja DriveLink</h2>
+    <p>DriveLink es un mercado para ventas privadas de vehículos con garantía (escrow) en cada trato. Publica tu auto con nosotros para llegar a compradores que específicamente quieren una forma segura de pagar a distancia, o trae un comprador que ya encontraste y usa solo la garantía.</p>
+    <p>De cualquier forma, los fondos se confirman antes de que entregues el auto, y ofrecer garantía elimina la duda del comprador al mismo tiempo que la tuya.</p>
+    <p><a class="cta" href="https://drivelink.deals/start-deal">Asegurar un trato</a></p>
+  </div>
+
+  <div class="related">
+    <h2>Guías relacionadas</h2>
+    <ul>
+      <li><a href="/guides/buy-car-out-of-state-private-seller">Cómo comprar de forma segura un auto de un vendedor particular fuera de tu estado</a></li>
+      <li><a href="/guides/facebook-marketplace-car-scams">Estafas de autos en Facebook Marketplace y cómo funcionan</a></li>
+      <li><a href="/guides/how-car-escrow-works">Cómo funciona la garantía (escrow) para autos, y cómo funcionan los sitios de garantía falsos</a></li>
+      <li><a href="/guides/cashiers-check-fraud-selling-car">Fraude con cheques de caja al vender un auto</a></li>
+    </ul>
+  </div>
+
+</div>
+
 </article>
 </main>
 
 <footer class="site">
   <div class="wrap">
-    <p>This guide is general information about buying and selling vehicles privately, not legal or financial advice. If you have lost money, contact your bank and law enforcement first.</p>
-    <p><a href="https://drivelink.deals">DriveLink</a> &nbsp;&middot;&nbsp; <a href="https://drivelink.deals/safety">Is this safe?</a> &nbsp;&middot;&nbsp; <a href="mailto:support@drivelink.deals">support@drivelink.deals</a></p>
+    <div data-lang="en">
+      <p>This guide is general information about buying and selling vehicles privately, not legal or financial advice. If you have lost money, contact your bank and law enforcement first.</p>
+      <p><a href="https://drivelink.deals">DriveLink</a> &nbsp;&middot;&nbsp; <a href="https://drivelink.deals/safety">Is this safe?</a> &nbsp;&middot;&nbsp; <a href="mailto:support@drivelink.deals">support@drivelink.deals</a></p>
+    </div>
+    <div data-lang="es">
+      <p>Esta guía es información general sobre comprar y vender vehículos de forma privada, no es asesoría legal ni financiera. Si perdiste dinero, contacta primero a tu banco y a las autoridades.</p>
+      <p><a href="https://drivelink.deals">DriveLink</a> &nbsp;&middot;&nbsp; <a href="https://drivelink.deals/safety">¿Es esto seguro?</a> &nbsp;&middot;&nbsp; <a href="mailto:support@drivelink.deals">support@drivelink.deals</a></p>
+    </div>
   </div>
 </footer>
 

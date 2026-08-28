@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<script src="/guides/lang.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>How to Safely Buy a Car From a Private Seller Out of State</title>
 <meta name="description" content="Buying a car from a private seller in another state is safe if you fix the payment and the title first. The order of operations that protects you, what to verify before you travel, and the three points where out-of-state deals actually go wrong.">
@@ -17,6 +18,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/guides/lang.css">
 
 <style>
   :root{
@@ -30,6 +32,7 @@
   .wrap{max-width:720px;margin:0 auto;padding:0 20px}
   header.site{border-bottom:1px solid var(--line);padding:18px 0}
   header.site .wrap{display:flex;align-items:center;justify-content:space-between;gap:16px}
+  header.site nav{display:flex;align-items:center}
   .brand{font-weight:700;font-size:19px;color:var(--ink);text-decoration:none;letter-spacing:-.01em}
   .brand span{color:var(--blue)}
   header.site nav a{color:var(--muted);text-decoration:none;font-size:14px;font-weight:500;margin-left:18px}
@@ -154,15 +157,28 @@
   <div class="wrap">
     <a class="brand" href="https://drivelink.deals">Drive<span>Link</span></a>
     <nav>
-      <a href="https://drivelink.deals/browse">Browse</a>
-      <a href="https://drivelink.deals/start-deal">Secure a deal</a>
-      <a href="https://drivelink.deals/safety">Is this safe?</a>
+      <div data-lang="en">
+        <a href="https://drivelink.deals/browse">Browse</a>
+        <a href="https://drivelink.deals/start-deal">Secure a deal</a>
+        <a href="https://drivelink.deals/safety">Is this safe?</a>
+      </div>
+      <div data-lang="es">
+        <a href="https://drivelink.deals/browse">Explorar</a>
+        <a href="https://drivelink.deals/start-deal">Asegurar un trato</a>
+        <a href="https://drivelink.deals/safety">¿Es esto seguro?</a>
+      </div>
+      <div class="lang-toggle" data-lang-toggle role="group" aria-label="Language">
+        <button type="button" data-lang-btn="en">EN</button>
+        <button type="button" data-lang-btn="es">ES</button>
+      </div>
     </nav>
   </div>
 </header>
 
 <main>
 <article class="wrap">
+
+<div data-lang="en">
 
   <p class="eyebrow">Buying privately</p>
 
@@ -257,13 +273,118 @@
     </ul>
   </div>
 
+</div>
+
+<div data-lang="es">
+
+  <p class="eyebrow">Comprar de forma particular</p>
+
+  <h1>Cómo comprar de forma segura un auto de un vendedor particular fuera de tu estado</h1>
+
+  <p class="standfirst">Las compras privadas fuera del estado fallan en tres puntos específicos: <strong>el pago, el título, y el registro</strong>. Todo lo demás es comprar un auto de forma normal. Resuelve esos tres puntos y la distancia deja de importar.</p>
+
+  <p class="byline">Última actualización: 17 de agosto de 2026</p>
+
+
+  <p>La distancia no es el riesgo. Cada semana se venden muchos autos buenos a compradores que están a cuatro estados de distancia. Lo que hace la distancia es eliminar las dos cosas que normalmente te protegen: no puedes ver el auto casualmente antes de comprometerte, y no puedes volver fácilmente si algo sale mal.</p>
+
+  <p>Así que todo el trabajo consiste en organizar las cosas en un orden en el que nunca quedes expuesto. Aquí está ese orden.</p>
+
+  <h2>Antes de viajar</h2>
+
+  <h3>Confirma que el vendedor es dueño del auto</h3>
+
+  <p>Pide una foto del título con el VIN visible, y una foto de la licencia de conducir del vendedor. El nombre en el título y el nombre en la licencia deben coincidir. Si no coinciden, estás tratando con un "curbstoner" — un revendedor sin licencia que voltea autos haciéndose pasar por dueño particular — o alguien que vende un vehículo que no tiene derecho a vender.</p>
+
+  <p>Compara el VIN del título con el VIN del tablero y del marco de la puerta en las propias fotos del vendedor. Esto toma dos minutos y elimina toda una categoría de problemas.</p>
+
+  <h3>Verifica si hay un gravamen</h3>
+
+  <p>Si el vendedor todavía debe dinero por el auto, el prestamista tiene el título, y el vendedor no puede entregártelo en el encuentro sin importar cómo vaya la venta. Esto se puede resolver — completas la transacción en el banco del vendedor, el préstamo se paga con el dinero de la venta, y el prestamista libera el título — pero hay que organizarlo con anticipación. Descubrirlo el mismo día significa volver a casa sin auto.</p>
+
+  <h3>Compra un reporte de historial del vehículo y léelo con atención</h3>
+
+  <p>Estás buscando marcas en el título (pérdida total, inundación, reconstruido, "lemon"), inconsistencias en el odómetro, y un historial de registro que coincida con la historia del vendedor. Un auto que se ha registrado en cuatro estados en tres años vale la pena preguntarlo.</p>
+
+  <h3>Paga por una inspección local previa a la compra</h3>
+
+  <p>Esta es la cosa de mayor valor que puedes hacer a distancia y la gente la omite constantemente. Busca un taller independiente cerca del vendedor — no uno que el vendedor recomiende — y págales entre $100 y $200 por poner el auto en un elevador. Llama al taller tú mismo y págales directamente. Pide fotos.</p>
+
+  <p>Un vendedor que se niega a permitir una inspección en un taller de tu elección te lo dijo todo. No hay ninguna razón legítima para negarse.</p>
+
+  <div class="callout">
+    <span class="label">La regla que evita la mayoría de las pérdidas</span>
+    <p>No envíes dinero antes de la entrega. Ni un depósito, ni un pago parcial, ni una transferencia de "buena fe" para quitar el anuncio. Si el vehículo realmente está por venderse a otra persona, déjalo ir. Habrá otro auto.</p>
+  </div>
+
+  <h2>Cómo organizar el pago</h2>
+
+  <p>Aquí es donde los tratos fuera del estado realmente salen mal, y vale la pena ser directo sobre las opciones.</p>
+
+  <table class="compare">
+    <thead><tr><th>Método</th><th>Qué significa para ti</th></tr></thead>
+    <tbody>
+      <tr><td>Transferencia bancaria por adelantado</td><td>Irreversible al llegar. Sin contracargo, sin disputa, sin recuperación. Esto es en lo que se basa cada estafa de vehículos a distancia.</td></tr>
+      <tr><td>Cheque de caja</td><td>Entregas el valor completo antes de que se transfiera el título. También se falsifica con frecuencia, lo cual es problema del vendedor pero se vuelve tuyo cuando el trato colapsa.</td></tr>
+      <tr><td>Efectivo en persona</td><td>Funciona, pero viajas con una gran cantidad de efectivo para reunirte con un desconocido. Piensa qué significa eso para un auto de $30,000.</td></tr>
+      <tr><td>Transferencia en el banco del vendedor</td><td>Buena opción. Ambas partes presentes, fondos verificados, título firmado en el mostrador. Requiere la cooperación del vendedor y que ambos estén presentes.</td></tr>
+      <tr><td>Garantía (escrow)</td><td>Buena opción. Los fondos los retiene un tercero y se liberan después de la entrega. Ninguno de los dos va primero, y funciona cuando no pueden estar ambos en el mismo banco.</td></tr>
+    </tbody>
+  </table>
+
+  <p>Si el vendedor solo acepta un método que te deja habiendo pagado por adelantado y sin protección, esa es la respuesta a si deberías comprar el auto.</p>
+
+  <h2>En la entrega</h2>
+
+  <ul>
+    <li><strong>El título firmado está físicamente en tu mano antes de que pagues.</strong> No en el correo, no en el banco, no con un familiar. Si no está ahí, te vas.</li>
+    <li><strong>Verifica la identificación del vendedor contra el título.</strong> Otra vez, esta vez en persona.</li>
+    <li><strong>Confirma que la lectura del odómetro coincide</strong> con el título, el anuncio, y el reporte de historial.</li>
+    <li><strong>Completa un contrato de compraventa</strong> con los nombres y direcciones de ambas partes, el VIN, el precio, la fecha, y la lectura del odómetro. Ambos firman. Ambos se quedan con una copia. Algunos estados requieren un formulario específico.</li>
+    <li><strong>Verifica si el título necesita notarización.</strong> Varios estados la requieren, y un título sin notariar en uno de esos estados no es una transferencia válida. Averigua qué reglas aplican antes de reunirte, y si hace falta, reúnete en un lugar con notario — muchos bancos tienen uno.</li>
+  </ul>
+
+  <h2>Llevarlo a casa y registrarlo</h2>
+
+  <p>Necesitas seguro antes de manejarlo. Llama a tu aseguradora con el VIN y agrega el vehículo antes de salir — la mayoría puede activar la cobertura por teléfono.</p>
+
+  <p>Para el viaje, necesitas una placa temporal del estado donde compraste o un permiso de tránsito. Las reglas varían y algunos estados no emiten ninguno de los dos a alguien que no reside ahí, en cuyo caso la respuesta es un transportista. Resuelve esto antes del viaje, no en el mostrador del DMV un viernes por la tarde.</p>
+
+  <p>En casa, registrarás el auto en tu propio estado, lo cual típicamente significa el título firmado, el contrato de compraventa, prueba de seguro, una declaración del odómetro, y el pago del impuesto sobre la venta. Algunos estados también requieren una inspección o una verificación del VIN antes de emitir las placas. Un auto que no pasa la inspección de tu estado sigue siendo tu auto.</p>
+
+
+  <div class="product">
+    <h2>Dónde encaja DriveLink</h2>
+    <p>DriveLink es un mercado para ventas privadas de vehículos con garantía (escrow) incorporada en cada transacción — diseñado exactamente para esta situación, donde comprador y vendedor no están en el mismo lugar y no tienen forma de verificarse mutuamente.</p>
+    <p>Explora los autos publicados con nosotros, o trae un auto que encontraste en otro lugar. De cualquier forma, retenemos los fondos hasta que se completa la entrega.</p>
+    <p><a class="cta" href="https://drivelink.deals/start-deal">Asegurar un trato</a></p>
+  </div>
+
+  <div class="related">
+    <h2>Guías relacionadas</h2>
+    <ul>
+      <li><a href="/guides/facebook-marketplace-car-scams">Estafas de autos en Facebook Marketplace y cómo funcionan</a></li>
+      <li><a href="/guides/how-car-escrow-works">Cómo funciona la garantía (escrow) para autos, y cómo funcionan los sitios de garantía falsos</a></li>
+      <li><a href="/guides/cashiers-check-fraud-selling-car">Fraude con cheques de caja al vender un auto</a></li>
+      <li><a href="/guides/buyer-wants-to-pay-before-seeing-car">Qué hacer cuando un comprador quiere pagar antes de ver el auto</a></li>
+    </ul>
+  </div>
+
+</div>
+
 </article>
 </main>
 
 <footer class="site">
   <div class="wrap">
-    <p>This guide is general information about buying and selling vehicles privately, not legal or financial advice. If you have lost money, contact your bank and law enforcement first.</p>
-    <p><a href="https://drivelink.deals">DriveLink</a> &nbsp;&middot;&nbsp; <a href="https://drivelink.deals/safety">Is this safe?</a> &nbsp;&middot;&nbsp; <a href="mailto:support@drivelink.deals">support@drivelink.deals</a></p>
+    <div data-lang="en">
+      <p>This guide is general information about buying and selling vehicles privately, not legal or financial advice. If you have lost money, contact your bank and law enforcement first.</p>
+      <p><a href="https://drivelink.deals">DriveLink</a> &nbsp;&middot;&nbsp; <a href="https://drivelink.deals/safety">Is this safe?</a> &nbsp;&middot;&nbsp; <a href="mailto:support@drivelink.deals">support@drivelink.deals</a></p>
+    </div>
+    <div data-lang="es">
+      <p>Esta guía es información general sobre comprar y vender vehículos de forma privada, no es asesoría legal ni financiera. Si perdiste dinero, contacta primero a tu banco y a las autoridades.</p>
+      <p><a href="https://drivelink.deals">DriveLink</a> &nbsp;&middot;&nbsp; <a href="https://drivelink.deals/safety">¿Es esto seguro?</a> &nbsp;&middot;&nbsp; <a href="mailto:support@drivelink.deals">support@drivelink.deals</a></p>
+    </div>
   </div>
 </footer>
 

@@ -1,0 +1,35 @@
+/* Shared bilingual-toggle styles for the static /guides/ pages.
+   Content is duplicated in full per language as sibling <div data-lang="en">
+   / <div data-lang="es"> blocks — see lang.js for why (no build step, no
+   templating, so both languages ship in the same static file and CSS shows
+   only the active one). Both are always in the markup; only display swaps. */
+
+[data-lang] { display: none; }
+html.lang-en [data-lang="en"] { display: block; }
+html.lang-es [data-lang="es"] { display: block; }
+
+/* Compact EN/ES pill switch, matching src/i18n.jsx's <LangToggle/>. */
+.lang-toggle {
+  display: inline-flex;
+  background: #f1f5f9;
+  border-radius: 8px;
+  padding: 2px;
+  gap: 2px;
+  flex: none;
+}
+.lang-toggle button {
+  border: none;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: transparent;
+  color: #6b7280;
+  font-family: inherit;
+}
+.lang-toggle button[aria-pressed="true"] {
+  background: #fff;
+  color: #0f172a;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .08);
+}

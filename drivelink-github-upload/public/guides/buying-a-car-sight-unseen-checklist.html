@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<script src="/guides/lang.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Buying a Car Sight Unseen: A Checklist That Actually Works</title>
 <meta name="description" content="A practical checklist for buying a vehicle you cannot inspect in person: what to verify before committing, what to ask for, how to handle payment, and the points where remote purchases go wrong.">
@@ -17,6 +18,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/guides/lang.css">
 
 <style>
   :root{
@@ -30,6 +32,7 @@
   .wrap{max-width:720px;margin:0 auto;padding:0 20px}
   header.site{border-bottom:1px solid var(--line);padding:18px 0}
   header.site .wrap{display:flex;align-items:center;justify-content:space-between;gap:16px}
+  header.site nav{display:flex;align-items:center}
   .brand{font-weight:700;font-size:19px;color:var(--ink);text-decoration:none;letter-spacing:-.01em}
   .brand span{color:var(--blue)}
   header.site nav a{color:var(--muted);text-decoration:none;font-size:14px;font-weight:500;margin-left:18px}
@@ -154,15 +157,28 @@
   <div class="wrap">
     <a class="brand" href="https://drivelink.deals">Drive<span>Link</span></a>
     <nav>
-      <a href="https://drivelink.deals/browse">Browse</a>
-      <a href="https://drivelink.deals/start-deal">Secure a deal</a>
-      <a href="https://drivelink.deals/safety">Is this safe?</a>
+      <div data-lang="en">
+        <a href="https://drivelink.deals/browse">Browse</a>
+        <a href="https://drivelink.deals/start-deal">Secure a deal</a>
+        <a href="https://drivelink.deals/safety">Is this safe?</a>
+      </div>
+      <div data-lang="es">
+        <a href="https://drivelink.deals/browse">Explorar</a>
+        <a href="https://drivelink.deals/start-deal">Asegurar un trato</a>
+        <a href="https://drivelink.deals/safety">¿Es esto seguro?</a>
+      </div>
+      <div class="lang-toggle" data-lang-toggle role="group" aria-label="Language">
+        <button type="button" data-lang-btn="en">EN</button>
+        <button type="button" data-lang-btn="es">ES</button>
+      </div>
     </nav>
   </div>
 </header>
 
 <main>
 <article class="wrap">
+
+<div data-lang="en">
 
   <p class="eyebrow">Buying privately</p>
 
@@ -264,13 +280,125 @@
     </ul>
   </div>
 
+</div>
+
+<div data-lang="es">
+
+  <p class="eyebrow">Comprar de forma particular</p>
+
+  <h1>Comprar un auto sin verlo — la lista de verificación</h1>
+
+  <p class="standfirst">Comprar a distancia no es imprudente si reemplazas la inspección en persona con algo mejor. <strong>Una inspección independiente y una estructura de pago en la que nadie va primero</strong> hacen la mayor parte del trabajo.</p>
+
+  <p class="byline">Última actualización: 17 de agosto de 2026</p>
+
+
+  <p>Lo que pierdes por no estar ahí es un conjunto específico de cosas: el arranque en frío, cómo maneja, el olor del interior, los espacios entre paneles, y la impresión que te formas de la persona que lo vende. Cada punto de abajo existe para reemplazar uno de esos.</p>
+
+  <h2>Antes de comprometerte a algo</h2>
+
+  <h3>Verifica que el vendedor es dueño del auto</h3>
+  <ul>
+    <li>Foto del título con el VIN legible</li>
+    <li>Foto de la licencia de conducir del vendedor — el nombre debe coincidir con el título</li>
+    <li>Confirma que no hay ningún gravamen, o averigua qué prestamista tiene el título y cómo funcionará el pago</li>
+  </ul>
+
+  <h3>Verifica que el auto es el auto</h3>
+  <ul>
+    <li>Foto de la placa del VIN en el tablero y de la etiqueta en el marco de la puerta del conductor</li>
+    <li>Ambos deben coincidir con el título y el anuncio</li>
+    <li>Un reporte de historial del vehículo que hayas comprado tú mismo, de un proveedor que hayas encontrado tú mismo</li>
+    <li>Revisa el reporte en busca de marcas en el título, inconsistencias en el odómetro, y un historial de registro que coincida con la historia del vendedor</li>
+  </ul>
+
+  <h3>Consigue material que no se pueda falsificar fácilmente</h3>
+  <ul>
+    <li><strong>Un video continuo del recorrido</strong>, en una sola toma, sin cortes, los cuatro lados, las ruedas, el interior, el compartimento del motor, y por debajo si es posible</li>
+    <li><strong>Un arranque en frío</strong> grabado desde antes de que se gire la llave — esto revela más problemas mecánicos que cualquier foto</li>
+    <li><strong>El odómetro</strong> fotografiado con la fecha de hoy escrita a mano en un papel al lado</li>
+    <li><strong>Fotos específicas que tú indiques.</strong> Pide la rueda trasera del lado del conductor, o el espacio para los pies del pasajero. Alguien que tiene el auto las envía en minutos. Alguien que no lo tiene se demora.</li>
+  </ul>
+
+  <div class="callout">
+    <span class="label">La que no es negociable</span>
+    <p>Paga por una inspección independiente previa a la compra en un taller que <em>tú</em> elijas, cerca del vendedor. No un taller que el vendedor recomendó. Llámalos tú mismo, págales directamente, y pide fotos y un reporte por escrito. Un vendedor que no permita esto ya respondió la única pregunta que importa.</p>
+  </div>
+
+  <h2>Preguntas que vale la pena hacer directamente</h2>
+
+  <ul>
+    <li>¿Por qué lo estás vendiendo?</li>
+    <li>¿Cuánto tiempo lo has tenido, y tienes los registros de servicio?</li>
+    <li>¿Hay algo que actualmente no funcione, por pequeño que sea?</li>
+    <li>¿Alguna luz de advertencia al arrancar en frío?</li>
+    <li>¿Alguna vez ha tenido un accidente, incluyendo algo que no se reportó al seguro?</li>
+    <li>¿Hay dos llaves?</li>
+    <li>¿Cuándo se cambiaron por última vez las llantas y los frenos?</li>
+  </ul>
+
+  <p>Estás escuchando la especificidad y la disposición a mencionar un defecto por sí mismo. Un dueño que dice "el aire acondicionado necesita recarga y hay un rayón en el parachoques trasero" es más creíble que uno que dice que todo está perfecto.</p>
+
+  <h2>Pago y entrega</h2>
+
+  <ol>
+    <li><strong>No envíes un depósito.</strong> Ni para reservarlo, ni de buena fe, ni de ningún monto.</li>
+    <li><strong>No transfieras por adelantado.</strong> Una transferencia bancaria es definitiva al llegar, sin contracargo ni derecho a reversión.</li>
+    <li><strong>Usa una estructura donde el dinero quede retenido</strong> hasta que tengas el auto y el título firmado. La garantía (escrow) hace esto. También lo hace transferir en el banco del vendedor si ambos pueden estar presentes.</li>
+    <li><strong>Confirma cómo te llegará el título.</strong> Si no estás presente en la entrega, acuerda de antemano si viaja con el transportista o se envía por separado, y no liberes los fondos hasta que lo tengas.</li>
+    <li><strong>Organiza tu propio transporte,</strong> o al menos verifica que cualquier transportista que proponga el vendedor exista de forma independiente a lo que te dijo el vendedor.</li>
+    <li><strong>Asegúralo antes de que se mueva.</strong> Llama a tu aseguradora con el VIN y activa la cobertura.</li>
+  </ol>
+
+  <h2>Cuando llega</h2>
+
+  <ul>
+    <li>Fotografíalo antes de que baje del camión, desde todos los ángulos, antes de firmar nada para el transportista</li>
+    <li>Verifica el VIN contra el título y tu documentación</li>
+    <li>Verifica el odómetro contra lo que te mostraron</li>
+    <li>Anota cualquier daño de transporte en el conocimiento de embarque <em>antes</em> de firmarlo — firmarlo sin anotaciones renuncia al reclamo</li>
+    <li>Enciéndelo, manéjalo brevemente, y verifica todo lo que describió el vendedor</li>
+  </ul>
+
+  <p>Si algo es materialmente distinto de lo que se representó, repórtalo de inmediato y por escrito. Un lapso de días debilita considerablemente tu posición.</p>
+
+  <h2>La limitación honesta</h2>
+
+  <p>Nada de esto hace que una compra remota sea idéntica a comprar localmente. Estás aceptando cierto riesgo residual sobre la condición del auto a cambio de acceso a uno que de otra forma no podrías comprar. Lo que elimina esta lista es la versión catastrófica — pagar por un auto que no existe, o uno con un título que no puedes registrar. Eso es un intercambio razonable. Enviar dinero a un desconocido y esperar lo mejor no lo es.</p>
+
+
+  <div class="product">
+    <h2>Dónde encaja DriveLink</h2>
+    <p>DriveLink es un mercado para ventas privadas de vehículos con garantía (escrow) en cada trato, lo cual cubre la mitad del pago de esta lista de verificación. Tus fondos se retienen en lugar de enviarse al vendedor, y se liberan solo después de que tengas el vehículo y lo confirmes.</p>
+    <p>Explora los autos publicados con nosotros, o trae uno que encontraste en otro lugar. La inspección sigue siendo tu responsabilidad — la garantía te protege de no recibir un auto, no de recibir uno decepcionante.</p>
+    <p><a class="cta" href="https://drivelink.deals/start-deal">Asegurar un trato</a></p>
+  </div>
+
+  <div class="related">
+    <h2>Guías relacionadas</h2>
+    <ul>
+      <li><a href="/guides/buy-car-out-of-state-private-seller">Cómo comprar de forma segura un auto de un vendedor particular fuera de tu estado</a></li>
+      <li><a href="/guides/facebook-marketplace-car-scams">Estafas de autos en Facebook Marketplace y cómo funcionan</a></li>
+      <li><a href="/guides/how-car-escrow-works">Cómo funciona la garantía (escrow) para autos, y cómo funcionan los sitios de garantía falsos</a></li>
+      <li><a href="/guides/cashiers-check-fraud-selling-car">Fraude con cheques de caja al vender un auto</a></li>
+    </ul>
+  </div>
+
+</div>
+
 </article>
 </main>
 
 <footer class="site">
   <div class="wrap">
-    <p>This guide is general information about buying and selling vehicles privately, not legal or financial advice. If you have lost money, contact your bank and law enforcement first.</p>
-    <p><a href="https://drivelink.deals">DriveLink</a> &nbsp;&middot;&nbsp; <a href="https://drivelink.deals/safety">Is this safe?</a> &nbsp;&middot;&nbsp; <a href="mailto:support@drivelink.deals">support@drivelink.deals</a></p>
+    <div data-lang="en">
+      <p>This guide is general information about buying and selling vehicles privately, not legal or financial advice. If you have lost money, contact your bank and law enforcement first.</p>
+      <p><a href="https://drivelink.deals">DriveLink</a> &nbsp;&middot;&nbsp; <a href="https://drivelink.deals/safety">Is this safe?</a> &nbsp;&middot;&nbsp; <a href="mailto:support@drivelink.deals">support@drivelink.deals</a></p>
+    </div>
+    <div data-lang="es">
+      <p>Esta guía es información general sobre comprar y vender vehículos de forma privada, no es asesoría legal ni financiera. Si perdiste dinero, contacta primero a tu banco y a las autoridades.</p>
+      <p><a href="https://drivelink.deals">DriveLink</a> &nbsp;&middot;&nbsp; <a href="https://drivelink.deals/safety">¿Es esto seguro?</a> &nbsp;&middot;&nbsp; <a href="mailto:support@drivelink.deals">support@drivelink.deals</a></p>
+    </div>
   </div>
 </footer>
 

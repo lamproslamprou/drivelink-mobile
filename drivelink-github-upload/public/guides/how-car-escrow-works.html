@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<script src="/guides/lang.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>How Car Escrow Works — and How to Spot a Fake Escrow Site</title>
 <meta name="description" content="What actually happens to your money during a vehicle escrow transaction, step by step. Plus the specific signs of a fake escrow site, which is one of the most common ways buyers lose money on private car sales.">
@@ -17,6 +18,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/guides/lang.css">
 
 <style>
   :root{
@@ -30,6 +32,7 @@
   .wrap{max-width:720px;margin:0 auto;padding:0 20px}
   header.site{border-bottom:1px solid var(--line);padding:18px 0}
   header.site .wrap{display:flex;align-items:center;justify-content:space-between;gap:16px}
+  header.site nav{display:flex;align-items:center}
   .brand{font-weight:700;font-size:19px;color:var(--ink);text-decoration:none;letter-spacing:-.01em}
   .brand span{color:var(--blue)}
   header.site nav a{color:var(--muted);text-decoration:none;font-size:14px;font-weight:500;margin-left:18px}
@@ -84,7 +87,7 @@
 {
   "@context": "https://schema.org",
   "@type": "Article",
-  "headline": "How Car Escrow Works \u2014 and How to Spot a Fake Escrow Site",
+  "headline": "How Car Escrow Works — and How to Spot a Fake Escrow Site",
   "description": "What actually happens to your money during a vehicle escrow transaction, step by step. Plus the specific signs of a fake escrow site, which is one of the most common ways buyers lose money on private car sales.",
   "datePublished": "2026-08-17",
   "dateModified": "2026-08-17",
@@ -154,15 +157,28 @@
   <div class="wrap">
     <a class="brand" href="https://drivelink.deals">Drive<span>Link</span></a>
     <nav>
-      <a href="https://drivelink.deals/browse">Browse</a>
-      <a href="https://drivelink.deals/start-deal">Secure a deal</a>
-      <a href="https://drivelink.deals/safety">Is this safe?</a>
+      <div data-lang="en">
+        <a href="https://drivelink.deals/browse">Browse</a>
+        <a href="https://drivelink.deals/start-deal">Secure a deal</a>
+        <a href="https://drivelink.deals/safety">Is this safe?</a>
+      </div>
+      <div data-lang="es">
+        <a href="https://drivelink.deals/browse">Explorar</a>
+        <a href="https://drivelink.deals/start-deal">Asegurar un trato</a>
+        <a href="https://drivelink.deals/safety">¿Es esto seguro?</a>
+      </div>
+      <div class="lang-toggle" data-lang-toggle role="group" aria-label="Language">
+        <button type="button" data-lang-btn="en">EN</button>
+        <button type="button" data-lang-btn="es">ES</button>
+      </div>
     </nav>
   </div>
 </header>
 
 <main>
 <article class="wrap">
+
+<div data-lang="en">
 
   <p class="eyebrow">How it works</p>
 
@@ -259,13 +275,120 @@
     </ul>
   </div>
 
+</div>
+
+<div data-lang="es">
+
+  <p class="eyebrow">Cómo funciona</p>
+
+  <h1>Cómo funciona la garantía (escrow) para autos, y cómo funcionan los sitios de garantía falsos</h1>
+
+  <p class="standfirst">La garantía (escrow) resuelve un solo problema: <strong>alguien tiene que ir primero, y ninguna de las partes quiere ser esa persona.</strong> Un tercero retiene el dinero hasta que el auto y el título realmente hayan cambiado de manos.</p>
+
+  <p class="byline">Última actualización: 17 de agosto de 2026</p>
+
+
+  <p>Dos desconocidos acuerdan un precio por un auto. El comprador no va a entregar $28,000 antes de tener el vehículo y el título. El vendedor no va a entregar el vehículo y el título antes de tener los $28,000. Ambas posturas son razonables. En una venta local en efectivo esto se resuelve haciendo ambas cosas al mismo tiempo en un estacionamiento, lo cual funciona pero no siempre es posible y no siempre es seguro.</p>
+
+  <p>La garantía resuelve esto eliminando la necesidad de que cualquiera de las partes vaya primero.</p>
+
+  <h2>Lo que realmente sucede, paso a paso</h2>
+
+  <ol>
+    <li><strong>Ambas partes acuerdan los términos</strong> — el precio, quién paga la tarifa, en qué condición está el auto, y cuánto tiempo tiene el comprador para confirmar.</li>
+    <li><strong>El comprador le paga al servicio de garantía,</strong> no al vendedor. El dinero sale de la cuenta del comprador pero no llega al vendedor.</li>
+    <li><strong>El servicio confirma que tiene los fondos acreditados</strong> y notifica al vendedor. Este es el momento en que el vendedor se entera de que el dinero es real, lo cual es lo que le permite liberar el auto.</li>
+    <li><strong>Ocurre la entrega.</strong> El comprador toma posesión del vehículo y del título firmado. Dependiendo del acuerdo, esto es en persona o a través de un transportista.</li>
+    <li><strong>El comprador confirma la recepción.</strong> Algunos servicios también usan un código que tiene el comprador y que el vendedor ingresa, para que la confirmación no se pueda saltar ni falsificar.</li>
+    <li><strong>Los fondos se liberan al vendedor,</strong> menos la tarifa. Este suele ser el primer momento en que el dinero del vendedor es realmente suyo.</li>
+  </ol>
+
+  <p>Fíjate dónde está el riesgo en cada paso. No hay ningún momento en el que una de las partes tenga tanto el dinero como el auto. Ese es todo el propósito del producto.</p>
+
+  <h2>De qué te protege la garantía y de qué no</h2>
+
+  <table class="compare">
+    <thead><tr><th>Riesgo</th><th>¿Ayuda la garantía (escrow)?</th></tr></thead>
+    <tbody>
+      <tr><td>El vendedor se queda con el dinero y desaparece</td><td>Sí. Nunca lo recibe hasta que tú confirmas.</td></tr>
+      <tr><td>El pago del comprador resulta ser fraudulento</td><td>Sí. El vendedor no libera el auto hasta que se confirman los fondos.</td></tr>
+      <tr><td>El auto no existe</td><td>Sí. Sin confirmación no hay liberación de fondos.</td></tr>
+      <tr><td>El auto está mecánicamente peor de lo descrito</td><td>En parte. Puedes negarte a confirmar, pero una disputa mecánica sigue siendo una disputa. Consigue una inspección.</td></tr>
+      <tr><td>El título tiene una marca o un gravamen</td><td>No. La garantía mueve dinero; no audita el título. Revísalo tú mismo.</td></tr>
+      <tr><td>Simplemente pagaste de más</td><td>No.</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Sitios de garantía falsos</h2>
+
+  <p>Esto merece su propia sección porque es la forma más común en que la gente pierde dinero mientras cree que está siendo cuidadosa. La víctima ya decidió ser precavida. El trabajo del estafador es proporcionar esa precaución.</p>
+
+  <p>Funciona así. Le dices al vendedor que no te sientes cómodo transfiriendo dinero directamente. El vendedor está de acuerdo con entusiasmo — claro, usemos una garantía — y envía un enlace. El sitio está bien construido. Tiene un logo, una página de Términos, una tabla de tarifas, a veces un widget de chat en vivo. Creas una cuenta, ves tu transacción listada con el vehículo y el precio correctos, y recibes una factura con instrucciones de transferencia. Transfieres. El estado se actualiza a "fondos recibidos". Y después nada.</p>
+
+  <div class="callout">
+    <span class="label">La única prueba confiable</span>
+    <p>Si el enlace vino de la persona con la que estás negociando, no lo uses. No es "revísalo con cuidado primero" — no lo uses. Un servicio de garantía real es uno que encontraste de forma independiente y al que llegaste escribiendo tú mismo la dirección.</p>
+  </div>
+
+  <h3>Las otras señales, en orden aproximado de utilidad</h3>
+
+  <ul>
+    <li><strong>Solo transferencia bancaria o criptomoneda.</strong> Un servicio legítimo procesa pagos con tarjeta o bancarios a través de un procesador con nombre. El "solo transferencia" existe porque las transferencias son irreversibles.</li>
+    <li><strong>La cuenta receptora es un nombre personal.</strong> Una garantía real no recibe los fondos en la cuenta corriente de un individuo.</li>
+    <li><strong>El dominio es nuevo.</strong> Verifica la fecha de registro con una búsqueda WHOIS. Un sitio que maneja garantías y que se registró hace cinco semanas no es una empresa de garantía real.</li>
+    <li><strong>Nombres de dominio casi idénticos.</strong> Un carácter cambiado, un guión agregado, un dominio de nivel superior distinto al de la empresa real.</li>
+    <li><strong>Ninguna empresa verificable detrás.</strong> Sin entidad registrada, sin dirección física, sin información de licencia, o datos que no coinciden con los registros públicos.</li>
+    <li><strong>Presión.</strong> Los servicios reales no te dicen que la transacción expira en dos horas.</li>
+  </ul>
+
+  <h2>Preguntas que vale la pena hacerle a cualquier servicio de garantía</h2>
+
+  <ul>
+    <li>¿Quién retiene los fondos mientras la transacción está abierta, y dónde?</li>
+    <li>¿Qué específicamente activa la liberación al vendedor?</li>
+    <li>¿Cuál es la tarifa, quién la paga, y se divulga antes de que me comprometa?</li>
+    <li>¿Qué pasa si el comprador nunca confirma — hay un tiempo límite, y qué hace ese límite?</li>
+    <li>¿Qué pasa si el auto no es como se describió?</li>
+  </ul>
+
+  <p>Un servicio que no puede responder esto con claridad en su propio sitio web no es uno al que enviarle dinero.</p>
+
+
+  <div class="product">
+    <h2>Dónde encaja DriveLink</h2>
+    <p>DriveLink es un mercado para ventas privadas de vehículos con garantía (escrow) incorporada. Los fondos del comprador se retienen a través de Stripe y se liberan al vendedor solo después de que el comprador confirma que tiene el auto — o después de que el vendedor ingresa un código de entrega que tiene el comprador.</p>
+    <p>Publica un auto con nosotros, o trae uno que encontraste en cualquier lugar. Tú encontraste esta página por tu cuenta, que es la forma correcta de llegar a un servicio de garantía — nadie debería enviarte uno en un mensaje.</p>
+    <p><a class="cta" href="https://drivelink.deals/start-deal">Asegurar un trato</a></p>
+  </div>
+
+  <div class="related">
+    <h2>Guías relacionadas</h2>
+    <ul>
+      <li><a href="/guides/buy-car-out-of-state-private-seller">Cómo comprar de forma segura un auto de un vendedor particular fuera de tu estado</a></li>
+      <li><a href="/guides/facebook-marketplace-car-scams">Estafas de autos en Facebook Marketplace y cómo funcionan</a></li>
+      <li><a href="/guides/cashiers-check-fraud-selling-car">Fraude con cheques de caja al vender un auto</a></li>
+      <li><a href="/guides/buyer-wants-to-pay-before-seeing-car">Qué hacer cuando un comprador quiere pagar antes de ver el auto</a></li>
+      <li><a href="/guides/lien-payoff-nj">Comprar un auto con un gravamen en Nueva Jersey</a></li>
+      <li><a href="/guides/lien-payoff-pa">Comprar un auto con un gravamen en Pensilvania</a></li>
+      <li><a href="/guides/lien-payoff-ny">Comprar un auto con un gravamen en Nueva York</a></li>
+    </ul>
+  </div>
+
+</div>
+
 </article>
 </main>
 
 <footer class="site">
   <div class="wrap">
-    <p>This guide is general information about buying and selling vehicles privately, not legal or financial advice. If you have lost money, contact your bank and law enforcement first.</p>
-    <p><a href="https://drivelink.deals">DriveLink</a> &nbsp;&middot;&nbsp; <a href="https://drivelink.deals/safety">Is this safe?</a> &nbsp;&middot;&nbsp; <a href="mailto:support@drivelink.deals">support@drivelink.deals</a></p>
+    <div data-lang="en">
+      <p>This guide is general information about buying and selling vehicles privately, not legal or financial advice. If you have lost money, contact your bank and law enforcement first.</p>
+      <p><a href="https://drivelink.deals">DriveLink</a> &nbsp;&middot;&nbsp; <a href="https://drivelink.deals/safety">Is this safe?</a> &nbsp;&middot;&nbsp; <a href="mailto:support@drivelink.deals">support@drivelink.deals</a></p>
+    </div>
+    <div data-lang="es">
+      <p>Esta guía es información general sobre comprar y vender vehículos de forma privada, no es asesoría legal ni financiera. Si perdiste dinero, contacta primero a tu banco y a las autoridades.</p>
+      <p><a href="https://drivelink.deals">DriveLink</a> &nbsp;&middot;&nbsp; <a href="https://drivelink.deals/safety">¿Es esto seguro?</a> &nbsp;&middot;&nbsp; <a href="mailto:support@drivelink.deals">support@drivelink.deals</a></p>
+    </div>
   </div>
 </footer>
 
