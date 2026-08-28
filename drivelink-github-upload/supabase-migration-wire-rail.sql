@@ -4,21 +4,18 @@
 --
 -- Reference: supabase/functions/stripe-webhook/PHASE2_WIRE_RAIL_SPEC.md §7.
 --
--- IMPORTANT — READ BEFORE RUNNING PART 2:
--- This migration could NOT locate the SQL source of your
--- guard_listings_settlement_columns trigger anywhere in this repo (checked
--- supabase-migration.sql at the repo root — it predates this feature and
--- doesn't touch `listings` settlement columns — and there is no
--- supabase/migrations folder). That trigger was almost certainly applied
--- directly through the Supabase dashboard SQL editor and isn't
--- version-controlled here. Part 1 below (the four new columns) is safe to
--- run regardless. Part 2 (extending the guard) needs YOU to paste in the
--- trigger's real current definition first — see the instructions in Part 2.
--- Skipping Part 2 does not break anything today (create-wire-session, which
--- would actually write these columns, is out of scope for this build
--- session and hasn't been built yet) — but it MUST be done before
--- create-wire-session ships, or these four columns are writable by anyone,
--- not just service_role/admins, defeating the whole point of the guard.
+-- STATUS: ALREADY APPLIED LIVE — 2026-08-28, via the Supabase MCP
+-- (apply_migration, name `wire_rail_columns_and_guard`), directly against
+-- project ykzovtfwcjkaigwznrsi. This file is now a historical record of
+-- what was run, not a to-do. Both parts below reflect what actually landed
+-- on the live database — Part 2 in particular is no longer placeholder
+-- instructions: guard_listings_settlement_columns()'s real definition was
+-- pulled live via `select pg_get_functiondef(oid) from pg_proc where
+-- proname = 'guard_listings_settlement_columns'` and extended
+-- byte-for-byte, with the four new columns added to the existing
+-- settlement-fields check and nothing else touched. Re-running this file
+-- is safe (Part 1's ALTERs are `if not exists`; Part 2's CREATE OR REPLACE
+-- is idempotent) but should not be necessary.
 
 -- ── Part 1: new columns on listings ─────────────────────────────────────────
 alter table listings add column if not exists funding_type text;
@@ -36,26 +33,77 @@ comment on column listings.wire_reference_code is
   'The reference the buyer''s bank transfer should carry, if not simply reconstructable from stripe_payment_intent_id at settlement time. May end up unused — confirmed during create-wire-session implementation (see spec §7).';
 
 -- ── Part 2: extend guard_listings_settlement_columns ────────────────────────
--- Run this query FIRST to get your trigger function's real current
--- definition (Supabase Dashboard -> SQL Editor):
---
---   select pg_get_functiondef(oid)
---   from pg_proc
---   where proname = 'guard_listings_settlement_columns';
---
--- Take whatever list of guarded column names that definition contains
--- (something like sale_price, platform_fee, seller_net, status,
--- release_not_before, auto_release_at, stripe_payment_intent_id, sold_at,
--- paid_at, handover_date — but use what the real function actually says,
--- not this guess) and add these four to it:
---
---   funding_type, payment_started_at, wire_reminder_sent_at, wire_reference_code
---
--- Then `create or replace function guard_listings_settlement_columns()` with
--- the updated list, keeping everything else about the function (the
--- service_role/admin bypass check, the trigger's timing and table binding)
--- byte-for-byte identical to what pg_get_functiondef returned. This
--- migration deliberately does not attempt that CREATE OR REPLACE itself —
--- guessing at a live security trigger's body and overwriting it is a worse
--- failure mode than leaving four columns unguarded for the short window
--- before create-wire-session ships.
+-- Real definition, pulled live via pg_get_functiondef and extended with only
+-- the four new columns (funding_type, payment_started_at,
+-- wire_reminder_sent_at, wire_reference_code) added to the existing
+-- settlement-fields check. Everything else — the service_role/admin bypass,
+-- the notification/schedule/dispute/verification checks below it, the
+-- last_active_at and status-transition guards — is byte-for-byte identical
+-- to what was live before this migration.
+
+create or replace function public.guard_listings_settlement_columns()
+ returns trigger
+ language plpgsql
+ security definer
+ set search_path to 'public'
+as $function$
+begin
+  if coalesce(auth.role(), '') = 'service_role' then return new; end if;
+  if public.is_admin() then return new; end if;
+  if new.seller_id is distinct from old.seller_id
+     or new.buyer_id is distinct from old.buyer_id
+     or new.sale_price is distinct from old.sale_price
+     or new.seller_net is distinct from old.seller_net
+     or new.platform_fee is distinct from old.platform_fee
+     or new.referral_code is distinct from old.referral_code
+     or new.funds_released is distinct from old.funds_released
+     or new.confirmed_at is distinct from old.confirmed_at
+     or new.sold_at is distinct from old.sold_at
+     or new.stripe_checkout_session_id is distinct from old.stripe_checkout_session_id
+     or new.stripe_payment_intent_id is distinct from old.stripe_payment_intent_id
+     or new.stripe_transfer_id is distinct from old.stripe_transfer_id
+     or new.funding_type is distinct from old.funding_type
+     or new.payment_started_at is distinct from old.payment_started_at
+     or new.wire_reminder_sent_at is distinct from old.wire_reminder_sent_at
+     or new.wire_reference_code is distinct from old.wire_reference_code
+  then
+    raise exception 'Settlement fields can only be changed by the platform.' using errcode = 'insufficient_privilege';
+  end if;
+  if new.final_notice_sent_at is distinct from old.final_notice_sent_at then raise exception 'Notification state can only be changed by the platform.' using errcode = 'insufficient_privilege'; end if;
+  if new.auto_release_at is distinct from old.auto_release_at then raise exception 'The release schedule can only be changed by the platform.' using errcode = 'insufficient_privilege'; end if;
+  if new.release_not_before is distinct from old.release_not_before then raise exception 'The release schedule can only be changed by the platform.' using errcode = 'insufficient_privilege'; end if;
+  if new.dispute_status is distinct from old.dispute_status then raise exception 'Dispute status can only be changed by the platform.' using errcode = 'insufficient_privilege'; end if;
+  if new.vin_verified is distinct from old.vin_verified or new.deal_assessment is distinct from old.deal_assessment or new.deal_assessment_at is distinct from old.deal_assessment_at then raise exception 'Verification fields can only be set by the platform.' using errcode = 'insufficient_privilege'; end if;
+  if new.last_active_at is distinct from old.last_active_at then new.last_active_at := now(); end if;
+  if old.status in ('awaiting_payment', 'pending_confirmation', 'sold', 'disputed') and new.status is distinct from old.status then raise exception 'A listing with a sale in progress cannot be changed from the app.' using errcode = 'insufficient_privilege'; end if;
+  if new.status is distinct from old.status and new.status not in ('active', 'pending', 'archived', 'removed') then raise exception 'A listing cannot be moved into that state from the app.' using errcode = 'insufficient_privilege'; end if;
+  return new;
+end;
+$function$;
+
+-- Pre-existing gap, noticed incidentally while reading this trigger's live
+-- source (not introduced by and not fixed by this migration): `paid_at` and
+-- `handover_date` on `listings` are NOT in the guarded column list above,
+-- so the app can write them directly. Out of scope for wire rail — flagging
+-- here so it isn't lost.
+
+-- ── Part 3: schedule the abandonment cron ───────────────────────────────────
+-- expire-stale-wires re-uses the same `cron_shared_secret` Vault entry and
+-- pattern already in place for expire-stale-acceptances / auto-release-cron
+-- (project-wide Edge Function secrets — no new secret was needed).
+select cron.schedule(
+  'expire-stale-wires',
+  '23 * * * *',
+  $$
+  select net.http_post(
+    url := 'https://ykzovtfwcjkaigwznrsi.supabase.co/functions/v1/expire-stale-wires',
+    headers := jsonb_build_object(
+      'Content-Type', 'application/json',
+      'Authorization', 'Bearer ' || (
+        select decrypted_secret from vault.decrypted_secrets
+        where name = 'cron_shared_secret'
+      )
+    )
+  );
+  $$
+);
