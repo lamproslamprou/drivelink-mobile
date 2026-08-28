@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useLang, LangToggle } from "../i18n.jsx";
 
 // ── SHARED GUIDE SHELL ────────────────────────────────────────────────────────
 // Every state guide is the same page with different facts, so the chrome lives
@@ -8,13 +9,49 @@ import { useState } from "react";
 // Section rendering is driven by an explicit `style` on each section rather than
 // by its index, because index-based branching breaks the moment a section is
 // reordered or one is inserted in the middle.
+//
+// ── LANGUAGE (fixed 2026-08-28) ──────────────────────────────────────────────
+// These pages render standalone (see App.jsx's routing for the lienPayoff*
+// views) — there's no surrounding app chrome to carry a language toggle, so
+// this shell renders its own, same as EscrowExplained.jsx. The reader-facing
+// content (h1, lede, sections, faqs, etc.) is the caller's job to hand over
+// already in the right language — each guide file owns a COPY = {en, es}
+// object and picks COPY[lang] before rendering, same pattern as
+// EscrowExplained.jsx. What THIS file owns is its own hardcoded chrome: the
+// back button, the two default section titles, the worksheet download card,
+// and the "other states" / "one caveat" labels. Previously all of those were
+// hardcoded English and silently ignored the language toggle entirely.
+const CHROME = {
+  en: {
+    back: "← Back",
+    tldrTitle: "The short version",
+    faqTitle: "Common questions",
+    otherStates: "Other states",
+    oneCaveat: "One caveat",
+    dlTitle: "Free lien payoff worksheet and bill of sale",
+    dlBody:
+      "Two pages you can fill in on your phone or print. The payoff arithmetic, the order things have to happen in, and a bill of sale with a lien disclosure line. No email required.",
+    dlLink: "Download the PDF ↓",
+  },
+  es: {
+    back: "← Volver",
+    tldrTitle: "Lo esencial",
+    faqTitle: "Preguntas frecuentes",
+    otherStates: "Otros estados",
+    oneCaveat: "Una advertencia",
+    dlTitle: "Hoja de cálculo gratis para liquidar el gravamen y contrato de compraventa",
+    dlBody:
+      "Dos páginas que puedes llenar desde el celular o imprimir. La aritmética de la liquidación, el orden en que deben pasar las cosas, y un contrato de compraventa con una línea de aviso de gravamen. No se requiere correo electrónico.",
+    dlLink: "Descargar el PDF ↓",
+  },
+};
 
 const CSS = `
 .dl-g{--ink:#0A1B33;--mute:#5B6B85;--line:#DFE5EE;--warn:#B42318;
   max-width:720px;margin:0 auto;padding:0 20px 80px;color:var(--ink);
   font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;line-height:1.62;
   padding-top:env(safe-area-inset-top);}
-.dl-g-top{padding:18px 0 0;}
+.dl-g-top{display:flex;justify-content:space-between;align-items:center;padding:18px 0 0;gap:12px;}
 .dl-g-back{background:none;border:0;padding:6px 0;font-size:15px;color:var(--mute);
   cursor:pointer;font-family:inherit;}
 .dl-g-back:hover{color:var(--ink);}
@@ -93,10 +130,10 @@ export default function GuideLayout({
   eyebrow,
   h1,
   lede,
-  tldrTitle = "The short version",
+  tldrTitle,
   tldr = [],
   sections = [],
-  faqTitle = "Common questions",
+  faqTitle,
   faqs = [],
   cta,
   related = [],
@@ -107,6 +144,10 @@ export default function GuideLayout({
   onNavigate,
 }) {
   const [open, setOpen] = useState(-1);
+  const { lang } = useLang();
+  const c = CHROME[lang === "es" ? "es" : "en"];
+  const resolvedTldrTitle = tldrTitle ?? c.tldrTitle;
+  const resolvedFaqTitle = faqTitle ?? c.faqTitle;
 
   const schema = {
     "@context": "https://schema.org",
@@ -142,11 +183,14 @@ export default function GuideLayout({
       />
 
       <div className="dl-g-top">
-        {onBack && (
+        {onBack ? (
           <button className="dl-g-back" onClick={onBack}>
-            ← Back
+            {c.back}
           </button>
+        ) : (
+          <span />
         )}
+        <LangToggle />
       </div>
 
       <p className="dl-g-eyebrow">{eyebrow}</p>
@@ -155,7 +199,7 @@ export default function GuideLayout({
 
       {tldr.length > 0 && (
         <div className="dl-g-tldr">
-          <p className="dl-g-tldr-h">{tldrTitle}</p>
+          <p className="dl-g-tldr-h">{resolvedTldrTitle}</p>
           <ul>
             {tldr.map((line, i) => (
               <li key={i}>{line}</li>
@@ -191,7 +235,7 @@ export default function GuideLayout({
 
       {faqs.length > 0 && (
         <>
-          <h2>{faqTitle}</h2>
+          <h2>{resolvedFaqTitle}</h2>
           <div className="dl-g-faq">
             {faqs.map((f, i) => (
               <div className="dl-g-faq-item" key={i}>
@@ -215,18 +259,14 @@ export default function GuideLayout({
       <div className="dl-g-dl">
         <div className="dl-g-dl-icon" aria-hidden="true" />
         <div className="dl-g-dl-body">
-          <p className="dl-g-dl-h">Free lien payoff worksheet and bill of sale</p>
-          <p className="dl-g-dl-p">
-            Two pages you can fill in on your phone or print. The payoff
-            arithmetic, the order things have to happen in, and a bill of sale
-            with a lien disclosure line. No email required.
-          </p>
+          <p className="dl-g-dl-h">{c.dlTitle}</p>
+          <p className="dl-g-dl-p">{c.dlBody}</p>
           <a
             className="dl-g-dl-a"
             href="/downloads/drivelink-lien-payoff-worksheet.pdf"
             download
           >
-            Download the PDF ↓
+            {c.dlLink}
           </a>
         </div>
       </div>
@@ -243,7 +283,7 @@ export default function GuideLayout({
 
       {related.length > 0 && (
         <div className="dl-g-more">
-          <p className="dl-g-more-h">Other states</p>
+          <p className="dl-g-more-h">{c.otherStates}</p>
           {related.map((r) => (
             <button
               key={r.view}
@@ -258,7 +298,7 @@ export default function GuideLayout({
 
       {disclaimer && (
         <div className="dl-g-disc">
-          <p className="dl-g-disc-h">One caveat</p>
+          <p className="dl-g-disc-h">{c.oneCaveat}</p>
           <p className="dl-g-disc-p">{disclaimer}</p>
         </div>
       )}

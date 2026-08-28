@@ -26,10 +26,7 @@
 // requirement as part of the payment control, not as onboarding polish.
 //
 // See 20260812_01_ach_settlement.sql for the rest of the design.
-import { corsHeaders, jsonResponse, PROMOTER_FEE, requireUser, stripeClient, supabaseAdmin } from "../_shared/helpers.ts";
-
-// $15,000. Below this, cards only.
-const ACH_MIN_CENTS = 1_500_000;
+import { ACH_MIN_CENTS, corsHeaders, jsonResponse, PROMOTER_FEE, requireUser, stripeClient, supabaseAdmin } from "../_shared/helpers.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -264,6 +261,26 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ── Is bank debit on the table for this charge? ──────────────────────────
+    // chargedTotal, not priceCents: the floor is about what the buyer actually
+    // pays, and on a buyer-paid referral the surcharge is part of that.
+    //
+    // MUST run before escrowNotice below — that block reads achEligible to
+    // decide what to render. (Fixed 2026-08-27: this was previously declared
+    // AFTER escrowNotice, which referenced achEligible in a `+` chain that
+    // evaluates unconditionally — a temporal-dead-zone ReferenceError on
+    // every single checkout, not just ACH-eligible ones. No logic changed
+    // here, only the order.)
+    const chargedTotal = priceCents + promoterSurcharge;
+    const buyerIdentityVerified = buyer?.identity_verification_status === "verified";
+    const achEligible = chargedTotal >= ACH_MIN_CENTS && buyerIdentityVerified;
+
+    // Logged rather than silent: "why didn't ACH show up" is otherwise an
+    // unanswerable support question.
+    if (chargedTotal >= ACH_MIN_CENTS && !buyerIdentityVerified) {
+      console.log("ACH withheld — buyer not identity verified:", buyerId, listing.id);
+    }
+
     // Rendered on Stripe's own payment screen, not just ours. A buyer agreeing
     // to escrow terms on the seller's website is weaker consent than one who
     // saw them on the page where the card was actually charged — this is the
@@ -300,19 +317,6 @@ Deno.serve(async (req) => {
         ? ` If you pay by bank account: bank transfers take about 5 business days to clear. ` +
           `Your handover code is issued once the payment clears, not today — do not arrange to collect the vehicle before then.`
         : "");
-
-    // ── Is bank debit on the table for this charge? ──────────────────────────
-    // chargedTotal, not priceCents: the floor is about what the buyer actually
-    // pays, and on a buyer-paid referral the surcharge is part of that.
-    const chargedTotal = priceCents + promoterSurcharge;
-    const buyerIdentityVerified = buyer?.identity_verification_status === "verified";
-    const achEligible = chargedTotal >= ACH_MIN_CENTS && buyerIdentityVerified;
-
-    // Logged rather than silent: "why didn't ACH show up" is otherwise an
-    // unanswerable support question.
-    if (chargedTotal >= ACH_MIN_CENTS && !buyerIdentityVerified) {
-      console.log("ACH withheld — buyer not identity verified:", buyerId, listing.id);
-    }
 
     const origin = req.headers.get("origin") ?? "https://drivelink.deals";
     const label = [listing.year, listing.make, listing.model].filter(Boolean).join(" ") || "DriveLink vehicle purchase";

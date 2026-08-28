@@ -375,6 +375,14 @@ export const PROMOTER_FEE = 0.01;
 // and renaming it buys nothing. See auto-release-cron for what it now drives.
 export const AUTO_RELEASE_DAYS = 7;
 
+// $15,000. Below this, cards only — bank debit (ACH) isn't offered at
+// checkout. See create-checkout-session for the full rationale (a
+// processing-cost floor, gated additionally on buyer identity verification).
+// Moved here 2026-08-27 from a local const in create-checkout-session so the
+// boundary lives alongside the other cross-function payment constants rather
+// than being buried in one edge function.
+export const ACH_MIN_CENTS = 1_500_000;
+
 // ── Completion emails ────────────────────────────────────────────────────────
 //
 // The last word to a human in the entire flow. Until 2026-08-07 there wasn't
