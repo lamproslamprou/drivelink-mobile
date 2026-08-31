@@ -76,6 +76,12 @@ function todayET() {
 
 const PLATFORM_FEE = 0.01; // 1% platform fee
 const PROMOTER_FEE = 0.01; // 1% promoter commission
+// $15,000 (cents). Mirrors ACH_MIN_CENTS in supabase/functions/_shared/helpers.ts —
+// the backend re-enforces this gate itself (create-wire-session throws if the
+// charged total is below it), so this constant only controls whether the
+// "pay by wire transfer" button is even shown. Keep the two in sync if the
+// threshold ever changes.
+const WIRE_MIN_CENTS = 1_500_000;
 const HIGH_VALUE_LISTING_THRESHOLD = 20000; // above this price, nudge buyers if the seller isn't ID-verified
 const STALE_WARN_DAYS_MS = 30 * 24 * 60 * 60 * 1000; // show "seller inactive" badge after 30 days
 const ACCEPTANCE_WINDOW_MS = 48 * 60 * 60 * 1000;    // buyer has 48h to close before an acceptance expires
@@ -367,6 +373,13 @@ export default function App() {
   // belongs in an audit view, not in the queue of things blocking a payout.
   const [riskFlags, setRiskFlags] = useState({});
   const [viewingListing, setViewingListing] = useState(null); // { listing, seller, myRef, sellerRating, sellerReviewCount, myOffer }
+  // Funding instructions returned by create-wire-session, or null when the
+  // wire modal is closed. Unlike handleBuyNow (which redirects to a Stripe-
+  // hosted Checkout page), a wire has no hosted page — Stripe's Customer
+  // Balance flow returns routing/account/reference details directly, which
+  // this state feeds to WireInstructionsModal.
+  const [wireInstructions, setWireInstructions] = useState(null);
+  const [wireLoading, setWireLoading] = useState(false);
   const [path, setPath] = usePath();
   // Set by the URL→view effect immediately before it calls setView, and read
   // by the view→URL effect to suppress the write-back. Both effects run in the
@@ -711,6 +724,24 @@ export default function App() {
       return;
     }
     window.location.href = data.url;
+  };
+
+  // ── Pay by wire transfer — high-value listings ($15k+) only. Unlike
+  // handleBuyNow, there's no Stripe-hosted page to redirect to: Customer
+  // Balance PaymentIntents return routing/account/reference details directly,
+  // which create-wire-session hands back as JSON. This just opens
+  // WireInstructionsModal with that data instead of navigating away.
+  const handleBuyByWire = async (listing) => {
+    setWireLoading(true);
+    const { data, error } = await supabase.functions.invoke("create-wire-session", {
+      body: { listing_id: listing.id, share_code: getAttribution(listing.id)?.code || null },
+    });
+    setWireLoading(false);
+    if (error || data?.error) {
+      showToast(data?.error || error?.message || "Couldn't start a wire transfer — try again.", "error");
+      return;
+    }
+    setWireInstructions({ ...data, carLabel: `${listing.year} ${listing.make} ${listing.model}` });
   };
 
   // ── Seller sets up (or resumes) Stripe Connect onboarding so they can
@@ -2103,6 +2134,8 @@ const denyFlaggedReferral = async (refId) => {
           isBlocked={blocks?.some(b => b.blocked_id === viewingListing.listing.seller_id)}
           onClose={closeListing}
           onBuy={handleBuyNow}
+          onBuyWire={handleBuyByWire}
+          wireLoading={wireLoading}
           onShare={generateShare}
           onMessageSeller={messageSeller}
           onReport={fileReport}
@@ -2115,6 +2148,97 @@ const denyFlaggedReferral = async (refId) => {
           onTranslate={translateListing}
         />
       )}
+      {wireInstructions && (
+        <WireInstructionsModal data={wireInstructions} onClose={() => setWireInstructions(null)} />
+      )}
+    </div>
+  );
+}
+
+// Shown after create-wire-session succeeds. Unlike card/ACH checkout, a wire
+// buyer never leaves DriveLink — there's no Stripe-hosted page for Customer
+// Balance payments, so the routing number, virtual account number, and
+// reference code returned by the backend are rendered here directly. The
+// buyer also gets these by email (create-wire-session sends it), so this
+// modal is a convenience, not the only record they have of it.
+function WireInstructionsModal({ data, onClose }) {
+  const { carLabel, amount, reference, routing_number, account_number, hosted_instructions_url, abandonment_timeout_business_days } = data;
+
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  return (
+    <div style={styles.overlay} onClick={onClose}>
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          background: "#fff",
+          borderRadius: 12,
+          maxWidth: 480,
+          width: "92%",
+          margin: "40px auto",
+          padding: 28,
+          position: "relative",
+          maxHeight: "85vh",
+          overflowY: "auto",
+        }}
+      >
+        <button
+          onClick={onClose}
+          aria-label="Close"
+          style={{ position: "absolute", top: 16, right: 16, background: "none", border: "none", fontSize: 18, cursor: "pointer", color: "#6b7280" }}
+        >
+          ✕
+        </button>
+
+        <div style={{ fontSize: 20, fontWeight: 800, color: "#0f172a", marginBottom: 6 }}>
+          Complete your wire transfer
+        </div>
+        <div style={{ fontSize: 14, color: "#374151", marginBottom: 18 }}>
+          For the <b>{carLabel}</b>. Send a domestic wire using the details below — we've also emailed this to you.
+        </div>
+
+        <div style={{ background: "#FFF8E7", border: "1px solid #FFB020", borderRadius: 8, padding: 16, fontSize: 14, lineHeight: 1.9 }}>
+          <div><b>Amount:</b> {fmt(amount)}</div>
+          {routing_number && <div><b>Routing number:</b> {routing_number}</div>}
+          {account_number && <div><b>Account number:</b> {account_number}</div>}
+          {reference && (
+            <div>
+              <b>Reference (required):</b>{" "}
+              <span style={{ fontFamily: "monospace", background: "#fff", padding: "2px 6px", borderRadius: 4, border: "1px solid #FFB020" }}>
+                {reference}
+              </span>
+            </div>
+          )}
+        </div>
+
+        <div style={{ fontSize: 13, color: "#6b7280", marginTop: 14, lineHeight: 1.6 }}>
+          Include the reference code exactly as shown so the transfer matches to your purchase. This listing is reserved
+          for you for up to {abandonment_timeout_business_days ?? 10} business days — we'll email you the moment the
+          transfer clears with your handover code. Nothing releases to the seller until then.
+        </div>
+
+        {hosted_instructions_url && (
+          <a
+            href={hosted_instructions_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ display: "inline-block", marginTop: 16, fontSize: 13, color: "#1d4ed8", textDecoration: "underline" }}
+          >
+            View official Stripe transfer instructions →
+          </a>
+        )}
+
+        <button
+          onClick={onClose}
+          style={{ ...styles.buyBtn, width: "100%", marginTop: 20 }}
+        >
+          Done
+        </button>
+      </div>
     </div>
   );
 }
@@ -2747,7 +2871,7 @@ function CompareRow({ label, values, rankBy, lowerIsBetter, wrap }) {
   );
 }
 
-function ListingDetailModal({ data, currentUser, isFavorited, isBlocked, onClose, onBuy, onShare, onMessageSeller, onReport, onReportUser, onToggleFavorite, onToggleBlock, onMakeOffer, onSignIn, onCheckDeal, onTranslate }) {
+function ListingDetailModal({ data, currentUser, isFavorited, isBlocked, onClose, onBuy, onBuyWire, wireLoading, onShare, onMessageSeller, onReport, onReportUser, onToggleFavorite, onToggleBlock, onMakeOffer, onSignIn, onCheckDeal, onTranslate }) {
   const { t } = useLang();
   const { listing, seller, myRef, sellerRating, sellerReviewCount, myOffer } = data;
   const [activeImg, setActiveImg] = useState(0);
@@ -2860,6 +2984,16 @@ function ListingDetailModal({ data, currentUser, isFavorited, isBlocked, onClose
 
           <div style={styles.cardActions}>
             {currentUser && !isOwnListing && payoutsReady && <button style={styles.buyBtn} onClick={() => onBuy(listing)}>💳 {t("action.buyNow")}</button>}
+            {currentUser && !isOwnListing && payoutsReady && onBuyWire && listing.price >= WIRE_MIN_CENTS && (
+              <button
+                style={{ ...styles.buyBtn, background: "#0f172a" }}
+                disabled={wireLoading}
+                onClick={() => onBuyWire(listing)}
+                title="Pay via domestic wire transfer instead of card — available on purchases of $15,000 or more"
+              >
+                🏦 {wireLoading ? "Starting…" : "Pay by wire transfer"}
+              </button>
+            )}
             {currentUser && !isOwnListing && (
               <button style={{ ...styles.shareBtn, background: copied ? "#16a34a" : "#1d4ed8" }} onClick={handleShare}>
                 {copied ? "✓ " + t("card.linkCopied") : myRef ? t("card.shareAgain") : t("card.shareEarn")}
