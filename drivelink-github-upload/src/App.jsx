@@ -2489,8 +2489,17 @@ for (const l of allListings.filter(l => l.status === "active")) {
           <p style={styles.heroSub}>{t("home.sub")}</p>
           <LangSwitchLink />
           <div style={styles.heroStats} className="app-hero-stats">
-            <div style={styles.heroStat}><span style={styles.heroStatNum}>{listings.length}</span><span style={styles.heroStatLabel}>{t("home.statListings")}</span></div>
-            <div style={styles.heroStatDiv} />
+            {/* Matches the soldCount gate below: "1 Active listings" on a
+                brand-new marketplace reads as empty rather than early, so
+                this only shows once there's enough inventory to look like
+                a real count rather than a confession. Threshold is a guess
+                — raise it if 5 still feels thin once we're there. */}
+            {listings.length >= 5 && (
+              <>
+                <div style={styles.heroStat}><span style={styles.heroStatNum}>{listings.length}</span><span style={styles.heroStatLabel}>{t("home.statListings")}</span></div>
+                <div style={styles.heroStatDiv} />
+              </>
+            )}
             {soldCount > 0 && (
               <>
                 <div style={styles.heroStat}><span style={styles.heroStatNum}>{soldCount}</span><span style={styles.heroStatLabel}>{t("home.statSold")}</span></div>
@@ -4521,6 +4530,7 @@ function InstallPrompt() {
   const [deferred, setDeferred] = useState(null);
   const [show, setShow] = useState(false);
   const [platform, setPlatform] = useState("generic"); // ios | android | generic
+  const bannerRef = useRef(null);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -4561,6 +4571,24 @@ function InstallPrompt() {
     };
   }, []);
 
+  // The banner is position:fixed over the bottom of the viewport, which means
+  // it sits ON TOP of whatever content is already there rather than pushing
+  // it up — on a phone that's the last ~90px of every page: hero copy, stat
+  // numbers, buy buttons, all partly hidden behind it. Reserving that much
+  // space at the bottom of the page while the banner is showing keeps real
+  // content clear of it without touching any of the pages that render
+  // <InstallPrompt />.
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    if (show && bannerRef.current) {
+      const h = bannerRef.current.offsetHeight;
+      document.body.style.paddingBottom = `calc(${h}px + 24px + env(safe-area-inset-bottom, 0px))`;
+    } else {
+      document.body.style.paddingBottom = "";
+    }
+    return () => { document.body.style.paddingBottom = ""; };
+  }, [show]);
+
   const dismiss = () => {
     setShow(false);
     try { localStorage.setItem(INSTALL_DISMISS_KEY, String(Date.now())); } catch { /* private mode */ }
@@ -4588,6 +4616,7 @@ function InstallPrompt() {
 
   return (
     <div
+      ref={bannerRef}
       style={{
         position: "fixed",
         left: 12,
@@ -6576,7 +6605,14 @@ const css = `
     .app-nav-inner { padding: 0 16px !important; height: auto !important; flex-wrap: wrap; padding-top: 10px !important; padding-bottom: 10px !important; }
     .app-logo { order: 1; }
     .app-nav-right { order: 2; margin-left: auto !important; }
-    .app-nav-links { order: 3; width: 100%; flex: none !important; }
+    /* This row centers its items on wide screens (styles.navLinks has
+       justify-content: "center"), but center + overflow-x: auto on a flex
+       row that doesn't fit is a classic trap: the browser centers the
+       overflow, so the row loads scrolled to the middle with BOTH the first
+       and last items clipped and no visible hint that it scrolls at all.
+       flex-start here keeps it centered on the screens it fits on above,
+       while narrow screens load scrolled to the true start instead. */
+    .app-nav-links { order: 3; width: 100%; flex: none !important; justify-content: flex-start !important; }
     .app-user-text { display: none; }
   }
 

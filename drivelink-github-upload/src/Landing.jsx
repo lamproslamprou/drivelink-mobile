@@ -89,7 +89,7 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn }) {
           </div>
         </div>
         <div style={styles.heroImageWrap} className="dl-hero-image">
-          <img src="https://images.unsplash.com/photo-1494976388531-d1058494cdd8?w=800&q=80" alt="Cars" style={styles.heroImage} />
+          <img src="https://images.unsplash.com/photo-1494976388531-d1058494cdd8?w=800&q=80" alt="Cars" style={styles.heroImage} fetchpriority="high" />
         </div>
       </section>
 
@@ -447,7 +447,10 @@ const styles = {
   heroStatNum: { fontSize: 28, fontWeight: 800, color: "#0f172a" },
   heroStatLabel: { fontSize: 12, color: "#6b7280" },
   heroStatDiv: { width: 1, height: 40, background: "#e5e7eb" },
-  heroImageWrap: { borderRadius: 20, overflow: "hidden", boxShadow: "0 20px 60px rgba(0,0,0,.15)" },
+  // background shows while the remote Unsplash photo is still loading —
+  // without it this box is flat white for a beat on first paint, which reads
+  // as a broken image rather than a photo that's on its way in.
+  heroImageWrap: { borderRadius: 20, overflow: "hidden", boxShadow: "0 20px 60px rgba(0,0,0,.15)", background: "linear-gradient(135deg, #1e293b, #334155)" },
   heroImage: { width: "100%", height: 400, objectFit: "cover", display: "block" },
   section: { padding: "80px 24px" },
   sectionInner: { maxWidth: 1200, margin: "0 auto" },

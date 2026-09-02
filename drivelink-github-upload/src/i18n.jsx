@@ -275,7 +275,7 @@ const dict = {
     "lp.statList": "To list your car",
     "lp.statPromoter": "If sold via promoter referral",
     "home.title": "Buying from a stranger?",
-    "home.titleAccent": "Don't wire the money.",
+    "home.titleAccent": "Don't send the money blind.",
     "home.sub": "DriveLink holds the payment until the keys and title change hands. Browse what's listed, or start a deal on a car you found anywhere else.",
     "home.statListings": "Active listings",
     "home.statSold": "Cars sold",

@@ -847,6 +847,18 @@ Deno.serve(async (req) => {
         // intermediary bank can clip a fee, or the buyer can fat-finger the
         // amount. Compare what was agreed (metadata) against what actually
         // landed (pi.amount_received).
+        //
+        // UPDATE, confirmed by test-mode testing 2026-09-01: the diff < 0
+        // (underpayment) branch below is believed unreachable for a genuine
+        // buyer shortfall in practice — Stripe does not fire
+        // payment_intent.succeeded at all until received funds reach the
+        // PaymentIntent's requested amount; a short wire instead fires
+        // payment_intent.partially_funded (handled separately below, which is
+        // where the real alert for a short wire now happens). Left in place
+        // here as defensive insurance in case `expected` (derived from our
+        // own metadata) ever disagrees with what Stripe considered the
+        // PaymentIntent's requested amount — cheap to keep, not proven to be
+        // dead in every case.
         const agreedPriceMeta = Number(meta.agreed_price);
         const surchargeMeta = Number(meta.promoter_surcharge);
         const agreedPrice = Number.isFinite(agreedPriceMeta) && agreedPriceMeta > 0 ? agreedPriceMeta : 0;
@@ -878,6 +890,18 @@ Deno.serve(async (req) => {
           return jsonResponse({ received: true, wireUnderpaid: true });
         }
 
+        // UPDATE, confirmed by test-mode overpayment testing 2026-09-01: this
+        // branch is dead in practice, the same way the underpayment branch
+        // above is. Verified directly against a real overpaid PaymentIntent
+        // (funded $16,008 against a $16,000 request): Stripe's
+        // amount_received came back exactly 1600000 — capped at the
+        // PaymentIntent's requested `amount`, not the true funded total. So
+        // `diff` is ~0 here even on a genuine overpayment; the extra $8 never
+        // touches this PaymentIntent at all and instead sits as unapplied
+        // credit in the customer's Stripe cash balance. The real overpayment
+        // alert now lives below, after settlement, reading
+        // stripe.customers.retrieveCashBalance() instead. Left in place as
+        // defensive insurance, same reasoning as the underpayment branch.
         if (diff > WIRE_AMOUNT_TOLERANCE_CENTS) {
           // More than $5 over: do NOT auto-refund (Stripe can't reverse an
           // incoming wire the way it reverses a card charge, and this is a
@@ -924,6 +948,45 @@ Deno.serve(async (req) => {
           return jsonResponse(settled.body, settled.status);
         }
 
+        // ── Real overpayment detection, added 2026-09-01 ────────────────────
+        // The diff-based check above can't see an overpayment — amount_received
+        // is capped at the PaymentIntent's requested amount (confirmed via a
+        // live test-mode overpaid wire; see the comment above). Any extra the
+        // buyer sent lands as unapplied credit on their Stripe cash balance
+        // instead, invisible to this PaymentIntent. That balance is the only
+        // reliable signal, so check it directly after settling. Non-fatal by
+        // design: a failed balance lookup must never undo an already-settled
+        // sale, so this is wrapped and logged rather than allowed to throw.
+        if (pi.customer) {
+          try {
+            const customerId = typeof pi.customer === "string" ? pi.customer : pi.customer.id;
+            const cashBalance = await stripe.customers.retrieveCashBalance(customerId);
+            const leftoverCents = cashBalance.available?.usd ?? 0;
+            if (leftoverCents > WIRE_AMOUNT_TOLERANCE_CENTS) {
+              notifyAdmin({
+                subject: `⚠️ Wire overpaid — ${listing_id}`,
+                html: alertHtml(
+                  "Wire settled at the agreed price, but the buyer's Stripe cash balance still holds unapplied funds",
+                  [
+                    ["Listing ID", listing_id],
+                    ["Buyer ID", buyer_id ?? "—"],
+                    ["Agreed price (settled)", money(expected)],
+                    ["Unapplied balance", money(leftoverCents)],
+                    ["Stripe customer", customerId],
+                    ["PaymentIntent", pi.id],
+                  ],
+                  "The buyer's wire covered more than the agreed price. Stripe applied only what was owed to this PaymentIntent — the rest is sitting as a cash balance credit under this customer, not reflected anywhere else. DriveLink does not auto-refund — contact the buyer about the difference, or refund the cash balance to them by hand from the Stripe Dashboard (Customer → Balance).",
+                ),
+              });
+            }
+          } catch (e) {
+            console.error(
+              `wire overpayment cash-balance check failed for ${pi.id}:`,
+              e instanceof Error ? e.message : String(e),
+            );
+          }
+        }
+
         await claimEvent();
         return jsonResponse({ received: true });
       }
@@ -932,6 +995,90 @@ Deno.serve(async (req) => {
       // here. Falls through to the bottom claimEvent()/return: Checkout's
       // own PaymentIntents already settled via checkout.session.completed /
       // async_payment_succeeded above, and this event needs no extra work.
+    }
+
+    // ── WIRE PARTIALLY FUNDED (Customer Balance) ──────────────────────────────
+    // Discovered during test-mode testing 2026-09-01: a short wire does NOT
+    // fire payment_intent.succeeded. Stripe fires payment_intent.partially_funded
+    // instead and leaves the PaymentIntent open, waiting for the rest — which
+    // means the underpayment branch inside the payment_intent.succeeded
+    // handler above is effectively unreachable for a genuine buyer shortfall
+    // (Stripe only calls a wire "succeeded" once received >= the requested
+    // amount). Before this handler existed, a short wire produced no alert of
+    // any kind — the listing just sat in awaiting_payment until the day-2
+    // reminder / 10-business-day abandonment cron eventually caught it. This
+    // closes that gap: alert the moment Stripe tells us a wire came up short,
+    // instead of waiting up to 2 days for the generic reminder to notice.
+    //
+    // Not a settlement path — the listing stays in awaiting_payment. If the
+    // buyer sends the rest, Stripe fires payment_intent.succeeded once the
+    // total clears the requested amount and the handler above settles it
+    // normally. If they never do, the existing abandonment timeout still
+    // applies on top of this alert. No DB write here — nothing to guard
+    // against a concurrent settlement racing this alert.
+    //
+    // UPDATE, corrected 2026-09-01 after the first version of this handler
+    // shipped reading pi.amount_received — which is the wrong field here and
+    // produced a real "Received so far: $0.00" alert for a PaymentIntent
+    // that actually had ~$15,993 sitting against it. Root cause per Stripe's
+    // own docs (docs.stripe.com/payments/bank-transfers/accept-a-payment):
+    // "PaymentIntents that are partially funded aren't reflected in your
+    // account balance until the payment is complete" — amount_received is
+    // defined to read 0 for the entire time a customer_balance PaymentIntent
+    // is only partially funded, whether read fresh via retrieve() or straight
+    // off event.data.object; there was never a staleness/race bug to fix.
+    // The authoritative "how much is still owed" figure while partially
+    // funded is next_action.display_bank_transfer_instructions.amount_remaining
+    // (documented on the same page, next to the payment_intent.partially_funded
+    // row of their event table) — it decreases as each partial transfer
+    // lands and hits 0 the moment the PaymentIntent actually succeeds.
+    // received is derived as expected - amountRemaining rather than trusted
+    // off pi.amount, so the alert's "Expected" and "Received so far" rows
+    // stay internally consistent with each other. Reads straight off
+    // event.data.object (no retrieve() needed) since next_action is present
+    // on the full/snapshot payload this account's webhook destination sends.
+    if (event.type === "payment_intent.partially_funded") {
+      const pi = event.data.object as {
+        id: string;
+        metadata?: Record<string, string> | null;
+        next_action?: {
+          display_bank_transfer_instructions?: { amount_remaining?: number | null } | null;
+        } | null;
+      };
+      const meta = (pi.metadata ?? {}) as Record<string, string>;
+
+      if (meta.rail === "wire" && meta.listing_id) {
+        const listing_id = meta.listing_id;
+        const buyer_id = meta.buyer_id;
+
+        const agreedPriceMeta = Number(meta.agreed_price);
+        const surchargeMeta = Number(meta.promoter_surcharge);
+        const agreedPrice = Number.isFinite(agreedPriceMeta) && agreedPriceMeta > 0 ? agreedPriceMeta : 0;
+        const surcharge = Number.isFinite(surchargeMeta) && surchargeMeta > 0 ? surchargeMeta : 0;
+        const expected = agreedPrice + surcharge;
+        const amountRemaining = pi.next_action?.display_bank_transfer_instructions?.amount_remaining;
+        const shortfall = typeof amountRemaining === "number" ? amountRemaining : expected;
+        const received = expected - shortfall;
+
+        notifyAdmin({
+          subject: `⚠️ Wire came up short — ${listing_id}`,
+          html: alertHtml(
+            "A wire transfer partially funded but hasn't reached the full amount yet",
+            [
+              ["Listing ID", listing_id],
+              ["Buyer ID", buyer_id ?? "—"],
+              ["Expected", money(expected)],
+              ["Received so far", money(received)],
+              ["Still short", money(shortfall)],
+              ["PaymentIntent", pi.id],
+            ],
+            "Listing remains in awaiting_payment — nothing has settled. Stripe will fire payment_intent.succeeded automatically if the buyer sends the rest. If they don't, the normal day-2 reminder and 10-business-day abandonment timeout still apply. No action needed unless you want to reach out to the buyer directly.",
+          ),
+        });
+      }
+
+      await claimEvent();
+      return jsonResponse({ received: true });
     }
 
     // ── ACH BOUNCED ────────────────────────────────────────────────────────
