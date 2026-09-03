@@ -327,6 +327,10 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn }) {
           <div style={styles.footerLinks}>
             <button style={styles.footerLinkBtn} onClick={() => onNavigate?.("safety")}>{t("lp.foot.safety")}</button>
             <span style={{ color: "#d1d5db" }}>·</span>
+            <button style={styles.footerLinkBtn} onClick={() => onNavigate?.("inspectors")}>
+              {lang === "es" ? "🔍 Encuentra un inspector" : "🔍 Find an Inspector"}
+            </button>
+            <span style={{ color: "#d1d5db" }}>·</span>
             <button style={styles.footerLinkBtn} onClick={() => onNavigate?.("faq")}>
               {lang === "es" ? "Cómo se protege tu dinero" : "How your money is protected"}
             </button>
