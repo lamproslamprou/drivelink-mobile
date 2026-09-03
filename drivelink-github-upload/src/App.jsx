@@ -12,6 +12,7 @@ import logoIcon from "./assets/logo-icon.png";
 import { StartDealView, JoinDealView } from "./DealViews.jsx";
 import FAQView from "./FAQView.jsx";
 import EscrowExplained from "./EscrowExplained.jsx";
+import InspectorsView from "./InspectorsView.jsx";
 import LienPayoffNJ from "./guides/LienPayoffNJ.jsx";
 import LienPayoffPA from "./guides/LienPayoffPA.jsx";
 import LienPayoffNY from "./guides/LienPayoffNY.jsx";
@@ -272,6 +273,9 @@ const VIEW_PATHS = {
   lienPayoffNJ:  "/guides/lien-payoff-nj",
   lienPayoffPA:  "/guides/lien-payoff-pa",
   lienPayoffNY:  "/guides/lien-payoff-ny",
+  // Buyer-facing pre-purchase-inspection directory, plus a self-serve
+  // "list your business" form for inspection businesses. See InspectorsView.jsx.
+  inspectors:    "/inspectors",
 };
 const PATH_TO_VIEW = Object.fromEntries(
   Object.entries(VIEW_PATHS).map(([v, p]) => [p, v]),
@@ -295,6 +299,9 @@ const PUBLIC_VIEWS = new Set([
   "lienPayoffNJ",
   "lienPayoffPA",
   "lienPayoffNY",
+  // Browsable pre-purchase-inspection directory, and where an inspection
+  // business lands to list itself — neither should sit behind a sign-in wall.
+  "inspectors",
   // Arrived at from an emailed recovery link, necessarily signed out.
   "resetPassword",
   // Brokers arrive here from an outreach email that has already made the case.
@@ -341,6 +348,9 @@ export default function App() {
   const [promoterCode, setPromoterCode] = useState(null);
   const [disputes, setDisputes] = useState([]);
   const [offers, setOffers] = useState([]);
+  // Pre-purchase-inspection directory. Under RLS, non-admins only ever get
+  // approved rows back — the admin moderation tab is what sees 'pending' too.
+  const [inspectors, setInspectors] = useState([]);
   const [openThread, setOpenThread] = useState(null);
   const [view, setView] = useState(initialViewFromPath);
   const [homeResetKey, setHomeResetKey] = useState(0);
@@ -500,6 +510,7 @@ export default function App() {
     const { data: promoterCodeData } = await supabase.from("promoter_codes").select("*").eq("active", true).limit(1);
     const { data: disputesData } = await supabase.from("disputes").select("*").order("created_at", { ascending: false });
     const { data: offersData } = await supabase.from("offers").select("*").order("created_at", { ascending: false });
+    const { data: inspectorsData } = await supabase.from("inspectors").select("*").order("created_at", { ascending: false });
     // Two sources on purpose. public_ads is a display-only view any visitor can
     // read (it powers the sidebar rail). ad_placements is the full table, which
     // RLS returns only to admins — everyone else gets an empty array and the
@@ -536,6 +547,7 @@ export default function App() {
     setPromoterCode(promoterCodeData?.[0] || null);
     if (disputesData) setDisputes(disputesData);
     if (offersData) setOffers(offersData);
+    if (inspectorsData) setInspectors(inspectorsData);
 
     // ── Handover codes (buyer only) ───────────────────────────────────────
     // Fetched separately rather than joined onto listings: RLS on this table is
@@ -1004,6 +1016,39 @@ const denyFlaggedReferral = async (refId) => {
   await supabase.from("referrals").update({ status: "denied", commission_amount: 0 }).eq("id", refId);
   await loadData();
   showToast("Referral denied — no commission paid.");
+};
+
+// ── Inspector directory: self-serve submission (no account required, from
+// InspectorsView's "list your business" form) and admin moderation. Mirrors
+// the referral approve/deny shape above — pending until an admin acts on it.
+const submitInspector = async (fields) => {
+  const row = {
+    id: "insp" + Date.now(),
+    business_name: (fields.businessName || "").trim(),
+    contact_email: (fields.contactEmail || "").trim(),
+    contact_phone: (fields.contactPhone || "").trim() || null,
+    service_area: (fields.serviceArea || "").trim() || null,
+    price_range: (fields.priceRange || "").trim() || null,
+    booking_link: (fields.bookingLink || "").trim() || null,
+    notes: (fields.notes || "").trim() || null,
+    status: "pending",
+  };
+  const { error } = await supabase.from("inspectors").insert(row);
+  if (error) return false;
+  await loadData();
+  return true;
+};
+
+const approveInspector = async (id) => {
+  await supabase.from("inspectors").update({ status: "approved" }).eq("id", id);
+  await loadData();
+  showToast("Inspector approved — now live in the directory.");
+};
+
+const denyInspector = async (id) => {
+  await supabase.from("inspectors").update({ status: "rejected" }).eq("id", id);
+  await loadData();
+  showToast("Inspector submission rejected.");
 };
 
   // ── Buyer makes an offer on a listing. Note: this doesn't change what Stripe
@@ -1859,6 +1904,14 @@ const denyFlaggedReferral = async (refId) => {
     />
   );
 
+  if (view === "inspectors") return (
+    <InspectorsView
+      inspectors={inspectors.filter(i => i.status === "approved")}
+      onBack={() => setView(currentUser ? "home" : "landing")}
+      onSubmit={submitInspector}
+    />
+  );
+
   if (view === "escrow") return (
     <EscrowExplained
       onBack={() => setView(currentUser ? "home" : "landing")}
@@ -2079,7 +2132,7 @@ const denyFlaggedReferral = async (refId) => {
         {view === "advertise" && <AdvertiseView currentUser={dbUser} onSubmit={createAdCheckout} onSignIn={() => { setPendingView("advertise"); setView("auth"); }} />}
         {view === "home" && <HomeView key={homeResetKey} listings={activeListings} allListings={listings} currentUser={dbUser} users={users} onShare={generateShare} onBuy={handleBuyNow} referrals={referrals} onSignIn={() => setView("auth")} onMessageSeller={messageSeller} onReport={fileReport} onSaveSearch={saveSearch} favorites={favorites} onToggleFavorite={toggleFavorite} onToggleBlock={toggleBlock} onReportUser={reportUserAction} blocks={blocks} reviews={reviews} offers={offers} onMakeOffer={makeOffer} onOpenListing={openListing} />}
         {view === "myListings" && <MyListingsView listings={listings.filter(l => l.seller_id === currentUser?.id)} referrals={referrals} users={users} offers={offers} stats={listingStats} onMarkSold={markSold} onSetStatus={setListingStatus} onUpdate={updateListing} onRespondToOffer={respondToOffer} onRescindOffer={rescindOffer} onOpenSafety={() => setView("safety")} onConfirmHandover={confirmHandover} currentUser={dbUser} onSetupPayouts={setupPayouts} onDelete={deleteListing} onRestore={restoreListing} />}
-        {view === "myPurchases" && <MyPurchasesView listings={listings.filter(l => l.buyer_id === currentUser?.id)} users={users} reviews={reviews} currentUser={currentUser} handoverCodes={handoverCodes} onSubmitReview={submitReview} onConfirmReceipt={confirmReceipt} onFileDispute={fileDispute} onBuy={handleBuyNow} onBrowse={() => setView("home")} onOpenSafety={() => setView("safety")} />}
+        {view === "myPurchases" && <MyPurchasesView listings={listings.filter(l => l.buyer_id === currentUser?.id)} users={users} reviews={reviews} currentUser={currentUser} handoverCodes={handoverCodes} onSubmitReview={submitReview} onConfirmReceipt={confirmReceipt} onFileDispute={fileDispute} onBuy={handleBuyNow} onBrowse={() => setView("home")} onOpenSafety={() => setView("safety")} onFindInspector={() => setView("inspectors")} />}
         {view === "myOffers" && <MyOffersView offers={offers.filter(o => o.buyer_id === currentUser?.id)} listings={listings} onRespondToCounter={respondToCounter} onBuy={handleBuyNow} onBrowse={() => setView("home")} onOpenListing={(l) => openListing(buildListingPayload(l))} />}
         {view === "postListing" && <PostListingView onPost={postListing} />}
         {view === "messages" && currentUser && <Messages currentUser={{ ...dbUser, id: currentUser.id }} listings={listings} users={users} openThread={openThread} onOpened={() => setOpenThread(null)} />}
@@ -2089,7 +2142,7 @@ const denyFlaggedReferral = async (refId) => {
         {view === "dashboard" && <PromoterDashboard currentUser={dbUser} referrals={referrals.filter(r => r.promoter_id === currentUser?.id)} listings={listings} payouts={payouts} standingCode={promoterCode?.code || null} onSetupPayouts={setupPayouts} onRetract={retractReferral} onGetCode={() => setView("promoter")} />}
         {view === "promoter" && <PromoterCodeView currentUser={dbUser} promoterCode={promoterCode} onMint={mintPromoterCode} onSetupPayouts={setupPayouts} onViewEarnings={() => setView("dashboard")} />}
         {view === "profile" && <ProfileView dbUser={dbUser} authEmail={currentUser?.email} onUpdateProfile={updateProfile} onChangeEmail={changeEmail} onChangePassword={changePassword} onSetupPayouts={setupPayouts} onStartIdentityVerification={startIdentityVerification} />}
-       {view === "admin" && <AdminView listings={listings} users={users} riskFlags={riskFlags} onResolveRiskFlag={resolveRiskFlag} referrals={referrals} reports={reports} feedback={feedback} userReports={userReports} reviews={reviews} payouts={payouts} disputes={disputes} adPlacements={adPlacements} onDeleteAd={deleteAdPlacement} onCompAd={compAdPlacement} onRefreshAds={loadData} onArchive={archiveListing} onMarkSold={markSold} onConfirmReceipt={confirmReceipt} onResolveReport={resolveReport} onResolveUserReport={resolveUserReport} onToggleVerified={toggleVerified} onResetData={resetTestData} onRecordPayout={recordPayout} onPayoutViaStripe={payoutPromoterViaStripe} onResolveDispute={resolveDispute} onDeleteUser={deleteUser} onApproveFlaggedReferral={approveFlaggedReferral} onDenyFlaggedReferral={denyFlaggedReferral} />}
+       {view === "admin" && <AdminView listings={listings} users={users} riskFlags={riskFlags} onResolveRiskFlag={resolveRiskFlag} referrals={referrals} reports={reports} feedback={feedback} userReports={userReports} reviews={reviews} payouts={payouts} disputes={disputes} adPlacements={adPlacements} inspectors={inspectors} onDeleteAd={deleteAdPlacement} onCompAd={compAdPlacement} onRefreshAds={loadData} onArchive={archiveListing} onMarkSold={markSold} onConfirmReceipt={confirmReceipt} onResolveReport={resolveReport} onResolveUserReport={resolveUserReport} onToggleVerified={toggleVerified} onResetData={resetTestData} onRecordPayout={recordPayout} onPayoutViaStripe={payoutPromoterViaStripe} onResolveDispute={resolveDispute} onDeleteUser={deleteUser} onApproveFlaggedReferral={approveFlaggedReferral} onDenyFlaggedReferral={denyFlaggedReferral} onApproveInspector={approveInspector} onDenyInspector={denyInspector} />}
         {view === "success" && <SuccessView onHome={() => setView("home")} />}
       </main>
 
@@ -2102,6 +2155,7 @@ const denyFlaggedReferral = async (refId) => {
         <button style={styles.appFooterLink} onClick={() => setView("about")}>About DriveLink</button>
         <span style={{ color: "#d1d5db" }}>·</span>
         <button style={styles.appFooterLink} onClick={() => setView("safety")}>🛡️ Safety Tips</button>
+        <button style={styles.appFooterLink} onClick={() => setView("inspectors")}>🔍 Find an Inspector</button>
         <span style={{ color: "#d1d5db" }}>·</span>
         <button style={styles.appFooterLink} onClick={() => setView("faq")}>How your money is protected</button>
         <span style={{ color: "#d1d5db" }}>·</span>
@@ -2146,6 +2200,7 @@ const denyFlaggedReferral = async (refId) => {
           onSignIn={() => setView("auth")}
           onCheckDeal={checkDealAssessment}
           onTranslate={translateListing}
+          onFindInspector={() => setView("inspectors")}
         />
       )}
       {wireInstructions && (
@@ -2880,8 +2935,8 @@ function CompareRow({ label, values, rankBy, lowerIsBetter, wrap }) {
   );
 }
 
-function ListingDetailModal({ data, currentUser, isFavorited, isBlocked, onClose, onBuy, onBuyWire, wireLoading, onShare, onMessageSeller, onReport, onReportUser, onToggleFavorite, onToggleBlock, onMakeOffer, onSignIn, onCheckDeal, onTranslate }) {
-  const { t } = useLang();
+function ListingDetailModal({ data, currentUser, isFavorited, isBlocked, onClose, onBuy, onBuyWire, wireLoading, onShare, onMessageSeller, onReport, onReportUser, onToggleFavorite, onToggleBlock, onMakeOffer, onSignIn, onCheckDeal, onTranslate, onFindInspector }) {
+  const { t, lang } = useLang();
   const { listing, seller, myRef, sellerRating, sellerReviewCount, myOffer } = data;
   const [activeImg, setActiveImg] = useState(0);
   const [copied, setCopied] = useState(false);
@@ -2990,6 +3045,14 @@ function ListingDetailModal({ data, currentUser, isFavorited, isBlocked, onClose
           )}
 
           {myRef && <div style={styles.refTag}>{myRef.status === "paid" ? `✅ Commission paid: ${fmt(myRef.commission_amount)}` : "🔗 Your Promoter link is live — you'll earn 1% if this sells through it"}</div>}
+
+          {!isOwnListing && (
+            <div style={styles.safetyBanner}>
+              🔍 {lang === "es"
+                ? <>¿Quieres que lo revisen antes de comprar? <button style={styles.safetyBannerLink} onClick={onFindInspector}>Encuentra un inspector pre-compra</button>.</>
+                : <>Want it checked out before you buy? <button style={styles.safetyBannerLink} onClick={onFindInspector}>Find a pre-purchase inspector</button>.</>}
+            </div>
+          )}
 
           <div style={styles.cardActions}>
             {currentUser && !isOwnListing && payoutsReady && <button style={styles.buyBtn} onClick={() => onBuy(listing)}>💳 {t("action.buyNow")}</button>}
@@ -3720,7 +3783,7 @@ function SellerOfferRow({ offer, buyer, onRespond }) {
   );
 }
 
-function MyPurchasesView({ listings, users, reviews, currentUser, handoverCodes, onSubmitReview, onConfirmReceipt, onFileDispute, onBuy, onBrowse, onOpenSafety }) {
+function MyPurchasesView({ listings, users, reviews, currentUser, handoverCodes, onSubmitReview, onConfirmReceipt, onFileDispute, onBuy, onBrowse, onOpenSafety, onFindInspector }) {
   const [reviewing, setReviewing] = useState(null);
   const [disputing, setDisputing] = useState(null);
   const hasHandoffPending = listings.some(l => l.status === "pending_confirmation");
@@ -3730,6 +3793,11 @@ function MyPurchasesView({ listings, users, reviews, currentUser, handoverCodes,
       {hasHandoffPending && (
         <div style={styles.safetyBanner}>
           🛡️ Picking up a car soon? <button style={styles.safetyBannerLink} onClick={onOpenSafety}>Review our safety tips</button> before you meet the seller.
+        </div>
+      )}
+      {hasHandoffPending && (
+        <div style={styles.safetyBanner}>
+          🔍 Haven't had it inspected yet? <button style={styles.safetyBannerLink} onClick={onFindInspector}>Find a pre-purchase inspector</button> before you confirm receipt.
         </div>
       )}
       {listings.length === 0 && <p style={{ color: "#6b7280" }}>Nothing here yet. Cars you buy — or deals you start with a seller — will show up here.</p>}
@@ -5595,7 +5663,7 @@ function StatBox({ label, value, color }) {
   return <div style={styles.statBox}><div style={{ ...styles.statValue, color }}>{value}</div><div style={styles.statLabel}>{label}</div></div>;
 }
 
-function AdminView({ listings, users, referrals, reports, feedback, userReports, reviews, payouts, disputes, adPlacements, riskFlags, onResolveRiskFlag, onDeleteAd, onCompAd, onRefreshAds, onArchive, onMarkSold, onConfirmReceipt, onResolveReport, onResolveUserReport, onToggleVerified, onResetData, onRecordPayout, onPayoutViaStripe, onResolveDispute, onDeleteUser, onApproveFlaggedReferral, onDenyFlaggedReferral }) {
+function AdminView({ listings, users, referrals, reports, feedback, userReports, reviews, payouts, disputes, adPlacements, riskFlags, inspectors, onResolveRiskFlag, onDeleteAd, onCompAd, onRefreshAds, onArchive, onMarkSold, onConfirmReceipt, onResolveReport, onResolveUserReport, onToggleVerified, onResetData, onRecordPayout, onPayoutViaStripe, onResolveDispute, onDeleteUser, onApproveFlaggedReferral, onDenyFlaggedReferral, onApproveInspector, onDenyInspector }) {
   const [tab, setTab] = useState("listings");
   const [showDeletedUsers, setShowDeletedUsers] = useState(false);
   const deletedUserCount = (users || []).filter(u => u.deleted_at).length;
@@ -5648,6 +5716,7 @@ function AdminView({ listings, users, referrals, reports, feedback, userReports,
   const openUserReports = (userReports || []).filter(r => r.status === "open");
   const awaitingConfirmation = activeAndSold.filter(l => l.status === "pending_confirmation");
   const openDisputes = (disputes || []).filter(d => d.status === "open");
+  const pendingInspectors = (inspectors || []).filter(i => i.status === "pending");
   return (
     <div style={styles.pageWrap}>
       <h2 style={styles.pageTitle}>Admin Panel</h2>
@@ -5679,7 +5748,7 @@ function AdminView({ listings, users, referrals, reports, feedback, userReports,
         <StatBox label="Open User Reports" value={openUserReports.length} color="#dc2626" />
       </div>
       <div style={styles.tabRow}>
-        {["listings", "archived", "users", "referrals", "payouts", "ads", "disputes", "reports", "userReports", "feedback", "analytics", "danger"].map(t => <button key={t} style={{ ...styles.tab, ...(tab === t ? styles.tabActive : {}), ...(t === "danger" ? { color: tab === "danger" ? "#dc2626" : "#dc2626" } : {}) }} onClick={() => setTab(t)}>{t === "danger" ? "⚠️ Danger Zone" : t === "userReports" ? "User Reports" : t === "analytics" ? "📊 Analytics" : t === "ads" ? "📢 Ads" : t.charAt(0).toUpperCase() + t.slice(1)}{t === "reports" && openReports.length > 0 ? ` (${openReports.length})` : ""}{t === "userReports" && openUserReports.length > 0 ? ` (${openUserReports.length})` : ""}{t === "disputes" && openDisputes.length > 0 ? ` (${openDisputes.length})` : ""}{t === "feedback" && feedback.length > 0 ? ` (${feedback.length})` : ""}{t === "ads" && runningAds.length > 0 ? ` (${runningAds.length})` : ""}</button>)}
+        {["listings", "archived", "users", "referrals", "inspectors", "payouts", "ads", "disputes", "reports", "userReports", "feedback", "analytics", "danger"].map(t => <button key={t} style={{ ...styles.tab, ...(tab === t ? styles.tabActive : {}), ...(t === "danger" ? { color: tab === "danger" ? "#dc2626" : "#dc2626" } : {}) }} onClick={() => setTab(t)}>{t === "danger" ? "⚠️ Danger Zone" : t === "userReports" ? "User Reports" : t === "analytics" ? "📊 Analytics" : t === "ads" ? "📢 Ads" : t.charAt(0).toUpperCase() + t.slice(1)}{t === "reports" && openReports.length > 0 ? ` (${openReports.length})` : ""}{t === "userReports" && openUserReports.length > 0 ? ` (${openUserReports.length})` : ""}{t === "disputes" && openDisputes.length > 0 ? ` (${openDisputes.length})` : ""}{t === "feedback" && feedback.length > 0 ? ` (${feedback.length})` : ""}{t === "ads" && runningAds.length > 0 ? ` (${runningAds.length})` : ""}{t === "inspectors" && pendingInspectors.length > 0 ? ` (${pendingInspectors.length})` : ""}</button>)}
       </div>
       {tab === "listings" && (
         <div style={styles.tableWrap}>
@@ -5814,6 +5883,33 @@ function AdminView({ listings, users, referrals, reports, feedback, userReports,
     })}
   </div>
 )}
+      {tab === "inspectors" && (
+        <div style={styles.tableWrap}>
+          {(inspectors || []).length === 0 && <p style={{ color: "#6b7280" }}>No inspector submissions yet.</p>}
+          {(inspectors || []).map(i => {
+            const badgeStyle = i.status === "approved" ? { background: "#dcfce7", color: "#15803d" }
+              : i.status === "rejected" ? { background: "#f1f5f9", color: "#6b7280" }
+              : { background: "#fef9c3", color: "#854d0e" };
+            return (
+              <div key={i.id} style={styles.listingRow} className="app-listing-row">
+                <div style={styles.rowInfo} className="app-row-info">
+                  <div style={styles.rowTitle}>{i.business_name}</div>
+                  <div style={styles.rowMeta}>{i.contact_email}{i.contact_phone ? ` • ${i.contact_phone}` : ""}{i.service_area ? ` • ${i.service_area}` : ""}{i.price_range ? ` • ${i.price_range}` : ""}</div>
+                  {i.booking_link && <div style={styles.rowMeta}><a href={i.booking_link} target="_blank" rel="noreferrer noopener">{i.booking_link}</a></div>}
+                  {i.notes && <div style={{ fontSize: 12, color: "#6b7280", marginTop: 2 }}>{i.notes}</div>}
+                </div>
+                <span style={{ ...styles.statusPill, ...badgeStyle }}>{i.status}</span>
+                {i.status === "pending" && (
+                  <>
+                    <button style={styles.soldBtn} onClick={() => onApproveInspector(i.id)}>Approve</button>
+                    <button style={styles.removeBtn} onClick={() => onDenyInspector(i.id)}>Reject</button>
+                  </>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
       {tab === "payouts" && (
         <div style={styles.tableWrap}>
           {(payouts || []).length === 0 && <p style={{ color: "#6b7280" }}>No payouts recorded yet.</p>}
