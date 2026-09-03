@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLang, LangToggle } from "./i18n.jsx";
 
 /*
@@ -86,6 +86,36 @@ export default function InspectorsView({ inspectors, onBack, onSubmit }) {
   const [form, setForm] = useState(EMPTY_FORM);
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState(null); // "success" | "error" | null
+
+  // ── SEO: this is the one SPA view in the app that's meant to be found by
+  // search rather than just clicked into — an inspection business googling
+  // "list my inspection business" needs a real title/description in the
+  // rendered DOM, not the generic index.html ones every other view leaves in
+  // place. Restored on unmount so navigating elsewhere doesn't leave this
+  // page's title/description stuck on, say, the browse grid.
+  useEffect(() => {
+    const prevTitle = document.title;
+    document.title = lang === "es"
+      ? "Encuentra un inspector pre-compra | DriveLink"
+      : "Find a Pre-Purchase Inspector | DriveLink";
+    const description = lang === "es"
+      ? "Negocios de inspección pre-compra independientes para compradores de autos en DriveLink. ¿Tienes un negocio de inspecciones? Publícalo gratis."
+      : "Independent pre-purchase inspection businesses for DriveLink car buyers to find and contact. Run an inspection business? List it for free.";
+    let meta = document.querySelector('meta[name="description"]');
+    const prevDescription = meta?.getAttribute("content") ?? null;
+    const createdMeta = !meta;
+    if (!meta) {
+      meta = document.createElement("meta");
+      meta.setAttribute("name", "description");
+      document.head.appendChild(meta);
+    }
+    meta.setAttribute("content", description);
+    return () => {
+      document.title = prevTitle;
+      if (createdMeta) meta.remove();
+      else if (prevDescription != null) meta.setAttribute("content", prevDescription);
+    };
+  }, [lang]);
 
   const set = (field) => (e) => setForm((f) => ({ ...f, [field]: e.target.value }));
 
