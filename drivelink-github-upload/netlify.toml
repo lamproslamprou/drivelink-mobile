@@ -5,6 +5,10 @@
 [functions]
   directory = "netlify/functions"
 
+[[edge_functions]]
+  path = "/listing/*"
+  function = "listing-meta"
+
 [[redirects]]
   from = "/sitemap-listings.xml"
   to = "/.netlify/functions/sitemap-listings"
