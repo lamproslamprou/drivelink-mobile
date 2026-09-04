@@ -2966,6 +2966,56 @@ function ListingDetailModal({ data, currentUser, isFavorited, isBlocked, onClose
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
+  // ── SEO: every listing shares one generic title/description otherwise (see
+  // InspectorsView.jsx for the same pattern, first added there). This is the
+  // page search traffic and shared links should actually land on, so it gets
+  // its own title, description and Product/Vehicle structured data — restored
+  // on close/unmount so it doesn't leak onto the browse grid underneath.
+  useEffect(() => {
+    const prevTitle = document.title;
+    const priceStr = fmt(listing.price);
+    document.title = `${listing.year} ${listing.make} ${listing.model} — ${priceStr} | DriveLink`;
+
+    const descText = (listing.description ? String(listing.description).slice(0, 155) : "") ||
+      `${listing.year} ${listing.make} ${listing.model} for sale on DriveLink, ${priceStr}. Escrow-protected private car sale.`;
+    let meta = document.querySelector('meta[name="description"]');
+    const prevDescription = meta?.getAttribute("content") ?? null;
+    const createdMeta = !meta;
+    if (!meta) {
+      meta = document.createElement("meta");
+      meta.setAttribute("name", "description");
+      document.head.appendChild(meta);
+    }
+    meta.setAttribute("content", descText);
+
+    const ld = document.createElement("script");
+    ld.type = "application/ld+json";
+    ld.textContent = JSON.stringify({
+      "@context": "https://schema.org",
+      "@type": ["Product", "Vehicle"],
+      name: `${listing.year} ${listing.make} ${listing.model}`,
+      image: images,
+      vehicleModelDate: listing.year ? String(listing.year) : undefined,
+      mileageFromOdometer: listing.mileage ? { "@type": "QuantitativeValue", value: listing.mileage, unitCode: "SMI" } : undefined,
+      brand: listing.make ? { "@type": "Brand", name: listing.make } : undefined,
+      offers: {
+        "@type": "Offer",
+        priceCurrency: "USD",
+        price: (Number(listing.price) / 100).toFixed(2),
+        availability: listing.status === "sold" ? "https://schema.org/SoldOut" : "https://schema.org/InStock",
+        url: `https://drivelink.deals/listing/${listing.id}`,
+      },
+    });
+    document.head.appendChild(ld);
+
+    return () => {
+      document.title = prevTitle;
+      if (createdMeta) meta.remove();
+      else if (prevDescription != null) meta.setAttribute("content", prevDescription);
+      if (ld.parentNode) ld.parentNode.removeChild(ld);
+    };
+  }, [listing.id, listing.year, listing.make, listing.model, listing.price, listing.status, listing.mileage, listing.description]);
+
   return (
     <div style={styles.overlay} onClick={onClose}>
       <div style={styles.detailBox} onClick={e => e.stopPropagation()}>

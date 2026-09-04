@@ -16,3 +16,4 @@ Disallow: /reset-password
 Disallow: /purchase-complete
 
 Sitemap: https://drivelink.deals/sitemap.xml
+Sitemap: https://drivelink.deals/sitemap-listings.xml

@@ -2,6 +2,14 @@
   command = "npm install && npm run build"
   publish = "dist"
 
+[functions]
+  directory = "netlify/functions"
+
+[[redirects]]
+  from = "/sitemap-listings.xml"
+  to = "/.netlify/functions/sitemap-listings"
+  status = 200
+
 [[redirects]]
   from = "/*"
   to = "/index.html"
