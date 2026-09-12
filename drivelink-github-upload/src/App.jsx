@@ -4580,7 +4580,11 @@ function ProfileView({ dbUser, authEmail, onUpdateProfile, onChangeEmail, onChan
 // advertiser has nowhere to go. Beyond PAGE_SIZE the rail pages through them on
 // a slow timer, so every advertiser gets impressions instead of whoever sorted
 // first taking the session.
-const AD_PAGE_SIZE = 4;
+// Two, not four. Each card is now ~330px tall (260px creative + name + CTA +
+// padding), and the rail is calc(100vh - 110px). Four cards overflowed it on
+// any normal laptop; two fit with room to spare. The 20s rotation means a
+// larger roster still gets shown, just across more pages.
+const AD_PAGE_SIZE = 2;
 
 // Own state rather than the app-level toast: showToast is defined inside App
 // and is not in scope down here in AdminView.
@@ -4885,7 +4889,15 @@ function AdRail({ ads, onPromoClick }) {
               loading="lazy"
               // Fixed height with object-fit: one advertiser uploading a tall
               // image must not push the others off the rail.
-              style={{ width: "100%", height: 80, objectFit: "cover", borderRadius: 6, marginBottom: 8, display: "block" }}
+              //
+              // "contain", not "cover". At height 80 with cover, an 80px-tall
+              // box was scaled to the rail's ~156px width and then CROPPED top
+              // and bottom — advertisers lost whatever sat outside the middle
+              // strip, and anything readable had to survive at a sixth of the
+              // area it was designed for. contain letterboxes instead: the
+              // whole creative is always shown, whatever aspect it was made at.
+              // The rail background sits behind the bars, so they're invisible.
+              style={{ width: "100%", height: 260, objectFit: "contain", borderRadius: 6, marginBottom: 8, display: "block" }}
               onError={(e) => { e.currentTarget.style.display = "none"; }}
             />
           )}
@@ -6733,7 +6745,7 @@ const css = `
   .app-ad-rail {
     display: none;
     flex: 1 1 0;
-    min-width: 160px;
+    min-width: 260px;
     max-width: 340px;
     position: sticky;
     top: 90px;
@@ -6743,7 +6755,7 @@ const css = `
     transition: transform 0.15s ease;
   }
   .app-ad-rail:hover { transform: translateY(-2px); }
-  @media (min-width: 1300px) {
+  @media (min-width: 1400px) {
     .app-ad-rail { display: block; }
   }
 
