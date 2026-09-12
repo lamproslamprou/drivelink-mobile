@@ -6561,7 +6561,7 @@ const styles = {
   menuDivider: { height: 1, background: "#f1f5f9", margin: "6px 0" },
   menuRow: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "6px 12px" },
   menuRowLabel: { fontSize: 13, color: "#6b7280", fontWeight: 600 },
-  adRailInner: { background: "linear-gradient(160deg, #1a1a2e, #16213e)", border: "1px dashed #FFB020", borderRadius: 12, padding: "22px 16px", color: "#fff", textAlign: "center", height: "100%", display: "flex", flexDirection: "column", justifyContent: "center", boxSizing: "border-box" },
+  adRailInner: { background: "linear-gradient(160deg, #1a1a2e, #16213e)", border: "1px dashed #FFB020", borderRadius: 12, padding: "22px 16px", color: "#fff", textAlign: "center", display: "flex", flexDirection: "column", justifyContent: "flex-start", boxSizing: "border-box" },
   navBtn: { background: "none", border: "none", padding: "6px 14px", borderRadius: 8, cursor: "pointer", fontSize: 14, fontWeight: 500, color: "#4b5563", flexShrink: 0, whiteSpace: "nowrap" },
   navBtnActive: { background: "#f1f5f9", color: "#0f172a" },
   navRight: { marginLeft: "auto" },
@@ -6744,18 +6744,27 @@ const css = `
   .app-main { min-width: 0; max-width: 100%; }
   .app-ad-rail {
     display: none;
-    flex: 1 1 0;
-    min-width: 260px;
-    max-width: 340px;
+    /* flex: 0 0 260px, not flex: 1 1 0. Growable rails absorbed every spare
+       pixel up to max-width 340px, so on a wide screen the two rails ate
+       ~620px that belonged to the listings grid — the filter row wrapped to
+       two lines and the car cards got narrower the bigger your monitor was.
+       A fixed 260px basis gives a consistent, sellable ad column and hands
+       all remaining width back to the listings. */
+    flex: 0 0 260px;
     position: sticky;
     top: 90px;
     align-self: flex-start;
-    height: calc(100vh - 110px);
+    /* max-height, not height. A forced full-viewport height meant the dashed
+       panel was always ~860px tall regardless of how much ad there was to
+       show, leaving a large empty navy box under the card. Now it wraps its
+       content and only scrolls if the roster genuinely outgrows the screen. */
+    max-height: calc(100vh - 110px);
+    overflow-y: auto;
     cursor: pointer;
     transition: transform 0.15s ease;
   }
   .app-ad-rail:hover { transform: translateY(-2px); }
-  @media (min-width: 1400px) {
+  @media (min-width: 1300px) {
     .app-ad-rail { display: block; }
   }
 
