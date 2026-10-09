@@ -1,5 +1,12 @@
 import { useState } from "react";
 import { useLang, LangToggle } from "./i18n.jsx";
+import { platformFeeRate, platformFeeLabel, promoActive } from "./fee.js";
+
+// Fee copy is built from fee.js so it flips back to "1%" by itself on Nov 1 ET.
+const FEE = platformFeeLabel();
+const FEE_ON_10K = Math.round(10000 * platformFeeRate()); // dollars on a $10,000 car
+const PROMO_EN = promoActive() ? " (half our usual 1%, through October 31)" : "";
+const PROMO_ES = promoActive() ? " (la mitad de nuestro 1% habitual, hasta el 31 de octubre)" : "";
 
 // ── THE COUNTERPARTY PAGE ─────────────────────────────────────────────────────
 // Not a marketing page. This is what one party sends the other when they say
@@ -70,7 +77,7 @@ const COPY = {
       },
       {
         q: "What does it cost?",
-        a: "1% of the sale price, paid by whoever starts the deal. On a $10,000 car that's $100. There's no listing fee, no subscription, and no charge if the deal falls through.",
+        a: `${FEE} of the sale price${PROMO_EN}, paid by whoever starts the deal. On a $10,000 car that's $${FEE_ON_10K}. There's no listing fee, no subscription, and no charge if the deal falls through.`,
       },
       {
         q: "Do I have to sign up?",
@@ -85,7 +92,7 @@ const COPY = {
     ctaBody:
       "Set it up here, or go back to the person who sent you this and tell them you're good to proceed.",
     ctaButton: "Start the deal",
-    ctaNote: "Free to set up. The 1% is only charged when the deal goes through.",
+    ctaNote: `Free to set up. The ${FEE} is only charged when the deal goes through.`,
   },
   es: {
     eyebrow: "Alguien te envió este enlace",
@@ -143,7 +150,7 @@ const COPY = {
       },
       {
         q: "¿Cuánto cuesta?",
-        a: "1% del precio de venta, pagado por quien inicia el trato. En un auto de $10,000 son $100. No hay cuota de publicación, ni suscripción, ni cargo si el trato no se concreta.",
+        a: `${FEE} del precio de venta${PROMO_ES}, pagado por quien inicia el trato. En un auto de $10,000 son $${FEE_ON_10K}. No hay cuota de publicación, ni suscripción, ni cargo si el trato no se concreta.`,
       },
       {
         q: "¿Tengo que registrarme?",
@@ -158,7 +165,7 @@ const COPY = {
     ctaBody:
       "Configúralo aquí, o vuelve con la persona que te envió esto y dile que puedes proceder.",
     ctaButton: "Iniciar el trato",
-    ctaNote: "Configurarlo es gratis. El 1% solo se cobra cuando el trato se concreta.",
+    ctaNote: `Configurarlo es gratis. El ${FEE} solo se cobra cuando el trato se concreta.`,
   },
 };
 

@@ -13,6 +13,7 @@ import { StartDealView, JoinDealView } from "./DealViews.jsx";
 import FAQView from "./FAQView.jsx";
 import EscrowExplained from "./EscrowExplained.jsx";
 import InspectorsView from "./InspectorsView.jsx";
+import { platformFeeRate, platformFeeLabel, promoActive } from "./fee.js";
 import LienPayoffNJ from "./guides/LienPayoffNJ.jsx";
 import LienPayoffPA from "./guides/LienPayoffPA.jsx";
 import LienPayoffNY from "./guides/LienPayoffNY.jsx";
@@ -75,7 +76,9 @@ function todayET() {
   }).format(new Date());
 }
 
-const PLATFORM_FEE = 0.01; // 1% platform fee
+// DriveLink's own fee now comes from platformFeeRate() in ./fee.js: 0.5% during
+// the October 2026 promo, 1% otherwise (reverts automatically Nov 1 ET). The
+// Promoter's cut below is never part of the promo.
 const PROMOTER_FEE = 0.01; // 1% promoter commission
 // $15,000 (cents). Mirrors ACH_MIN_CENTS in supabase/functions/_shared/helpers.ts —
 // the backend re-enforces this gate itself (create-wire-session throws if the
@@ -840,7 +843,7 @@ export default function App() {
 
   // ── Mark sold (admin manual override)
   const markSold = async (listingId, salePrice, buyerEmail) => {
-    const platformFee = Math.round(salePrice * PLATFORM_FEE);
+    const platformFee = Math.round(salePrice * platformFeeRate());
     const promoterCommission = Math.round(salePrice * PROMOTER_FEE);
     const sellerNet = salePrice - platformFee - promoterCommission;
     const buyer = buyerEmail ? users.find(u => u.email.toLowerCase() === buyerEmail.trim().toLowerCase()) : null;
@@ -2324,7 +2327,7 @@ function LegalPageView({ type, onBack }) {
             <p>Sellers agree that listing information (price, mileage, condition, photos, VIN) is accurate to the best of their knowledge. DriveLink may remove any listing that is misleading, fraudulent, or violates these terms, at our discretion, with or without notice.</p>
 
             <h2>4. Fees</h2>
-            <p>Listing a car is free. When a listing sells, DriveLink charges a 1% platform fee on the final sale price. Card processing is charged separately by our payment provider at approximately 2.9% + $0.30 per transaction and is also deducted from the seller's proceeds. If a buyer arrived through a promoter's shared link, an additional 1% commission is paid to that promoter. The exact amount you'll receive is shown before you publish a listing.</p>
+            <p>Listing a car is free. When a listing sells, DriveLink charges a 1% platform fee on the final sale price (reduced to 0.5% for payments made from October 1 through October 31, 2026). Card processing is charged separately by our payment provider at approximately 2.9% + $0.30 per transaction and is also deducted from the seller's proceeds. If a buyer arrived through a promoter's shared link, an additional 1% commission is paid to that promoter. The exact amount you'll receive is shown before you publish a listing.</p>
 
             <h2>5. Payments</h2>
             <p>Checkout is processed through Stripe. DriveLink does not store your payment card details. Once a buyer completes checkout, the transaction between buyer and seller — including vehicle handoff, title transfer, and any related paperwork — is the responsibility of the two parties.</p>
@@ -2531,9 +2534,9 @@ for (const l of allListings.filter(l => l.status === "active")) {
   avgByModel[key].push(l.price);
 }
 
-  // Public-facing social proof, so internal test sales must not inflate it.
-  // is_test is written only by the platform (trg_guard_listings_test_flag).
-  const soldCount = allListings.filter(l => l.status === "sold" && !l.is_test).length;
+  // The public "Cars sold" stat was removed on purpose (decided 2026-10-09): a
+  // low count reads as an empty marketplace, so it is never shown publicly.
+  // The sold count lives in the Admin Panel only (the "Sold" StatBox).
 
   return (
     <div>
@@ -2544,20 +2547,15 @@ for (const l of allListings.filter(l => l.status === "active")) {
           <p style={styles.heroSub}>{t("home.sub")}</p>
           <LangSwitchLink />
           <div style={styles.heroStats} className="app-hero-stats">
-            {/* Matches the soldCount gate below: "1 Active listings" on a
-                brand-new marketplace reads as empty rather than early, so
-                this only shows once there's enough inventory to look like
-                a real count rather than a confession. Threshold is a guess
-                — raise it if 5 still feels thin once we're there. */}
+            {/* "1 Active listings" on a brand-new marketplace reads as empty
+                rather than early, so this only shows once there's enough
+                inventory to look like a real count rather than a confession.
+                Threshold is a guess — raise it if 5 still feels thin once
+                we're there. (The public "Cars sold" stat is gone entirely —
+                see the note above the return.) */}
             {listings.length >= 5 && (
               <>
                 <div style={styles.heroStat}><span style={styles.heroStatNum}>{listings.length}</span><span style={styles.heroStatLabel}>{t("home.statListings")}</span></div>
-                <div style={styles.heroStatDiv} />
-              </>
-            )}
-            {soldCount > 0 && (
-              <>
-                <div style={styles.heroStat}><span style={styles.heroStatNum}>{soldCount}</span><span style={styles.heroStatLabel}>{t("home.statSold")}</span></div>
                 <div style={styles.heroStatDiv} />
               </>
             )}
@@ -4627,7 +4625,7 @@ function AboutView({ onBack, onBrowse, onSafety }) {
           <p>Nothing is released on a timer. When the buyer pays, they get a 6-digit handover code. At the handover — once the car and the signed title are in their hands — they give that code to the seller, who enters it, and the funds are released. The buyer can also confirm receipt in the app if they'd rather. If a sale goes quiet with no confirmation either way, we pause it and ask both people what happened, rather than paying anyone out and hoping. If something goes wrong, the buyer can open a dispute at any point.</p>
 
           <h2>What it costs</h2>
-          <p>DriveLink charges sellers 1% of the sale price. Buyers pay nothing beyond the price of the car. The fee is shown upfront when a car is listed, alongside what the seller will actually receive after card processing costs — no discovering the real number at payout time.</p>
+          <p>DriveLink charges sellers {platformFeeLabel()} of the sale price{promoActive() ? " (half our usual 1%, through October 31)" : ""}. Buyers pay nothing beyond the price of the car. The fee is shown upfront when a car is listed, alongside what the seller will actually receive after card processing costs — no discovering the real number at payout time.</p>
 
           <h2>Where the money sits</h2>
           <p>Payments are processed by Stripe, and funds are held on DriveLink's Stripe balance between payment and release. DriveLink never handles card details directly — those go straight to Stripe. Sellers connect their own account to receive payouts.</p>
@@ -4983,7 +4981,8 @@ function HandoverDateField({ value, onChange }) {
 
 // What the seller actually receives, shown while they type the price.
 //
-// The headline fee is 1%, but that is not what lands in their account: card
+// The headline fee is 1% (0.5% during the October 2026 promo — see fee.js), but
+// that is not what lands in their account: card
 // processing is deducted too, and on a $50 sale the difference between "1%"
 // and reality was $49.50 vs $47.00. Quoting a percentage and paying out a
 // different number is the kind of surprise that costs trust on a platform
@@ -5000,7 +4999,7 @@ const STRIPE_FIXED = 30; // cents
 function sellerNetBreakdown(price) {
   const p = Number(price);
   if (!Number.isFinite(p) || p <= 0) return null;
-  const platformFee = Math.round(p * PLATFORM_FEE);
+  const platformFee = Math.round(p * platformFeeRate());
   const processing = Math.ceil(p * STRIPE_PCT + STRIPE_FIXED);
   const promoter = Math.round(p * PROMOTER_FEE);
   const net = Math.max(0, p - platformFee - processing);
@@ -5016,7 +5015,7 @@ function SellerNetPreview({ price }) {
     <div style={{ ...styles.infoBox, marginTop: 12 }}>
       <div style={{ fontWeight: 700, marginBottom: 6 }}>{t("fee.youReceive", { amount: fmt(b.net) })}</div>
       <div style={{ fontSize: 13, lineHeight: 1.6 }}>
-        {t("fee.breakdown", { price: fmt(b.price), platform: fmt(b.platformFee), processing: fmt(b.processing) })}
+        {t("fee.breakdown", { price: fmt(b.price), rate: platformFeeLabel(), platform: fmt(b.platformFee), processing: fmt(b.processing) })}
       </div>
       <div style={{ fontSize: 12, color: "#6b7280", marginTop: 6 }}>
         {t("fee.promoterNote", { promoter: fmt(b.promoter), netWithPromoter: fmt(b.netWithPromoter) })}
@@ -5804,7 +5803,7 @@ function AdminView({ listings, users, referrals, reports, feedback, userReports,
         <StatBox label="Awaiting Confirmation" value={awaitingConfirmation.length} color="#1d4ed8" />
         <StatBox label="Open Disputes" value={openDisputes.length} color="#dc2626" />
         <StatBox label="GMV" value={fmt(totalRevenue)} color="#b45309" />
-        <StatBox label="Your Earnings (1%)" value={fmt(platformEarnings)} color="#16a34a" />
+        <StatBox label="Your Earnings" value={fmt(platformEarnings)} color="#16a34a" />
         <StatBox label="Promoter Commissions" value={fmt(totalCommissions)} color="#dc2626" />
         <StatBox label="Open Reports" value={openReports.length} color="#dc2626" />
         <StatBox label="Open User Reports" value={openUserReports.length} color="#dc2626" />

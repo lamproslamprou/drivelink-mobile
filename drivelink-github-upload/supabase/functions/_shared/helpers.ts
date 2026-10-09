@@ -364,10 +364,32 @@ export async function settleReferral(
   return { outcome: "paid", promoterId: ref.promoter_id, commission };
 }
 
-// Platform + Promoter cut, mirrors the PLATFORM_FEE/PROMOTER_FEE constants
-// in App.jsx. Keep these two files in sync if you ever change the percentages.
+// Platform + Promoter cut, mirrors src/fee.js and the PROMOTER_FEE constant
+// in App.jsx. Keep these in sync if you ever change the percentages or dates.
+//
+// PLATFORM_FEE is the STANDARD rate. Anything that actually charges a fee must
+// call platformFeeRate() instead, which applies the October 2026 half-price
+// promo (0.5%) and reverts to PLATFORM_FEE on its own at midnight ET Nov 1 2026
+// (04:00Z — EDT is UTC-4 until 2 AM that morning). The Promoter's 1% is NOT
+// part of the promo.
 export const PLATFORM_FEE = 0.01;
+export const PLATFORM_FEE_PROMO = 0.005;
+export const PLATFORM_FEE_PROMO_START = "2026-10-01T04:00:00Z";
+export const PLATFORM_FEE_PROMO_END = "2026-11-01T04:00:00Z"; // exclusive
 export const PROMOTER_FEE = 0.01;
+
+export function platformFeeRate(now: Date = new Date()): number {
+  const t = now.getTime();
+  return t >= Date.parse(PLATFORM_FEE_PROMO_START) &&
+      t < Date.parse(PLATFORM_FEE_PROMO_END)
+    ? PLATFORM_FEE_PROMO
+    : PLATFORM_FEE;
+}
+
+// "0.5%" / "1%" — for admin emails and labels.
+export function platformFeeLabel(now: Date = new Date()): string {
+  return platformFeeRate(now) === PLATFORM_FEE_PROMO ? "0.5%" : "1%";
+}
 // Days from payment (or from the agreed handover date, whichever is later)
 // before an unconfirmed sale is escalated to manual review. This has NOT
 // released funds since 2026-08-06 — the name is kept because stripe-webhook,

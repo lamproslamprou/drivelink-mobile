@@ -14,6 +14,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "./supabase";
+import { platformFeeLabel, promoActive } from "./fee.js";
 
 const currentYear = new Date().getFullYear();
 
@@ -239,8 +240,8 @@ export function StartDealView({ currentUser, promoterCode, onBack, onNavigate, s
           <div style={dealStyles.priceCard}>
             <div style={dealStyles.eyebrow}>What it costs</div>
             <div style={dealStyles.priceRow}>
-              <span style={dealStyles.priceLabel}>DriveLink escrow fee</span>
-              <span style={dealStyles.vinValue}>1%</span>
+              <span style={dealStyles.priceLabel}>DriveLink escrow fee{promoActive() ? " (half price through October 31)" : ""}</span>
+              <span style={dealStyles.vinValue}>{platformFeeLabel()}</span>
             </div>
             {referrer && (
               <div style={{ ...dealStyles.priceRow, marginTop: 10 }}>
@@ -452,7 +453,7 @@ export function StartDealView({ currentUser, promoterCode, onBack, onNavigate, s
         </button>
 
         <div style={dealStyles.finePrint}>
-          DriveLink holds the funds until the buyer confirms the car. 1% seller fee, taken at payout.
+          DriveLink holds the funds until the buyer confirms the car. {platformFeeLabel()} seller fee, taken at payout.
         </div>
       </div>
     </div>

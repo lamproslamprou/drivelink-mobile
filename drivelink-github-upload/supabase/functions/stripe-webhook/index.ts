@@ -114,8 +114,8 @@
 // charged by this point — fall back to a conservative estimate and flag it in
 // the admin alert so it can be reconciled.
 //
-// The stored platform_fee remains the nominal 1% (that's the DriveLink fee the
-// seller was quoted). The processing fee is not stored as its own column: it's
+// The stored platform_fee is the nominal DriveLink fee the seller was quoted:
+// 1%, or 0.5% for payments made during the October 2026 promo. The processing fee is not stored as its own column: it's
 // already baked into seller_net and stays retrievable from the payment intent
 // in Stripe forever. If you later want it on the row for reconciliation, it
 // needs an ALTER TABLE *and* an entry in guard_listings_settlement_columns,
@@ -145,7 +145,8 @@ import {
   supabaseAdmin,
   findPendingReferrals,
   addBusinessDays,
-  PLATFORM_FEE,
+  platformFeeRate,
+  platformFeeLabel,
   PROMOTER_FEE,
   AUTO_RELEASE_DAYS,
   todayET,
@@ -322,7 +323,11 @@ async function settleSale(
     ? surchargeMeta
     : 0;
 
-  const platformFee = Math.round(salePrice * PLATFORM_FEE);
+  // 0.5% during the October 2026 promo, 1% otherwise (see platformFeeRate in
+  // _shared/helpers.ts). Fixed here, at payment time, and stored on the
+  // listing — a sale paid on Oct 31 keeps 0.5% even if it releases in November.
+  const feeAt = new Date();
+  const platformFee = Math.round(salePrice * platformFeeRate(feeAt));
 
   // ── Stripe's actual processing fee ────────────────────────────────────
   const feeWasEstimated = realFeeCents === null;
@@ -450,7 +455,7 @@ async function settleSale(
           : []),
         ["Escalates to review", releaseAt.toISOString().slice(0, 10)],
         ["Sale price", money(salePrice)],
-        ["Platform fee (1%)", money(platformFee)],
+        [`Platform fee (${platformFeeLabel(feeAt)})`, money(platformFee)],
         [
           feeWasEstimated ? "Stripe processing (ESTIMATED)" : "Stripe processing",
           money(stripeFee),

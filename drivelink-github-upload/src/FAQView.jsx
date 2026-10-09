@@ -1,5 +1,11 @@
 import { useState, useEffect } from "react";
 import { useLang, LangToggle } from "./i18n.jsx";
+import { platformFeeLabel, promoActive } from "./fee.js";
+
+// Fee copy is built from fee.js so it flips back to "1%" by itself on Nov 1 ET.
+const FEE = platformFeeLabel();
+const PROMO_EN = promoActive() ? " (half our usual 1%, through October 31)" : "";
+const PROMO_ES = promoActive() ? " (la mitad de nuestro 1% habitual, hasta el 31 de octubre)" : "";
 
 /*
   FAQView — standalone FAQ page at /faq.
@@ -32,7 +38,7 @@ const COPY = {
       },
       {
         q: "What stops DriveLink from just taking my payment?",
-        a: "We can't move the funds to ourselves. The payout goes to the seller's own Stripe-connected account. Our only revenue is the 1% fee, taken when the deal closes.",
+        a: `We can't move the funds to ourselves. The payout goes to the seller's own Stripe-connected account. Our only revenue is the ${FEE} fee, taken when the deal closes.`,
       },
       {
         q: "When does the seller get paid?",
@@ -70,7 +76,7 @@ const COPY = {
       },
       {
         q: "What does it cost?",
-        a: "1% of the sale price, charged once when the deal closes. No listing fees, no subscription, and nothing if the deal falls through.",
+        a: `${FEE} of the sale price${PROMO_EN}, charged once when the deal closes. No listing fees, no subscription, and nothing if the deal falls through.`,
       },
       {
         q: "Do I have to list my car on DriveLink?",
@@ -97,7 +103,7 @@ const COPY = {
       },
       {
         q: "¿Qué impide que DriveLink se quede con mi pago?",
-        a: "No podemos transferir los fondos a nosotros mismos. El pago va a la cuenta de Stripe del propio vendedor. Nuestro único ingreso es la comisión del 1%, que se cobra cuando se cierra la transacción.",
+        a: `No podemos transferir los fondos a nosotros mismos. El pago va a la cuenta de Stripe del propio vendedor. Nuestro único ingreso es la comisión del ${FEE}, que se cobra cuando se cierra la transacción.`,
       },
       {
         q: "¿Cuándo recibe el pago el vendedor?",
@@ -135,7 +141,7 @@ const COPY = {
       },
       {
         q: "¿Cuánto cuesta?",
-        a: "1% del precio de venta, cobrado una sola vez al cerrar la transacción. Sin cuotas por publicar, sin suscripción, y nada si la venta no se concreta.",
+        a: `${FEE} del precio de venta${PROMO_ES}, cobrado una sola vez al cerrar la transacción. Sin cuotas por publicar, sin suscripción, y nada si la venta no se concreta.`,
       },
       {
         q: "¿Tengo que publicar mi auto en DriveLink?",

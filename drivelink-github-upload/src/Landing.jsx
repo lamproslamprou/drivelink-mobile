@@ -3,6 +3,7 @@ import { supabase } from "./supabase.js";
 import { useLang, Rich, LangToggle } from "./i18n.jsx";
 import logoIcon from "./assets/logo-icon.png";
 import USFlag from "./USFlag.jsx";
+import { promoActive, platformFeeLabel, maxFeeLabel } from "./fee.js";
 
 export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn }) {
   const { t, lang } = useLang();
@@ -35,6 +36,14 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn }) {
           </div>
         </div>
       </nav>
+
+      {/* OCTOBER 2026 THANK-YOU PROMO — platform fee halved. Shown only while
+          promoActive() (see fee.js), so it disappears by itself on Nov 1 ET. */}
+      {promoActive() && (
+        <div style={styles.promoStrip} className="dl-promo-strip">
+          <Rich text={t("lp.promo.banner")} />
+        </div>
+      )}
 
       {/* HERO */}
       <section style={styles.hero} className="dl-hero">
@@ -73,7 +82,7 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn }) {
 
           <div style={styles.heroStats} className="dl-hero-stats">
             <div style={styles.heroStat}>
-              <span style={styles.heroStatNum}>1%</span>
+              <span style={styles.heroStatNum}>{platformFeeLabel()}</span>
               <span style={styles.heroStatLabel}>{t("lp.statFee")}</span>
             </div>
             <div style={styles.heroStatDiv} />
@@ -83,7 +92,7 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn }) {
             </div>
             <div style={styles.heroStatDiv} />
             <div style={styles.heroStat}>
-              <span style={styles.heroStatNum}>2% max</span>
+              <span style={styles.heroStatNum}>{maxFeeLabel()} max</span>
               <span style={styles.heroStatLabel}>{t("lp.statPromoter")}</span>
             </div>
           </div>
@@ -152,7 +161,7 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn }) {
 
           <button style={styles.byodBtn} onClick={handleStartDeal}>{t("lp.byod.btn")}</button>
           <p style={styles.byodFine}>
-            {t("lp.byod.fine")}
+            {t("lp.byod.fine", { fee: platformFeeLabel() })}
           </p>
         </div>
       </section>
@@ -195,7 +204,7 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn }) {
             </div>
           </div>
           <div style={styles.feeNote}>
-            <Rich text={t("lp.esc.fee")} />
+            <Rich text={t("lp.esc.fee", { fee: platformFeeLabel(), max: maxFeeLabel() })} />
           </div>
         </div>
       </section>
@@ -214,7 +223,7 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn }) {
               <ul style={styles.roleList}>
                 <li>✅ Free to list</li>
                 <li>✅ Buyer's funds verified before handover</li>
-                <li>✅ 1% fee, 2% max if referred</li>
+                <li>✅ {platformFeeLabel()} fee, {maxFeeLabel()} max if referred</li>
               </ul>
               <button style={styles.roleBtn} onClick={handleCta}>List My Car →</button>
             </div>
@@ -472,6 +481,7 @@ const styles = {
   escrowNum: { fontSize: 13, fontWeight: 800, color: "#3b82f6", letterSpacing: ".08em", marginBottom: 10 },
   escrowTitle: { fontSize: 16, fontWeight: 800, color: "#0f172a", marginBottom: 8, marginTop: 0, lineHeight: 1.3 },
   escrowDesc: { fontSize: 14, color: "#4b5563", lineHeight: 1.65, margin: 0 },
+  promoStrip: { background: "linear-gradient(90deg,#065f46,#059669)", color: "#fff", textAlign: "center", fontSize: 14, fontWeight: 500, lineHeight: 1.5, padding: "10px 16px" },
   feeNote: { marginTop: 28, background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: 12, padding: "16px 24px", fontSize: 14.5, color: "#374151", lineHeight: 1.65 },
 
   cards: { display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 24 },
