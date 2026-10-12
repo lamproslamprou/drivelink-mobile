@@ -11,6 +11,10 @@ import ListingsMap, { geocode } from "./ListingsMap.jsx";
 import logoIcon from "./assets/logo-icon.png";
 import { StartDealView, JoinDealView } from "./DealViews.jsx";
 import FAQView from "./FAQView.jsx";
+import PricingView from "./PricingView.jsx";
+import VsView, { VS_PATHS } from "./VsView.jsx";
+import { FounderBlock } from "./ProofBlocks.jsx";
+import { metaForPath, DEFAULT_TITLE, DEFAULT_DESCRIPTION } from "./pageMeta.js";
 import EscrowExplained from "./EscrowExplained.jsx";
 import InspectorsView from "./InspectorsView.jsx";
 import { platformFeeRate, platformFeeLabel, promoActive } from "./fee.js";
@@ -270,6 +274,9 @@ const VIEW_PATHS = {
   safety:        "/safety",
   about:         "/about",
   faq:           "/faq",
+  pricing:       "/pricing",
+  // Brand-comparison pages (see VsView.jsx).
+  ...VS_PATHS,
   // Sent party-to-party mid-negotiation, not navigated to from inside the app.
   escrow:        "/escrow",
   // Search-traffic guide. Nested path so the cluster has somewhere to grow.
@@ -293,6 +300,8 @@ const PUBLIC_VIEWS = new Set([
   "landing", "auth", "home", "advertise", "terms", "privacy", "safety", "about", "startDeal",
   // Linked from outreach email and ad extensions — must open without an account.
   "faq",
+  // Fee schedule and brand comparisons — pure marketing, must open signed out.
+  "pricing", "vsPrivateAuto", "vsEscrowCom", "vsKeySavvy",
   // The counterparty page. One side of a deal sends this to the other to
   // explain what DriveLink is. The recipient has no account and no reason to
   // make one yet — a sign-in wall here kills the deal it exists to save.
@@ -1814,6 +1823,26 @@ const denyInspector = async (id) => {
     setView("auth");
   }, [currentUser, view, loading]);
 
+  // ── Per-page <title> and meta description ───────────────────────────────────
+  // Table lives in pageMeta.js, shared with the page-meta edge function that
+  // writes the same tags into the raw HTML. Views that set their own title are
+  // left alone: inspectors and the lien guides do it themselves, and an open
+  // listing modal owns the title while it is up. Declared before the GA4 effect
+  // so page_view reports the new title.
+  useEffect(() => {
+    if (typeof document === "undefined" || loading) return;
+    if (viewingListing || view === "inspectors" || /^lienPayoff/.test(view)) return;
+    const m = metaForPath(VIEW_PATHS[view]) || { title: DEFAULT_TITLE, description: DEFAULT_DESCRIPTION };
+    document.title = m.title;
+    let el = document.querySelector('meta[name="description"]');
+    if (!el) {
+      el = document.createElement("meta");
+      el.setAttribute("name", "description");
+      document.head.appendChild(el);
+    }
+    el.setAttribute("content", m.description);
+  }, [view, viewingListing, loading]);
+
   // ── GA4 ─────────────────────────────────────────────────────────────────────
   // A single-page app fires exactly one automatic page_view, on first load.
   // Every navigation after that was invisible, which is why analytics showed
@@ -1893,11 +1922,31 @@ const denyInspector = async (id) => {
       onBack={() => setView(currentUser ? "home" : "landing")}
       onBrowse={() => setView("home")}
       onSafety={() => setView("safety")}
+      onPricing={() => setView("pricing")}
     />
   );
 
   if (view === "safety") return (
     <SafetyTipsView onBack={() => setView(currentUser ? "home" : "landing")} />
+  );
+
+  if (view === "pricing") return (
+    <PricingView
+      onBack={() => setView(currentUser ? "home" : "landing")}
+      onStart={() => setView("startDeal")}
+      onBrowse={() => setView("home")}
+      onFaq={() => setView("faq")}
+    />
+  );
+
+  if (view === "vsPrivateAuto" || view === "vsEscrowCom" || view === "vsKeySavvy") return (
+    <VsView
+      page={view}
+      onBack={() => setView(currentUser ? "home" : "landing")}
+      onStart={() => setView("startDeal")}
+      onPricing={() => setView("pricing")}
+      onNavigate={setView}
+    />
   );
 
   if (view === "faq") return (
@@ -2032,6 +2081,7 @@ const denyInspector = async (id) => {
             {currentUser && <NavBtn active={view === "myListings"} onClick={() => setView("myListings")}>{t("nav.myListings")}</NavBtn>}
             {currentUser && <NavBtn active={view === "postListing"} onClick={() => setView("postListing")}>{t("nav.postListing")}</NavBtn>}
             <NavBtn active={view === "startDeal"} onClick={() => setView("startDeal")}>{t("nav.startDeal")}</NavBtn>
+            <NavBtn active={view === "pricing"} onClick={() => setView("pricing")}>{lang === "es" ? "Precios" : "Pricing"}</NavBtn>
             <NavBtn active={view === "advertise"} onClick={() => setView("advertise")}>{t("nav.advertise")}</NavBtn>
             {/* Not an action like the rest of this row, but it answers the one
                 objection that stops a first-time visitor from paying at all.
@@ -2155,24 +2205,26 @@ const denyInspector = async (id) => {
       </div>
       <InstallPrompt />
       <footer style={styles.appFooter}>
-        <button style={styles.appFooterLink} onClick={() => setView("about")}>About DriveLink</button>
+        <button style={styles.appFooterLink} className="app-footer-link" onClick={() => setView("about")}>About DriveLink</button>
         <span style={{ color: "#d1d5db" }}>·</span>
-        <button style={styles.appFooterLink} onClick={() => setView("safety")}>🛡️ Safety Tips</button>
-        <button style={styles.appFooterLink} onClick={() => setView("inspectors")}>🔍 Find an Inspector</button>
+        <button style={styles.appFooterLink} className="app-footer-link" onClick={() => setView("pricing")}>{lang === "es" ? "Precios" : "Pricing"}</button>
         <span style={{ color: "#d1d5db" }}>·</span>
-        <button style={styles.appFooterLink} onClick={() => setView("faq")}>How your money is protected</button>
+        <button style={styles.appFooterLink} className="app-footer-link" onClick={() => setView("safety")}>🛡️ Safety Tips</button>
+        <button style={styles.appFooterLink} className="app-footer-link" onClick={() => setView("inspectors")}>🔍 Find an Inspector</button>
         <span style={{ color: "#d1d5db" }}>·</span>
-        <button style={styles.appFooterLink} onClick={() => setView("terms")}>Terms of Service</button>
+        <button style={styles.appFooterLink} className="app-footer-link" onClick={() => setView("faq")}>How your money is protected</button>
         <span style={{ color: "#d1d5db" }}>·</span>
-        <button style={styles.appFooterLink} onClick={() => setView("privacy")}>Privacy Policy</button>
+        <button style={styles.appFooterLink} className="app-footer-link" onClick={() => setView("terms")}>Terms of Service</button>
         <span style={{ color: "#d1d5db" }}>·</span>
-        <a href="mailto:support@drivelink.deals" style={styles.appFooterLink}>support@drivelink.deals</a>
+        <button style={styles.appFooterLink} className="app-footer-link" onClick={() => setView("privacy")}>Privacy Policy</button>
+        <span style={{ color: "#d1d5db" }}>·</span>
+        <a href="mailto:support@drivelink.deals" style={styles.appFooterLink} className="app-footer-link">support@drivelink.deals</a>
         <span style={{ color: "#d1d5db" }}>·</span>
         <a
           href="https://instagram.com/drivelink_deals"
           target="_blank"
           rel="noopener noreferrer"
-          style={{ ...styles.appFooterLink, display: "inline-flex", alignItems: "center", gap: 4 }}
+          className="app-footer-link" style={{ ...styles.appFooterLink, display: "inline-flex", alignItems: "center", gap: 4 }}
           aria-label="DriveLink on Instagram"
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -4607,7 +4659,7 @@ const INSTALL_SNOOZE_DAYS = 30;
 // hand a stranger $7,000 through a site they have never heard of is asking who
 // runs it, where the money sits, and what happens when it goes wrong — so the
 // page answers those plainly rather than selling.
-function AboutView({ onBack, onBrowse, onSafety }) {
+function AboutView({ onBack, onBrowse, onSafety, onPricing }) {
   return (
     <div style={styles.legalPage}>
       <style>{css}</style>
@@ -4626,12 +4678,16 @@ function AboutView({ onBack, onBrowse, onSafety }) {
 
           <h2>What it costs</h2>
           <p>DriveLink charges sellers {platformFeeLabel()} of the sale price{promoActive() ? " (half our usual 1%, through October 31)" : ""}. Buyers pay nothing beyond the price of the car. The fee is shown upfront when a car is listed, alongside what the seller will actually receive after card processing costs — no discovering the real number at payout time.</p>
+          {onPricing && <p><button style={styles.legalInlineLink} onClick={onPricing}>See the full fee schedule with a worked example →</button></p>}
 
           <h2>Where the money sits</h2>
           <p>Payments are processed by Stripe, and funds are held on DriveLink's Stripe balance between payment and release. DriveLink never handles card details directly — those go straight to Stripe. Sellers connect their own account to receive payouts.</p>
 
           <h2>Who runs it</h2>
           <p>DriveLink LLC is a company registered in New Jersey, United States. It's a small operation, which is deliberate — you can reach a person who can actually fix your problem rather than a support queue.</p>
+          {/* Named founder with photo and profile link. Renders nothing until
+              FOUNDER in siteProof.js is filled in with real details. */}
+          <FounderBlock />
           <p>Questions, problems, or something that looks wrong on the platform: <a href="mailto:support@drivelink.deals">support@drivelink.deals</a>.</p>
 
           <h2>Before you meet anyone</h2>
@@ -4797,7 +4853,10 @@ function InstallPrompt() {
           fontSize: 22,
           lineHeight: 1,
           cursor: "pointer",
-          padding: "0 2px",
+          // 44px tap target (was a ~17x22 sliver on phones).
+          minWidth: 44,
+          minHeight: 44,
+          padding: 0,
           flexShrink: 0,
         }}
       >
@@ -6589,7 +6648,7 @@ const styles = {
   rangeInput: { width: "100%", accentColor: "#3b82f6" },
   selectInput: { padding: "10px 14px", borderRadius: 10, border: "1px solid #e5e7eb", fontSize: 14, background: "#fff", cursor: "pointer" },
   viewToggle: { display: "flex", border: "1px solid #e5e7eb", borderRadius: 10, overflow: "hidden" },
-  viewToggleBtn: { padding: "9px 14px", background: "#fff", border: "none", fontSize: 13, fontWeight: 600, color: "#4b5563", cursor: "pointer" },
+  viewToggleBtn: { minHeight: 44, padding: "9px 14px", background: "#fff", border: "none", fontSize: 13, fontWeight: 600, color: "#4b5563", cursor: "pointer" },
   viewToggleBtnActive: { background: "#0f172a", color: "#fff" },
   saveSearchBtn: { background: "#eff6ff", color: "#1d4ed8", border: "1px solid #bfdbfe", padding: "9px 14px", borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: "pointer" },
   grid: { display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(300px,1fr))", gap: 24, paddingTop: 8 },
@@ -6780,6 +6839,11 @@ const css = `
        while narrow screens load scrolled to the true start instead. */
     .app-nav-links { order: 3; width: 100%; flex: none !important; justify-content: flex-start !important; }
     .app-user-text { display: none; }
+    /* 375px device pass: nav row buttons rendered ~28px tall, header Sign In
+       ~19px and the footer links ~15px — under the 44px minimum for a thumb.
+       Height/padding only; the layout above is unchanged. */
+    .app-nav-links button, .app-nav-right button { min-height: 44px; }
+    .app-footer-link { min-height: 44px; padding: 0 6px !important; display: inline-flex !important; align-items: center; }
   }
 
   @media (max-width: 700px) {

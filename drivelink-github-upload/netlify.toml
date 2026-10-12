@@ -9,6 +9,13 @@
   path = "/listing/*"
   function = "listing-meta"
 
+# Per-page title/description/share tags/JSON-LD for the static routes. The
+# optional group lets one pattern match "/" as well. Keep this list in step with
+# the paths in src/pageMeta.js.
+[[edge_functions]]
+  pattern = "^/(browse|start-deal|faq|about|pricing|safety|escrow|advertise|promoter|terms|privacy|vs/drivelink-vs-privateauto|vs/drivelink-vs-keysavvy|vs/drivelink-vs-escrow-com)?/?$"
+  function = "page-meta"
+
 [[redirects]]
   from = "/sitemap-listings.xml"
   to = "/.netlify/functions/sitemap-listings"

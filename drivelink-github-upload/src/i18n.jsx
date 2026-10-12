@@ -688,7 +688,7 @@ export function LangSwitchLink({ style }) {
         border: "1px solid rgba(255,255,255,.35)",
         color: "#fff",
         borderRadius: 999,
-        padding: "7px 16px",
+        padding: "7px 16px", minHeight: 44,
         fontSize: 13,
         fontWeight: 600,
         cursor: "pointer",

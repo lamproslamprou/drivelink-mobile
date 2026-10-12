@@ -4,6 +4,8 @@ import { useLang, Rich, LangToggle } from "./i18n.jsx";
 import logoIcon from "./assets/logo-icon.png";
 import USFlag from "./USFlag.jsx";
 import { promoActive, platformFeeLabel, maxFeeLabel } from "./fee.js";
+import { HERO_SCREENSHOT } from "./siteProof.js";
+import { UsageLine, TestimonialWall, ThirdPartyStrip, TrustCallout, FounderFooterLine } from "./ProofBlocks.jsx";
 
 export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn }) {
   const { t, lang } = useLang();
@@ -28,6 +30,9 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn }) {
                 switch — the toggle only existed once they were inside the app. */}
             <LangToggle />
             <button style={styles.byodNavBtn} onClick={handleStartDeal} className="dl-byod-nav">{t("lp.nav.secure")}</button>
+            <button style={styles.guidesNavLink} className="dl-pricing-nav" onClick={() => onNavigate?.("pricing")}>
+              {lang === "es" ? "Precios" : "Pricing"}
+            </button>
             <a href="/guides/" style={styles.guidesNavLink} className="dl-guides-nav">
               {lang === "es" ? "Guías" : "Guides"}
             </a>
@@ -80,6 +85,8 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn }) {
             </button>
           </div>
 
+          <TrustCallout onMore={() => onNavigate?.("faq")} />
+
           <div style={styles.heroStats} className="dl-hero-stats">
             <div style={styles.heroStat}>
               <span style={styles.heroStatNum}>{platformFeeLabel()}</span>
@@ -96,11 +103,25 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn }) {
               <span style={styles.heroStatLabel}>{t("lp.statPromoter")}</span>
             </div>
           </div>
+          <UsageLine />
         </div>
         <div style={styles.heroImageWrap} className="dl-hero-image">
-          <img src="https://images.unsplash.com/photo-1494976388531-d1058494cdd8?w=800&q=80" alt="Cars" style={styles.heroImage} fetchpriority="high" />
+          {HERO_SCREENSHOT.src ? (
+            <img src={HERO_SCREENSHOT.src} alt={HERO_SCREENSHOT.alt[lang] || HERO_SCREENSHOT.alt.en} style={styles.heroImage} fetchpriority="high" />
+          ) : (
+            <img
+              src="https://images.unsplash.com/photo-1494976388531-d1058494cdd8?w=800&q=80"
+              alt={lang === "es" ? "Un auto usado en venta entre particulares, el tipo de trato que DriveLink protege con el dinero en custodia" : "A used car for sale by its owner, the kind of private deal DriveLink protects by holding the payment until handover"}
+              style={styles.heroImage}
+              fetchpriority="high"
+            />
+          )}
         </div>
       </section>
+
+      {/* Real, dated third-party mentions only — renders nothing until
+          THIRD_PARTY in siteProof.js has entries. */}
+      <ThirdPartyStrip />
 
       {/* THE PROBLEM */}
       <section style={{ ...styles.section, background: "#f8fafc", paddingTop: 64, paddingBottom: 64 }} className="dl-section">
@@ -208,6 +229,15 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn }) {
           </div>
         </div>
       </section>
+
+      {/* CUSTOMER STORIES — renders nothing until TESTIMONIALS in siteProof.js
+          has real, named entries. */}
+      <TestimonialWall
+        sectionStyle={{ ...styles.section, background: "#f8fafc" }}
+        innerStyle={styles.sectionInner}
+        badgeStyle={styles.sectionBadge}
+        titleStyle={styles.sectionTitle}
+      />
 
       {/* HOW IT WORKS — ROLES */}
       <section style={{ ...styles.section, background: "#f8fafc" }} className="dl-section">
@@ -332,8 +362,11 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn }) {
             {t("lp.foot.us")}
           </p>
           <p style={styles.footerText}>{t("lp.foot.rights")}</p>
+          <FounderFooterLine style={styles.footerText} />
 
-          <div style={styles.footerLinks}>
+          <div style={styles.footerLinks} className="dl-footer-links">
+            <button style={styles.footerLinkBtn} onClick={() => onNavigate?.("pricing")}>{lang === "es" ? "Precios" : "Pricing"}</button>
+            <span style={{ color: "#d1d5db" }}>·</span>
             <button style={styles.footerLinkBtn} onClick={() => onNavigate?.("safety")}>{t("lp.foot.safety")}</button>
             <span style={{ color: "#d1d5db" }}>·</span>
             <button style={styles.footerLinkBtn} onClick={() => onNavigate?.("inspectors")}>
@@ -548,7 +581,7 @@ const styles = {
   feedbackTextarea: { width: "100%", padding: "12px 16px", borderRadius: 12, border: "1px solid #bfdbfe", fontSize: 14, outline: "none", resize: "vertical", boxSizing: "border-box", fontFamily: "inherit", background: "#fff" },
   feedbackRow: { display: "flex", gap: 10, flexWrap: "wrap" },
   feedbackEmail: { flex: 1, minWidth: 200, padding: "11px 16px", borderRadius: 10, border: "1px solid #bfdbfe", fontSize: 14, outline: "none", boxSizing: "border-box", background: "#fff" },
-  feedbackBtn: { background: "#0f172a", color: "#fff", border: "none", padding: "11px 24px", borderRadius: 10, cursor: "pointer", fontSize: 14, fontWeight: 700, whiteSpace: "nowrap" },
+  feedbackBtn: { minHeight: 44, background: "#0f172a", color: "#fff", border: "none", padding: "11px 24px", borderRadius: 10, cursor: "pointer", fontSize: 14, fontWeight: 700, whiteSpace: "nowrap" },
   feedbackThanks: { fontSize: 15, color: "#15803d", fontWeight: 600, padding: "12px 0" },
   feedbackError: { fontSize: 13, color: "#dc2626" },
 };
@@ -560,6 +593,9 @@ const css = `
   }
   @media (max-width: 560px) {
     .dl-byod-nav { display: none !important; }
+  }
+  @media (max-width: 480px) {
+    .dl-pricing-nav { display: none !important; }
   }
   * { box-sizing: border-box; }
   img { max-width: 100%; }
@@ -600,9 +636,9 @@ const css = `
   }
 
   @media (max-width: 480px) {
-    .dl-nav-inner { padding: 0 16px !important; }
-    .dl-nav-right { gap: 8px !important; }
-    .dl-nav-right button { padding: 8px 12px !important; font-size: 13px !important; }
+    .dl-nav-inner { padding: 0 12px !important; }
+    .dl-nav-right { gap: 6px !important; }
+    .dl-nav-right button, .dl-nav-right a { padding: 8px 10px !important; font-size: 13px !important; }
     /* Four header elements do not fit in ~390px of usable width. The mark
        alone still reads as the brand, so the wordmark goes. */
     .dl-wordmark { display: none !important; }
@@ -615,5 +651,17 @@ const css = `
     .dl-escrow-steps { grid-template-columns: 1fr !important; }
     .dl-trust-strip { flex-direction: column !important; align-items: center !important; gap: 6px !important; }
     .dl-cta-title { font-size: 28px !important; }
+  }
+
+  /* Tap targets: the 375px device pass found header buttons at ~31px,
+     footer links at ~15px and the trust links at ~15px — all under the 44px
+     minimum for a thumb. Padding and min-height only; nothing moves on desktop. */
+  @media (max-width: 900px) {
+    .dl-nav-right button, .dl-nav-right a { min-height: 44px; }
+    .dl-trust-strip button { min-height: 44px; padding: 0 4px !important; }
+    .dl-trust-callout button { min-height: 44px; }
+    .dl-footer-links button, .dl-footer-links a { min-height: 44px; padding: 0 6px !important; display: inline-flex !important; align-items: center; }
+    .dl-cards button { min-height: 44px; }
+    .dl-section button { min-height: 44px; }
   }
 `;
