@@ -15,6 +15,7 @@
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "./supabase";
 import { platformFeeLabel, promoActive } from "./fee.js";
+import { analytics } from "@heycatch/sdk";
 
 const currentYear = new Date().getFullYear();
 
@@ -149,6 +150,7 @@ export function StartDealView({ currentUser, promoterCode, onBack, onNavigate, s
       clearPromoterCode();
 
       setResult(data);
+      try { analytics.trackEvent("deal_created"); } catch { /* ignore */ }
       showToast?.("Deal created — send the link to the other party.");
     } finally {
       setSubmitting(false);

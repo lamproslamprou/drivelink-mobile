@@ -18,6 +18,7 @@ import { metaForPath, DEFAULT_TITLE, DEFAULT_DESCRIPTION } from "./pageMeta.js";
 import EscrowExplained from "./EscrowExplained.jsx";
 import InspectorsView from "./InspectorsView.jsx";
 import { platformFeeRate, platformFeeLabel, promoActive } from "./fee.js";
+import { analytics } from "@heycatch/sdk";
 import LienPayoffNJ from "./guides/LienPayoffNJ.jsx";
 import LienPayoffPA from "./guides/LienPayoffPA.jsx";
 import LienPayoffNY from "./guides/LienPayoffNY.jsx";
@@ -698,17 +699,38 @@ export default function App() {
     }
   };
 
+  // HeyCatch identity: tie events to the internal user id (never the email),
+  // with name as a property and signup_date written once. Email is deliberately
+  // NOT sent to HeyCatch (owner's decision) — don't add it back. Called from the
+  // same two places that learn about the session, so every sign-in path —
+  // password, email-confirmation link, restored session — is covered. Sign-out
+  // is handled on the SIGNED_OUT event only (not on every null session), so an
+  // anonymous visitor is not reset on each page load; that single event also
+  // covers logout() and the other signOut() call sites.
+  const identifyAnalytics = (user) => {
+    if (!user) return;
+    try {
+      const props = {};
+      const name = user.user_metadata?.name;
+      if (name) props.name = name;
+      analytics.setIdentity(user.id, props, user.created_at ? { signup_date: user.created_at } : undefined);
+    } catch { /* analytics must never break sign-in */ }
+  };
+
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setCurrentUser(session?.user ?? null);
       loadDbUser(session?.user ?? null);
       setAuthChecked(true);
-      if (session?.user) promotePendingName(session.user);
+      if (session?.user) { identifyAnalytics(session.user); promotePendingName(session.user); }
     });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setCurrentUser(session?.user ?? null);
       loadDbUser(session?.user ?? null);
-      if (session?.user) promotePendingName(session.user);
+      if (session?.user) { identifyAnalytics(session.user); promotePendingName(session.user); }
+      if (event === "SIGNED_OUT") {
+        try { analytics.resetIdentity(); } catch { /* ignore */ }
+      }
     });
     loadData();
     return () => subscription.unsubscribe();
@@ -833,6 +855,7 @@ export default function App() {
     };
     const { error } = await supabase.from("listings").insert(newListing);
     if (error) { showToast("Error posting listing", "error"); return; }
+    try { analytics.trackEvent("listing_created"); } catch { /* ignore */ }
 
     // VIN verification runs server-side against NHTSA and cross-checks the
     // decode against the make/model/year on the listing. Failure is non-fatal:

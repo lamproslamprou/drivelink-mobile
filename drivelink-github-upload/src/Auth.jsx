@@ -2,6 +2,7 @@ import { useState } from "react";
 import { supabase } from "./supabase.js";
 import { useLang, Rich, LangToggle } from "./i18n.jsx";
 import logoFull from "./assets/logo-full.png";
+import { analytics } from "@heycatch/sdk";
 
 const styles = {
   overlay: { minHeight: "100vh", background: "#f8fafc", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Inter', system-ui, sans-serif", padding: 20, boxSizing: "border-box" },
@@ -123,6 +124,9 @@ export default function Auth({ onAuth }) {
     // an immediate session, and the confirm-your-email path. The account row
     // exists either way, which is what the conversion is measuring.
     track("sign_up", { method: "email" });
+    // HeyCatch: the account exists either way (session now, or after email
+    // confirmation), which is the outcome being counted.
+    try { analytics.trackEvent("signup_completed"); } catch { /* ignore */ }
     setLoading(false);
     if (data.session) {
       // Email confirmations are turned off in this Supabase project — the user is already signed in.
