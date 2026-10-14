@@ -415,7 +415,7 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn }) {
             <span style={{ fontWeight: 800, color: "#0f172a" }}>DriveLink</span>
           </div>
           <p style={styles.footerText} className="dl-footer-text">{t("lp.foot.tagline")}</p>
-          <p style={{ ...styles.footerText, display: "flex", alignItems: "center", gap: 6 }} className="dl-footer-text">
+          <p style={{ ...styles.footerText, display: "flex", alignItems: "center", gap: 6 }} className="dl-footer-text dl-footer-us">
             <USFlag size={13} />
             {t("lp.foot.us")}
           </p>
@@ -500,7 +500,7 @@ function FeedbackSection() {
       <div style={styles.sectionInner}>
         {!open && status !== "sent" && (
           <button type="button" style={styles.feedbackToggle} onClick={() => setOpen(true)}>
-            Noticed something you'd like to see? Send us a note
+            Got a suggestion? Send us a note
           </button>
         )}
         {(open || status === "sent") && <div style={styles.feedbackBox}>
@@ -772,5 +772,6 @@ const css = `
     .dl-footer-links > span:not(:first-child) { display: none; }
     .dl-footer-links { text-align: center; }
     .dl-footer-text { text-align: center; justify-content: center; }
+    .dl-footer-us { flex-direction: column; gap: 6px !important; }
   }
 `;
