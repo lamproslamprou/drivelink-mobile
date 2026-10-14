@@ -30,7 +30,7 @@ function buildCopy() {
     en: {
       back: "← Back to DriveLink",
       title: "What DriveLink costs",
-      lede: `Sellers pay ${FEE} of the sale price, once, when the deal closes${promo ? " (half our usual 1%, through October 31)" : ""}. Buyers pay nothing beyond the price of the car. If the deal falls through, nobody pays us anything.`,
+      lede: `Sellers pay ${FEE} of the sale price, once, when the deal closes${promo ? " (half our usual 1%, through October 31)" : ""}. Buyers pay nothing beyond the price of the car. If the deal falls through, nobody pays us anything. Card processing is a separate charge from Stripe (about 2.9% + $0.30), taken from the seller's proceeds: roughly ${usd(f.cardProcessing)} on a ${usd(EXAMPLE_PRICE)} card sale. Bank transfer costs much less.`,
       tableTitle: "The full fee schedule",
       rows: [
         ["Listing a car", "$0"],
@@ -57,7 +57,7 @@ function buildCopy() {
     es: {
       back: "← Volver a DriveLink",
       title: "Cuánto cuesta DriveLink",
-      lede: `Los vendedores pagan ${FEE} del precio de venta, una sola vez, cuando se cierra el trato${promo ? " (la mitad de nuestro 1% habitual, hasta el 31 de octubre)" : ""}. Los compradores no pagan nada aparte del precio del auto. Si el trato no se concreta, nadie nos paga nada.`,
+      lede: `Los vendedores pagan ${FEE} del precio de venta, una sola vez, cuando se cierra el trato${promo ? " (la mitad de nuestro 1% habitual, hasta el 31 de octubre)" : ""}. Los compradores no pagan nada aparte del precio del auto. Si el trato no se concreta, nadie nos paga nada. El procesamiento con tarjeta es un cargo aparte de Stripe (alrededor de 2.9% + $0.30), que sale de lo que recibe el vendedor: unos ${usd(f.cardProcessing)} en una venta de ${usd(EXAMPLE_PRICE)} con tarjeta. La transferencia bancaria cuesta mucho menos.`,
       tableTitle: "Todas las tarifas",
       rows: [
         ["Publicar un auto", "$0"],

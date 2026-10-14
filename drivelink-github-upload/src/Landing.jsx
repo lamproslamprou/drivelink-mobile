@@ -62,9 +62,11 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn }) {
             <button style={styles.byodNavBtn} onClick={handleStartDeal} className="dl-byod-nav">
               {secureEmoji && <span className="dl-nav-emoji">{secureEmoji} </span>}{secureLabel}
             </button>
-            <button style={styles.guidesNavLink} className="dl-nav-desk dl-pricing-nav" onClick={() => onNavigate?.("pricing")}>
-              {lang === "es" ? "Precios" : "Pricing"}
-            </button>
+            <span className="dl-nav-desk dl-pricing-nav" style={{ display: "inline-flex" }}>
+              <SpaLink href="/pricing" view="pricing" onNavigate={onNavigate} style={styles.guidesNavLink}>
+                {lang === "es" ? "Precios" : "Pricing"}
+              </SpaLink>
+            </span>
             <a href="/guides/" style={styles.guidesNavLink} className="dl-nav-desk dl-guides-nav">
               {lang === "es" ? "Guías" : "Guides"}
             </a>
@@ -89,9 +91,9 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn }) {
         {menuOpen && (
           <div id="dl-nav-menu" style={styles.navMenu} className="dl-nav-menu">
             <LangToggle />
-            <button style={styles.navMenuItem} onClick={() => { setMenuOpen(false); onNavigate?.("pricing"); }}>
+            <SpaLink href="/pricing" view="pricing" onNavigate={(v) => { setMenuOpen(false); onNavigate?.(v); }} style={styles.navMenuItem}>
               {lang === "es" ? "Precios" : "Pricing"}
-            </button>
+            </SpaLink>
             <a href="/guides/" style={styles.navMenuItem}>{lang === "es" ? "Guías" : "Guides"}</a>
             <button style={styles.navMenuItem} onClick={() => { setMenuOpen(false); onBrowse(); }}>{t("lp.nav.browse")}</button>
           </div>
@@ -423,9 +425,11 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn }) {
           <FounderFooterLine style={styles.footerText} />
 
           <div style={styles.footerLinks} className="dl-footer-links">
-            <button style={styles.footerLinkBtn} onClick={() => onNavigate?.("pricing")}>{lang === "es" ? "Precios" : "Pricing"}</button>
+            <SpaLink href="/pricing" view="pricing" onNavigate={onNavigate} style={styles.footerAnchor}>{lang === "es" ? "Precios" : "Pricing"}</SpaLink>
             <span style={{ color: "#d1d5db" }}>·</span>
             <SpaLink href="/features" view="features" onNavigate={onNavigate} style={styles.footerAnchor}>{lang === "es" ? "Funciones" : "Features"}</SpaLink>
+            <span style={{ color: "#d1d5db" }}>·</span>
+            <SpaLink href="/about" view="about" onNavigate={onNavigate} style={styles.footerAnchor}>{lang === "es" ? "Acerca de" : "About"}</SpaLink>
             <span style={{ color: "#d1d5db" }}>·</span>
             <button style={styles.footerLinkBtn} onClick={() => onNavigate?.("safety")}>{t("lp.foot.safety")}</button>
             <span style={{ color: "#d1d5db" }}>·</span>
