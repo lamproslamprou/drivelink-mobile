@@ -425,6 +425,8 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn }) {
           <div style={styles.footerLinks} className="dl-footer-links">
             <button style={styles.footerLinkBtn} onClick={() => onNavigate?.("pricing")}>{lang === "es" ? "Precios" : "Pricing"}</button>
             <span style={{ color: "#d1d5db" }}>·</span>
+            <SpaLink href="/features" view="features" onNavigate={onNavigate} style={styles.footerAnchor}>{lang === "es" ? "Funciones" : "Features"}</SpaLink>
+            <span style={{ color: "#d1d5db" }}>·</span>
             <button style={styles.footerLinkBtn} onClick={() => onNavigate?.("safety")}>{t("lp.foot.safety")}</button>
             <span style={{ color: "#d1d5db" }}>·</span>
             <button style={styles.footerLinkBtn} onClick={() => onNavigate?.("inspectors")}>
