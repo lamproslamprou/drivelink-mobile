@@ -13,7 +13,7 @@
 # optional group lets one pattern match "/" as well. Keep this list in step with
 # the paths in src/pageMeta.js.
 [[edge_functions]]
-  pattern = "^/(browse|start-deal|faq|about|pricing|safety|escrow|advertise|promoter|terms|privacy|vs/drivelink-vs-privateauto|vs/drivelink-vs-keysavvy|vs/drivelink-vs-escrow-com)?/?$"
+  pattern = "^/(browse|start-deal|faq|about|pricing|features|safety|escrow|advertise|promoter|terms|privacy|vs/drivelink-vs-privateauto|vs/drivelink-vs-keysavvy|vs/drivelink-vs-escrow-com)?/?$"
   function = "page-meta"
 
 [[redirects]]

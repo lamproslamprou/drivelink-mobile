@@ -41,4 +41,10 @@
 /7  /?utm_source=heycatch&utm_campaign=7  302
 /8  /?utm_source=heycatch&utm_campaign=8  302
 /9  /?utm_source=heycatch&utm_campaign=9  302
+# /customers has no content yet (no customer stories to show). Send it to the
+# homepage rather than serve a duplicate of it; remove this line and add a real
+# page when there are named customers to feature.
+/customers  /  301
+/customers/  /  301
+
 /*    /index.html   200

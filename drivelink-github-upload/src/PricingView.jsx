@@ -39,6 +39,8 @@ function buildCopy() {
         ["If a Promoter referred the buyer", `A further 1% goes to the Promoter, so ${MAX} in total at most`],
         ["If the deal falls through", "$0. The buyer's money goes back and nobody is charged"],
         ["Card or bank processing", "Charged by Stripe, not by DriveLink. About 2.9% + $0.30 on cards. Bank transfer on purchases over $15,000 costs far less"],
+        ["Deal size", "Up to $250,000. Above that, the deal is arranged manually"],
+        ["If something goes wrong", "The buyer can open a dispute. The money stays held until our team resolves it"],
       ],
       exTitle: "A worked example",
       exBody: [
@@ -64,6 +66,8 @@ function buildCopy() {
         ["Si un promotor trajo al comprador", `Otro 1% va al promotor, así que ${MAX} en total como máximo`],
         ["Si el trato no se concreta", "$0. El dinero del comprador se devuelve y no se cobra nada"],
         ["Procesamiento de tarjeta o banco", "Lo cobra Stripe, no DriveLink. Alrededor de 2.9% + $0.30 con tarjeta. La transferencia bancaria en compras de más de $15,000 cuesta mucho menos"],
+        ["Tamaño del trato", "Hasta $250,000. Por encima de eso, el trato se arregla manualmente"],
+        ["Si algo sale mal", "El comprador puede abrir una disputa. El dinero queda retenido hasta que nuestro equipo la resuelva"],
       ],
       exTitle: "Un ejemplo con números",
       exBody: [

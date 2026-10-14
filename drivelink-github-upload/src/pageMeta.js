@@ -51,6 +51,11 @@ export function pageMetaTable() {
       title: `DriveLink Pricing: ${FEE} Seller Fee, $0 to List`,
       description: `Sellers pay ${FEE} of the sale price when a deal closes. $0 to list, buyers pay nothing beyond the car's price, and nothing if the deal falls through.`,
     },
+    "/features": {
+      title: "DriveLink Features: Escrow, Handover Code, Disputes",
+      description:
+        "How DriveLink works step by step: escrow up to $250,000, use it on a car you already found, ID verification, the 6-digit handover code, and disputes.",
+    },
     "/safety": {
       title: "Private Car Sale Safety Tips: Meetups, VIN, Title | DriveLink",
       description:

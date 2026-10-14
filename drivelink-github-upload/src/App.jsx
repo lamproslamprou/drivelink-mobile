@@ -12,6 +12,7 @@ import logoIcon from "./assets/logo-icon.png";
 import { StartDealView, JoinDealView } from "./DealViews.jsx";
 import FAQView from "./FAQView.jsx";
 import PricingView from "./PricingView.jsx";
+import FeaturesView from "./FeaturesView.jsx";
 import VsView, { VS_PATHS } from "./VsView.jsx";
 import { FounderBlock } from "./ProofBlocks.jsx";
 import { metaForPath, DEFAULT_TITLE, DEFAULT_DESCRIPTION } from "./pageMeta.js";
@@ -276,6 +277,7 @@ const VIEW_PATHS = {
   about:         "/about",
   faq:           "/faq",
   pricing:       "/pricing",
+  features:      "/features",
   // Brand-comparison pages (see VsView.jsx).
   ...VS_PATHS,
   // Sent party-to-party mid-negotiation, not navigated to from inside the app.
@@ -302,7 +304,7 @@ const PUBLIC_VIEWS = new Set([
   // Linked from outreach email and ad extensions — must open without an account.
   "faq",
   // Fee schedule and brand comparisons — pure marketing, must open signed out.
-  "pricing", "vsPrivateAuto", "vsEscrowCom", "vsKeySavvy",
+  "pricing", "features", "vsPrivateAuto", "vsEscrowCom", "vsKeySavvy",
   // The counterparty page. One side of a deal sends this to the other to
   // explain what DriveLink is. The recipient has no account and no reason to
   // make one yet — a sign-in wall here kills the deal it exists to save.
@@ -1962,6 +1964,13 @@ const denyInspector = async (id) => {
     />
   );
 
+  if (view === "features") return (
+    <FeaturesView
+      onBack={() => setView(currentUser ? "home" : "landing")}
+      onNavigate={setView}
+    />
+  );
+
   if (view === "vsPrivateAuto" || view === "vsEscrowCom" || view === "vsKeySavvy") return (
     <VsView
       page={view}
@@ -1976,6 +1985,7 @@ const denyInspector = async (id) => {
     <FAQView
       onBack={() => setView(currentUser ? "home" : "landing")}
       onSafety={() => setView("safety")}
+      onNavigate={setView}
     />
   );
 
@@ -4715,6 +4725,13 @@ function AboutView({ onBack, onBrowse, onSafety, onPricing }) {
 
           <h2>Before you meet anyone</h2>
           <p>Escrow protects the money. It doesn't replace the ordinary care any private sale needs — checking the VIN, meeting somewhere public, confirming the title. Our <button style={styles.legalInlineLink} onClick={onSafety}>meetup safety guide</button> covers what to check and where to meet.</p>
+
+          <p>
+            How we compare:{" "}
+            <a href="/vs/drivelink-vs-privateauto">DriveLink vs PrivateAuto</a>,{" "}
+            <a href="/vs/drivelink-vs-keysavvy">DriveLink vs KeySavvy</a>,{" "}
+            <a href="/vs/drivelink-vs-escrow-com">DriveLink vs Escrow.com</a>.
+          </p>
 
           <p style={{ marginTop: 28 }}>
             <button style={styles.legalBackBtn} onClick={onBrowse}>Browse cars →</button>

@@ -49,7 +49,8 @@ export const THIRD_PARTY = [];
 // Hero visual. The audit wants the product's own deal screen (funds held in
 // escrow, release state visible) instead of the stock car photo. Drop a real
 // screenshot into /public (e.g. /hero-deal-screen.png), set src, redeploy.
-// Until then the stock photo stays, with a plain-language alt.
+// Until then the homepage shows a built "Example deal" mock (HeroDealMock.jsx),
+// which uses the alt text below.
 export const HERO_SCREENSHOT = {
   src: "",
   alt: {

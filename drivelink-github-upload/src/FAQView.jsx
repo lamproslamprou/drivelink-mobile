@@ -31,6 +31,7 @@ const COPY = {
     contactLead: "Still unsure about something?",
     contactBody: "Email us and a person will answer.",
     safetyLink: "Read the meetup safety tips →",
+    compareLabel: "Compare:",
     items: faqItemsEn(),
   },
 
@@ -41,6 +42,7 @@ const COPY = {
     contactLead: "¿Te quedó alguna duda?",
     contactBody: "Escríbenos y te responderá una persona.",
     safetyLink: "Lee los consejos de seguridad para el encuentro →",
+    compareLabel: "Comparar:",
     items: [
       {
         q: "¿Quién retiene mi dinero?",
@@ -100,7 +102,7 @@ const COPY = {
   },
 };
 
-export default function FAQView({ onBack, onSafety }) {
+export default function FAQView({ onBack, onSafety, onNavigate }) {
   const { lang } = useLang();
   const t = COPY[lang] || COPY.en;
   // The three highest-stakes answers start expanded (who holds the money, what
@@ -189,11 +191,34 @@ export default function FAQView({ onBack, onSafety }) {
               {t.safetyLink}
             </button>
           )}
+          <nav aria-label={t.compareLabel} style={S.compareRow}>
+            <span style={S.compareLabel}>{t.compareLabel}</span>
+            {COMPARE_LINKS.map((l) => (
+              <a
+                key={l.href}
+                href={l.href}
+                style={S.link}
+                onClick={(e) => {
+                  if (!onNavigate || e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+                  e.preventDefault();
+                  onNavigate(l.view);
+                }}
+              >
+                {l.label[lang] || l.label.en}
+              </a>
+            ))}
+          </nav>
         </div>
       </div>
     </div>
   );
 }
+
+const COMPARE_LINKS = [
+  { href: "/vs/drivelink-vs-privateauto", view: "vsPrivateAuto", label: { en: "DriveLink vs PrivateAuto", es: "DriveLink vs PrivateAuto" } },
+  { href: "/vs/drivelink-vs-keysavvy", view: "vsKeySavvy", label: { en: "DriveLink vs KeySavvy", es: "DriveLink vs KeySavvy" } },
+  { href: "/vs/drivelink-vs-escrow-com", view: "vsEscrowCom", label: { en: "DriveLink vs Escrow.com", es: "DriveLink vs Escrow.com" } },
+];
 
 /* Mirrors styles.legalPage & friends in App.jsx — same document family as
    Terms, Privacy and Safety Tips. */
@@ -212,6 +237,8 @@ const S = {
   contactLead: { display: "block", fontSize: 15, fontWeight: 700, color: "#0f172a", marginBottom: 6 },
   contactBody: { margin: 0, fontSize: 14, color: "#6b7280", lineHeight: 1.6 },
   link: { color: "#2563eb", textDecoration: "none", fontWeight: 600 },
+  compareRow: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: "8px 16px", marginTop: 16, fontSize: 14 },
+  compareLabel: { color: "#6b7280", fontWeight: 600 },
   linkBtn: { display: "inline-block", background: "none", border: "none", padding: 0, marginTop: 14, cursor: "pointer", fontSize: 14 },
 };
 

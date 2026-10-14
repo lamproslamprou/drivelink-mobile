@@ -6,10 +6,37 @@ import USFlag from "./USFlag.jsx";
 import { promoActive, platformFeeLabel, maxFeeLabel } from "./fee.js";
 import { HERO_SCREENSHOT } from "./siteProof.js";
 import { UsageLine, TestimonialWall, ThirdPartyStrip, TrustCallout, FounderFooterLine } from "./ProofBlocks.jsx";
+import HeroDealMock from "./HeroDealMock.jsx";
+
+// A real <a href> that still navigates inside the app on a plain click. The
+// comparison pages used to be reachable only through buttons, which a crawler
+// can't follow; with an href they are crawlable from the homepage (audit D5.3).
+// Modified clicks (new tab, ctrl/cmd) fall through to the browser as normal.
+function SpaLink({ href, view, onNavigate, style, children }) {
+  return (
+    <a
+      href={href}
+      style={style}
+      onClick={(e) => {
+        if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+        e.preventDefault();
+        onNavigate?.(view);
+      }}
+    >
+      {children}
+    </a>
+  );
+}
 
 export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn }) {
   const { t, lang } = useLang();
+  const [menuOpen, setMenuOpen] = useState(false);
   const handleCta = signedIn ? onBrowse : onSignIn;
+  // "🔒 Secure a Deal" -> emoji + label, so the emoji can be dropped on the
+  // narrowest phones (see .dl-nav-emoji) without touching the translation.
+  const secureMatch = String(t("lp.nav.secure")).match(/^(\S+)\s+(.+)$/);
+  const secureEmoji = secureMatch ? secureMatch[1] : "";
+  const secureLabel = secureMatch ? secureMatch[2] : t("lp.nav.secure");
   // Signed-out visitors go to auth first — StartDealView needs an account to
   // attach the deal to. This is the one CTA that works with zero inventory.
   const handleStartDeal = signedIn ? () => onNavigate?.("startDeal") : onSignIn;
@@ -27,19 +54,48 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn }) {
           </div>
           <div style={styles.navRight} className="dl-nav-right">
             {/* Without this, a Spanish speaker landing on "/" has no way to
-                switch — the toggle only existed once they were inside the app. */}
-            <LangToggle />
-            <button style={styles.byodNavBtn} onClick={handleStartDeal} className="dl-byod-nav">{t("lp.nav.secure")}</button>
-            <button style={styles.guidesNavLink} className="dl-pricing-nav" onClick={() => onNavigate?.("pricing")}>
+                switch — the toggle only existed once they were inside the app.
+                Below ~768px the toggle, Pricing, Guides and Browse move into the
+                hamburger menu; "Secure a Deal" and Sign In stay in the bar
+                (audit D2.5). */}
+            <span className="dl-nav-desk"><LangToggle /></span>
+            <button style={styles.byodNavBtn} onClick={handleStartDeal} className="dl-byod-nav">
+              {secureEmoji && <span className="dl-nav-emoji">{secureEmoji} </span>}{secureLabel}
+            </button>
+            <button style={styles.guidesNavLink} className="dl-nav-desk dl-pricing-nav" onClick={() => onNavigate?.("pricing")}>
               {lang === "es" ? "Precios" : "Pricing"}
             </button>
-            <a href="/guides/" style={styles.guidesNavLink} className="dl-guides-nav">
+            <a href="/guides/" style={styles.guidesNavLink} className="dl-nav-desk dl-guides-nav">
               {lang === "es" ? "Guías" : "Guides"}
             </a>
-            <button style={styles.browseBtn} onClick={onBrowse}>{t("lp.nav.browse")}</button>
+            <button style={styles.browseBtn} className="dl-nav-desk" onClick={onBrowse}>{t("lp.nav.browse")}</button>
             <button style={styles.signInBtn} onClick={signedIn ? onBrowse : onSignIn}>{signedIn ? t("lp.nav.app") : t("lp.nav.signin")}</button>
+            <button
+              style={styles.hamburgerBtn}
+              className="dl-hamburger"
+              aria-label={menuOpen ? t("lp.nav.menuClose") : t("lp.nav.menu")}
+              aria-expanded={menuOpen}
+              aria-controls="dl-nav-menu"
+              onClick={() => setMenuOpen((o) => !o)}
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">
+                {menuOpen
+                  ? <><line x1="5" y1="5" x2="19" y2="19" /><line x1="19" y1="5" x2="5" y2="19" /></>
+                  : <><line x1="4" y1="7" x2="20" y2="7" /><line x1="4" y1="12" x2="20" y2="12" /><line x1="4" y1="17" x2="20" y2="17" /></>}
+              </svg>
+            </button>
           </div>
         </div>
+        {menuOpen && (
+          <div id="dl-nav-menu" style={styles.navMenu} className="dl-nav-menu">
+            <LangToggle />
+            <button style={styles.navMenuItem} onClick={() => { setMenuOpen(false); onNavigate?.("pricing"); }}>
+              {lang === "es" ? "Precios" : "Pricing"}
+            </button>
+            <a href="/guides/" style={styles.navMenuItem}>{lang === "es" ? "Guías" : "Guides"}</a>
+            <button style={styles.navMenuItem} onClick={() => { setMenuOpen(false); onBrowse(); }}>{t("lp.nav.browse")}</button>
+          </div>
+        )}
       </nav>
 
       {/* OCTOBER 2026 THANK-YOU PROMO — platform fee halved. Shown only while
@@ -106,15 +162,12 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn }) {
           <UsageLine />
         </div>
         <div style={styles.heroImageWrap} className="dl-hero-image">
+          {/* A real screenshot wins if one is set in siteProof.js; otherwise the
+              built deal-screen mock replaces the old stock photo (audit D1.5). */}
           {HERO_SCREENSHOT.src ? (
             <img src={HERO_SCREENSHOT.src} alt={HERO_SCREENSHOT.alt[lang] || HERO_SCREENSHOT.alt.en} style={styles.heroImage} fetchpriority="high" />
           ) : (
-            <img
-              src="https://images.unsplash.com/photo-1494976388531-d1058494cdd8?w=800&q=80"
-              alt={lang === "es" ? "Un auto usado en venta entre particulares, el tipo de trato que DriveLink protege con el dinero en custodia" : "A used car for sale by its owner, the kind of private deal DriveLink protects by holding the payment until handover"}
-              style={styles.heroImage}
-              fetchpriority="high"
-            />
+            <HeroDealMock />
           )}
         </div>
       </section>
@@ -224,6 +277,12 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn }) {
               </p>
             </div>
           </div>
+          {/* Deal limit + dispute path, stated before signup (audit D3.4). The
+              $250,000 ceiling is the real one enforced in create-deal; there is no
+              enforced minimum, so none is claimed. Disputes are buyer-filed. */}
+          <p style={styles.limitsNote}>
+            <Rich text={t("lp.esc.limits")} />
+          </p>
           <div style={styles.feeNote}>
             <Rich text={t("lp.esc.fee", { fee: platformFeeLabel(), max: maxFeeLabel() })} />
           </div>
@@ -398,6 +457,17 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn }) {
               Instagram
             </a>
           </div>
+
+          {/* Comparison pages, as real links so crawlers can follow them from the
+              homepage (audit D5.3). */}
+          <nav style={styles.footerLinks} className="dl-footer-links" aria-label={lang === "es" ? "Comparar" : "Compare"}>
+            <span style={styles.footerCompareLabel}>{lang === "es" ? "Comparar:" : "Compare:"}</span>
+            <SpaLink href="/vs/drivelink-vs-privateauto" view="vsPrivateAuto" onNavigate={onNavigate} style={styles.footerAnchor}>vs PrivateAuto</SpaLink>
+            <span style={{ color: "#d1d5db" }}>·</span>
+            <SpaLink href="/vs/drivelink-vs-keysavvy" view="vsKeySavvy" onNavigate={onNavigate} style={styles.footerAnchor}>vs KeySavvy</SpaLink>
+            <span style={{ color: "#d1d5db" }}>·</span>
+            <SpaLink href="/vs/drivelink-vs-escrow-com" view="vsEscrowCom" onNavigate={onNavigate} style={styles.footerAnchor}>vs Escrow.com</SpaLink>
+          </nav>
         </div>
       </footer>
     </div>
@@ -472,7 +542,11 @@ const styles = {
   logoText: { fontWeight: 800, fontSize: 20, color: "#0f172a", letterSpacing: "-0.03em" },
   navRight: { display: "flex", gap: 12, alignItems: "center", flexShrink: 0 },
   browseBtn: { background: "none", border: "1px solid #e5e7eb", padding: "8px 18px", borderRadius: 10, cursor: "pointer", fontSize: 14, fontWeight: 600, color: "#374151" },
-  signInBtn: { background: "#0f172a", color: "#fff", border: "none", padding: "9px 20px", borderRadius: 10, cursor: "pointer", fontSize: 14, fontWeight: 600 },
+  signInBtn: { background: "#0f172a", color: "#fff", border: "none", padding: "9px 20px", borderRadius: 10, cursor: "pointer", fontSize: 14, fontWeight: 600, whiteSpace: "nowrap" },
+  // Shown only below 768px (see .dl-hamburger in the css block).
+  hamburgerBtn: { background: "none", border: "1px solid #e5e7eb", borderRadius: 10, cursor: "pointer", color: "#374151", minWidth: 44, minHeight: 44, padding: 0, alignItems: "center", justifyContent: "center" },
+  navMenu: { borderTop: "1px solid #e5e7eb", background: "#fff", padding: "12px 16px 16px", display: "flex", flexDirection: "column", alignItems: "stretch", gap: 4, boxShadow: "0 12px 24px rgba(15,23,42,.08)" },
+  navMenuItem: { background: "none", border: "none", textAlign: "left", padding: "0 4px", minHeight: 48, display: "flex", alignItems: "center", fontSize: 16, fontWeight: 600, color: "#0f172a", cursor: "pointer", textDecoration: "none", fontFamily: "inherit" },
   hero: { maxWidth: 1200, margin: "0 auto", padding: "80px 24px 60px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 48, alignItems: "center" },
   heroInner: {},
   heroBannerWrap: { gridColumn: "1 / -1", display: "flex", justifyContent: "center", marginBottom: 12 },
@@ -515,7 +589,8 @@ const styles = {
   escrowTitle: { fontSize: 16, fontWeight: 800, color: "#0f172a", marginBottom: 8, marginTop: 0, lineHeight: 1.3 },
   escrowDesc: { fontSize: 14, color: "#4b5563", lineHeight: 1.65, margin: 0 },
   promoStrip: { background: "linear-gradient(90deg,#065f46,#059669)", color: "#fff", textAlign: "center", fontSize: 14, fontWeight: 500, lineHeight: 1.5, padding: "10px 16px" },
-  feeNote: { marginTop: 28, background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: 12, padding: "16px 24px", fontSize: 14.5, color: "#374151", lineHeight: 1.65 },
+  limitsNote: { margin: "24px 0 0", fontSize: 15, color: "#1f2937", lineHeight: 1.65, maxWidth: "70ch" },
+  feeNote: { marginTop: 16, background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: 12, padding: "16px 24px", fontSize: 14.5, color: "#374151", lineHeight: 1.65 },
 
   cards: { display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 24 },
   roleCard: { background: "#f8fafc", borderRadius: 20, padding: 32, border: "1px solid #e5e7eb", position: "relative" },
@@ -564,6 +639,8 @@ const styles = {
   footerText: { fontSize: 13, color: "#6b7280" },
   footerLinks: { display: "flex", gap: 10, alignItems: "center", marginTop: 8, flexWrap: "wrap", justifyContent: "center" },
   footerLinkBtn: { background: "none", border: "none", cursor: "pointer", fontSize: 13, color: "#6b7280", padding: 0 },
+  footerAnchor: { fontSize: 13, color: "#6b7280", textDecoration: "none" },
+  footerCompareLabel: { fontSize: 13, fontWeight: 700, color: "#374151" },
   // The Guides row sits above the legal row and needs to read as a section,
   // not as another peer link. Slightly darker and heavier than the links it
   // introduces.
@@ -591,11 +668,24 @@ const css = `
     .dl-byod-split { grid-template-columns: 1fr !important; }
     .dl-byod-title { font-size: 27px !important; }
   }
-  @media (max-width: 560px) {
-    .dl-byod-nav { display: none !important; }
+  /* Mobile nav (audit D2.5). At or below 768px the bar keeps the wordmark/logo,
+     "Secure a Deal" and Sign In; the language toggle, Pricing, Guides and Browse
+     live behind the hamburger. The old rules that hid "Secure a Deal" below
+     560px are gone — it is the primary action. */
+  .dl-hamburger { display: none; }
+  @media (max-width: 768px) {
+    .dl-nav-desk { display: none !important; }
+    .dl-hamburger { display: inline-flex !important; }
+    .dl-hero-actions { flex-direction: column !important; align-items: stretch !important; }
+    .dl-hero-actions button { width: 100% !important; }
   }
-  @media (max-width: 480px) {
-    .dl-pricing-nav { display: none !important; }
+  @media (min-width: 769px) {
+    .dl-nav-menu { display: none !important; }
+  }
+  /* Spanish labels are longer; on the narrowest phones the lock emoji goes so
+     "Asegurar un trato" + "Iniciar sesión" + the menu button fit at 375px. */
+  @media (max-width: 420px) {
+    .dl-nav-emoji { display: none; }
   }
   * { box-sizing: border-box; }
   img { max-width: 100%; }
@@ -617,8 +707,12 @@ const css = `
 
   @media (max-width: 900px) {
     .dl-hero { grid-template-columns: 1fr !important; padding: 40px 20px 32px !important; gap: 28px !important; text-align: center; }
-    .dl-hero-image { order: -1; }
+    /* The deal-screen visual now sits AFTER the text and buttons on phones, so
+       the primary CTA is inside the first 375x812 screen instead of below a
+       tall image (audit D2.5). */
+    .dl-hero-image { order: 2; }
     .dl-hero-image img { height: 220px !important; }
+    .dl-deal-mock { min-height: 0 !important; padding: 16px !important; }
     .dl-cards { grid-template-columns: 1fr !important; }
     .dl-problem-grid { grid-template-columns: 1fr !important; }
     .dl-steps { grid-template-columns: 1fr !important; gap: 12px !important; }
