@@ -414,8 +414,8 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn }) {
             <img src={logoIcon} alt="DriveLink" style={{ height: 26, width: "auto" }} />
             <span style={{ fontWeight: 800, color: "#0f172a" }}>DriveLink</span>
           </div>
-          <p style={styles.footerText}>{t("lp.foot.tagline")}</p>
-          <p style={{ ...styles.footerText, display: "flex", alignItems: "center", gap: 6 }}>
+          <p style={styles.footerText} className="dl-footer-text">{t("lp.foot.tagline")}</p>
+          <p style={{ ...styles.footerText, display: "flex", alignItems: "center", gap: 6 }} className="dl-footer-text">
             <USFlag size={13} />
             {t("lp.foot.us")}
           </p>
@@ -766,5 +766,11 @@ const css = `
     .dl-footer-links button, .dl-footer-links a { min-height: 44px; padding: 0 6px !important; display: inline-flex !important; align-items: center; }
     .dl-cards button { min-height: 44px; }
     .dl-section button { min-height: 44px; }
+    /* Footer on phones: no separator dots (they strand at line ends when the
+       row wraps), links centered with even spacing, all lines centered. */
+    .dl-footer-links { gap: 0 14px !important; }
+    .dl-footer-links > span:not(:first-child) { display: none; }
+    .dl-footer-links { text-align: center; }
+    .dl-footer-text { text-align: center; justify-content: center; }
   }
 `;
