@@ -398,9 +398,8 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn }) {
           <h2 style={styles.ctaTitle} className="dl-cta-title">{t("lp.cta.title")}</h2>
           <p style={styles.ctaSub}>{t("lp.cta.sub")}</p>
           <div style={{ ...styles.heroActions, justifyContent: "center" }} className="dl-hero-actions">
-            <button style={styles.ctaPrimary} onClick={onBrowse}>{t("lp.cta.browse")}</button>
-            <button style={{ ...styles.ctaSecondary, borderColor: "rgba(255,255,255,.3)", color: "#fff" }} onClick={handleCta}>{t("lp.cta.create")}</button>
             <button style={styles.ctaByodDark} onClick={handleStartDeal}>{t("lp.cta.byod")}</button>
+            <button style={{ ...styles.ctaSecondary, borderColor: "rgba(255,255,255,.3)", color: "#fff" }} onClick={onBrowse}>{t("lp.cta.browse")}</button>
           </div>
         </div>
       </section>
@@ -478,6 +477,7 @@ function FeedbackSection() {
   const [message, setMessage] = useState("");
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState("idle"); // idle | sending | sent | error
+  const [open, setOpen] = useState(false);
 
   const submit = async () => {
     if (!message.trim()) return;
@@ -494,9 +494,14 @@ function FeedbackSection() {
   };
 
   return (
-    <section style={styles.feedbackSection}>
+    <section style={open ? styles.feedbackSection : styles.feedbackCollapsed}>
       <div style={styles.sectionInner}>
-        <div style={styles.feedbackBox}>
+        {!open && status !== "sent" && (
+          <button type="button" style={styles.feedbackToggle} onClick={() => setOpen(true)}>
+            Noticed something you'd like to see? Send us a note
+          </button>
+        )}
+        {(open || status === "sent") && <div style={styles.feedbackBox}>
           <h3 style={styles.feedbackTitle}>This is your marketplace.</h3>
           <p style={styles.feedbackSub}>Noticed a feature you'd like to see? Let us know — it helps us build what actually matters to you.</p>
           {status === "sent" ? (
@@ -524,7 +529,7 @@ function FeedbackSection() {
               {status === "error" && <div style={styles.feedbackError}>Something went wrong — please try again.</div>}
             </div>
           )}
-        </div>
+        </div>}
       </div>
     </section>
   );
@@ -589,7 +594,7 @@ const styles = {
   escrowTitle: { fontSize: 16, fontWeight: 800, color: "#0f172a", marginBottom: 8, marginTop: 0, lineHeight: 1.3 },
   escrowDesc: { fontSize: 14, color: "#4b5563", lineHeight: 1.65, margin: 0 },
   promoStrip: { background: "linear-gradient(90deg,#065f46,#059669)", color: "#fff", textAlign: "center", fontSize: 14, fontWeight: 500, lineHeight: 1.5, padding: "10px 16px" },
-  limitsNote: { margin: "24px 0 0", fontSize: 15, color: "#1f2937", lineHeight: 1.65, maxWidth: "70ch" },
+  limitsNote: { margin: "24px 0 0", fontSize: 15, color: "#1f2937", lineHeight: 1.65 },
   feeNote: { marginTop: 16, background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: 12, padding: "16px 24px", fontSize: 14.5, color: "#374151", lineHeight: 1.65 },
 
   cards: { display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 24 },
@@ -650,6 +655,8 @@ const styles = {
   // inline-flex + alignItems to centre the label inside the border, and
   // lineHeight 1 so the box height matches the real buttons beside it.
   guidesNavLink: { background: "none", border: "1px solid #e5e7eb", padding: "8px 18px", borderRadius: 10, cursor: "pointer", fontSize: 14, fontWeight: 600, color: "#374151", textDecoration: "none", whiteSpace: "nowrap", display: "inline-flex", alignItems: "center", lineHeight: 1 },
+  feedbackCollapsed: { padding: "20px 24px 28px", background: "#fff", textAlign: "center" },
+  feedbackToggle: { background: "none", border: "none", color: "#6b7280", fontSize: 14, cursor: "pointer", textDecoration: "underline", minHeight: 44, fontFamily: "inherit" },
   feedbackSection: { padding: "56px 24px", background: "#fff" },
   feedbackBox: { maxWidth: 640, margin: "0 auto", background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: 20, padding: "36px 40px", textAlign: "center" },
   feedbackTitle: { fontSize: 24, fontWeight: 800, color: "#0f172a", marginBottom: 8, letterSpacing: "-0.02em" },
