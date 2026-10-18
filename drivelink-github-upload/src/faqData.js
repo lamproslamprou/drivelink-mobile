@@ -43,7 +43,7 @@ export function faqItemsEn() {
       },
       {
         q: "What if the buyer just refuses to release after taking the car?",
-        a: "Tell us. We check in with both parties automatically if a sale sits unconfirmed, and we'll ask each of you directly whether the car changed hands. Funds stay in escrow until it's resolved — nothing is paid out or refunded on a timer, and no one is left waiting indefinitely without a human looking at it.",
+        a: "Tell us. We check in with both parties automatically if a sale sits unconfirmed, and we'll ask each of you directly whether the car changed hands. The seller isn't paid out until it's resolved — nothing is released or refunded on a timer, and no one is left waiting indefinitely without a human looking at it.",
       },
       {
         q: "Why should I trust a company I've never heard of?",

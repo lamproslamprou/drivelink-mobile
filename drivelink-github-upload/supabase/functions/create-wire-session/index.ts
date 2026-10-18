@@ -25,7 +25,7 @@
 // fires. See stripe-webhook/index.ts for that settlement path and
 // expire-stale-wires for what happens if the wire never arrives.
 //
-// ── STRIPE API SHAPE, VERIFIED AGAINST LIVE DOCS 2026-08-31 ─────────────────
+// ── STRIPE API SHAPE, VERIFIED AGAINST LIVE DOCS 2026-08-31 ───────────────────
 // PHASE2_WIRE_RAIL_SPEC.md §3 described payment_method_options.customer_balance
 // as `{ funding_type: "us_bank_transfer" }`. That's wrong — checked against
 // Stripe's current "Accept a bank transfer" (direct API) docs before writing
@@ -57,6 +57,16 @@ import {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
+  // Wire transfers are received on the PLATFORM account (Customer Balance), which
+  // is exactly the custody direct-charge mode exists to remove. Until bank
+  // transfers are confirmed to work as direct charges on connected accounts,
+  // the wire rail is switched off whenever direct-charge mode is on.
+  if ((Deno.env.get("DIRECT_CHARGES") ?? "").toLowerCase() === "on") {
+    return jsonResponse({
+      error: "Wire transfers aren't available right now. Please pay by card or bank debit.",
+    }, 400);
+  }
 
   try {
     const buyerId = await requireUser(req);
@@ -187,7 +197,7 @@ Deno.serve(async (req) => {
       (dealCreatorRole === "buyer" || dealCreatorRole === "promoter");
     const promoterSurcharge = buyerPaysPromoter ? Math.round(priceCents * PROMOTER_FEE) : 0;
 
-    // ── Handover date — identical parsing to create-checkout-session ───────
+    // ── Handover date — identical parsing to create-checkout-session ───
     const HANDOVER_MAX_DAYS = 90;
     let handoverDate: string | null = null;
 
@@ -207,7 +217,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    // ── High-value gate (§4) ─────────────────────────────────────────────
+    // ── High-value gate (§4) ───────────────────────────────────
     // Shares ACH_MIN_CENTS with the ACH-debit gate in create-checkout-session
     // rather than a separate WIRE_MIN_CENTS — confirmed with Lampros
     // 2026-08-28 (see PHASE2_WIRE_RAIL_SPEC.md §4): arranging a wire is, if
@@ -223,7 +233,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    // ── Stripe Customer (required — see header comment) ─────────────────────
+    // ── Stripe Customer (required — see header comment) ───────────
     const customer = await stripe.customers.create({
       email: buyerEmail,
       name: typeof buyer?.name === "string" ? buyer.name : undefined,
@@ -233,7 +243,7 @@ Deno.serve(async (req) => {
     const label = [listing.year, listing.make, listing.model].filter(Boolean).join(" ") ||
       "DriveLink vehicle purchase";
 
-    // ── Create + confirm the PaymentIntent ──────────────────────────────────
+    // ── Create + confirm the PaymentIntent ───────────────────────
     // No transfer_data/on_behalf_of, same as create-checkout-session: funds
     // land on the platform balance and stay there until release-funds
     // explicitly transfers them. Metadata carries the exact same keys
@@ -304,7 +314,7 @@ Deno.serve(async (req) => {
     const financialAddresses = (instructions?.financial_addresses as any[]) ?? [];
     const aba = financialAddresses.find((a) => a?.type === "aba")?.aba ?? null;
 
-    // ── Park the listing ─────────────────────────────────────────────────
+    // ── Park the listing ─────────────────────────────────
     // Mirrors the ACH-debit "unpaid completion" park branch in
     // stripe-webhook (same status, same .eq("status","active") guard so a
     // redelivered/duplicate call can't re-park a listing that's already
@@ -348,7 +358,7 @@ Deno.serve(async (req) => {
 
     // ── Buyer + seller notice, same posture as the ACH "bank transfer
     // started" emails in stripe-webhook: the seller must not hand over the
-    // vehicle against a payment that hasn't settled yet. ──────────────────
+    // vehicle against a payment that hasn't settled yet. ──────────────
     const [{ data: buyerRow }, { data: sellerRow }] = await Promise.all([
       supabase.from("users").select("name, email").eq("id", buyerId).single(),
       parked.seller_id

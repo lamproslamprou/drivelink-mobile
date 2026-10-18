@@ -101,7 +101,7 @@ const COPY = {
     ],
     cta: {
       title: "The safe way to sequence this",
-      body: "DriveLink holds the buyer's money until the car and title have actually changed hands. On a deal with a lien that removes the exact gap where things go wrong — the seller can see the funds are real, and nobody is trusting anyone to pay a lender after the fact.",
+      body: "With DriveLink the seller isn't paid until the car and title have actually changed hands. On a deal with a lien that removes the exact gap where things go wrong — the seller can see the funds are real, and nobody is trusting anyone to pay a lender after the fact.",
       button: "See how it works",
     },
     related: [

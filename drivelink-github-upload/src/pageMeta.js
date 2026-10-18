@@ -16,9 +16,9 @@
 import { platformFeeLabel } from "./fee.js";
 
 export const SITE_URL = "https://drivelink.deals";
-export const DEFAULT_TITLE = "DriveLink — Private Car Sales with Escrow Built In (US)";
+export const DEFAULT_TITLE = "DriveLink — Private Car Sales with Protected Payment (US)";
 export const DEFAULT_DESCRIPTION =
-  "Pay for a used car safely. Funds are held in escrow until you have the keys and the signed title. U.S. private car sales, $0 to list.";
+  "Pay for a used car safely. The seller isn't paid until you have the keys and the signed title. U.S. private car sales, $0 to list.";
 
 export function pageMetaTable() {
   const FEE = platformFeeLabel();
@@ -28,19 +28,19 @@ export function pageMetaTable() {
       description: DEFAULT_DESCRIPTION,
     },
     "/browse": {
-      title: "Used Cars for Sale by Owner, Escrow on Every Sale | DriveLink",
+      title: "Used Cars for Sale by Owner, Protected Payment on Every Sale | DriveLink",
       description:
-        "Browse private-party used cars listed directly by their owners. The buyer's payment is held in escrow until the car and signed title change hands.",
+        "Browse private-party used cars listed directly by their owners. The buyer's payment is protected until the car and signed title change hands.",
     },
     "/start-deal": {
       title: "Start a Protected Deal on Any Private Car Sale | DriveLink",
       description:
-        "Found a car on Facebook Marketplace or Craigslist? Start a deal on that car and the buyer's money is held until the keys and title change hands.",
+        "Found a car on Facebook Marketplace or Craigslist? Start a deal on that car and the seller isn't paid until the keys and title change hands.",
     },
     "/faq": {
       title: "Is DriveLink Safe? How Your Money Is Protected",
       description:
-        "Who holds the money, what stops DriveLink from taking it, and what happens if a sale goes wrong. Straight answers before you pay for a used car.",
+        "Who holds the money, what stops anyone from taking it early, and what happens if a sale goes wrong. Straight answers before you pay for a used car.",
     },
     "/about": {
       title: "About DriveLink: Who Runs It, Where Your Money Sits",
@@ -52,9 +52,9 @@ export function pageMetaTable() {
       description: `Sellers pay ${FEE} of the sale price when a deal closes. $0 to list, buyers pay nothing beyond the car's price, and nothing if the deal falls through.`,
     },
     "/features": {
-      title: "DriveLink Features: Escrow, Handover Code, Disputes",
+      title: "DriveLink Features: Protected Payment, Handover Code, Disputes",
       description:
-        "How DriveLink works step by step: escrow up to $250,000, use it on a car you already found, ID verification, the 6-digit handover code, and disputes.",
+        "How DriveLink works step by step: protected payment up to $250,000, use it on a car you already found, ID verification, the 6-digit handover code, and disputes.",
     },
     "/safety": {
       title: "Private Car Sale Safety Tips: Meetups, VIN, Title | DriveLink",
@@ -62,9 +62,14 @@ export function pageMetaTable() {
         "Where to meet, what to check on the VIN and title, and how to avoid common private car sale scams before you hand over money or keys.",
     },
     "/escrow": {
-      title: "How DriveLink Escrow Works for a Private Car Sale",
+      title: "How DriveLink Protected Payment Works for a Private Car Sale",
       description:
         "Someone sent you a DriveLink link? Here is where the money sits, when the seller gets paid, and what happens if something goes wrong.",
+    },
+    "/seller-toolkit": {
+      title: "Free Toolkit to Sell Your Car Privately | DriveLink",
+      description:
+        "Enter your VIN and get a ready-to-post ad and a protected-payment link for your private car sale. Free for sellers.",
     },
     "/advertise": {
       title: "Advertise on DriveLink to Private Car Buyers and Sellers",
@@ -74,7 +79,7 @@ export function pageMetaTable() {
     "/promoter": {
       title: "DriveLink Promoter Program: Earn 1% on Closed Car Deals",
       description:
-        "Know someone buying or selling a car? Share your link and earn 1% when their deal closes through DriveLink escrow.",
+        "Know someone buying or selling a car? Share your link and earn 1% when their deal closes through DriveLink.",
     },
     "/terms": {
       title: "Terms of Service | DriveLink",
@@ -92,7 +97,7 @@ export function pageMetaTable() {
     "/vs/drivelink-vs-keysavvy": {
       title: "DriveLink vs KeySavvy: Fees and How They Differ",
       description:
-        "KeySavvy handles title as a licensed dealer for $99 per side. DriveLink holds the payment while you hand over the car yourselves. Where each fits.",
+        "KeySavvy handles title as a licensed dealer for $99 per side. DriveLink protects the payment while you hand over the car yourselves. Where each fits.",
     },
     "/vs/drivelink-vs-escrow-com": {
       title: "DriveLink vs Escrow.com for a Private Car Sale",

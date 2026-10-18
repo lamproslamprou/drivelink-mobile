@@ -51,6 +51,7 @@ import {
   money,
   sendCompletionEmails,
 } from "../_shared/helpers.ts";
+import { completeDirectRelease } from "../_shared/direct.ts";
 
 const MAX_ATTEMPTS = 5;
 const LOCKOUT_MINUTES = 60;
@@ -74,7 +75,7 @@ Deno.serve(async (req) => {
     const { data: listing, error: listingErr } = await supabase
       .from("listings")
       .select(
-        "id, seller_id, buyer_id, status, funds_released, seller_net, sale_price, referral_code, stripe_payment_intent_id, release_not_before, make, model, year",
+        "id, seller_id, buyer_id, status, funds_released, seller_net, sale_price, referral_code, stripe_payment_intent_id, release_not_before, make, model, year, charge_mode, charge_account_id, stripe_dispute_id",
       )
       .eq("id", listing_id)
       .single();
@@ -257,6 +258,43 @@ Deno.serve(async (req) => {
             `has fully settled. You don't need to do anything else.`,
         });
       }
+    }
+
+    // ── Open chargeback hold ──────────────────────────────────────────────
+    if (listing.stripe_dispute_id) {
+      await notifyAdminSync({
+        subject: `⚠️ Release HELD — open chargeback on ${carLabel}`,
+        html: alertHtml("Handover code accepted but the payment is under dispute", [
+          ["Vehicle", carLabel],
+          ["Listing ID", listing.id],
+          ["Dispute", listing.stripe_dispute_id],
+        ], "No payout was made. Resolve the dispute in Stripe, then clear listings.stripe_dispute_id."),
+      });
+      return jsonResponse({
+        heldForReview: true,
+        message: "Handover confirmed. The buyer's bank has opened a review on this payment, so the payout is paused while it is resolved.",
+      });
+    }
+
+    // ── Direct-charge sales: pay out of the seller's own balance ──────────
+    if (listing.charge_mode === "direct") {
+      const result = await completeDirectRelease(supabase, stripe, listing, "handover_code");
+      if (result.released) {
+        return jsonResponse({
+          released: true,
+          notified: result.notified,
+          transferred: result.amountCents / 100,
+          transferredCents: result.amountCents,
+          transferId: result.payoutId,
+          referral: result.referral,
+        });
+      }
+      return jsonResponse({
+        heldForSettlement: result.pending,
+        message: result.pending
+          ? "Code accepted — the handover is recorded. The payment is still settling, and you're paid automatically as soon as it clears. You don't need to do anything else."
+          : "Code accepted — the handover is recorded. Your payout needs a quick manual check; support has been notified.",
+      });
     }
 
     // ── Transfer ──────────────────────────────────────────────────────────

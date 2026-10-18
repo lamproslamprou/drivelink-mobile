@@ -110,7 +110,7 @@ const COPY = {
     ],
     cta: {
       title: "The safe way to sequence this",
-      body: "DriveLink holds the buyer's money until the car and title have actually changed hands. In New York that means you're not choosing between paying on trust and losing the deal — funds sit secured while the release is produced, and the seller can see they're real.",
+      body: "With DriveLink the seller isn't paid until the car and title have actually changed hands. In New York that means you're not choosing between paying on trust and losing the deal — the payment stays protected while the release is produced, and the seller can see they're real.",
       button: "See how it works",
     },
     related: [

@@ -18,6 +18,7 @@ import { FounderBlock } from "./ProofBlocks.jsx";
 import { metaForPath, DEFAULT_TITLE, DEFAULT_DESCRIPTION } from "./pageMeta.js";
 import EscrowExplained from "./EscrowExplained.jsx";
 import InspectorsView from "./InspectorsView.jsx";
+import SellerToolkitView from "./SellerToolkitView.jsx";
 import { platformFeeRate, platformFeeLabel, promoActive } from "./fee.js";
 import { analytics } from "@heycatch/sdk";
 import LienPayoffNJ from "./guides/LienPayoffNJ.jsx";
@@ -289,6 +290,8 @@ const VIEW_PATHS = {
   // Buyer-facing pre-purchase-inspection directory, plus a self-serve
   // "list your business" form for inspection businesses. See InspectorsView.jsx.
   inspectors:    "/inspectors",
+  // Free VIN-to-ad-and-escrow-link tool for private sellers.
+  sellerToolkit: "/seller-toolkit",
 };
 const PATH_TO_VIEW = Object.fromEntries(
   Object.entries(VIEW_PATHS).map(([v, p]) => [p, v]),
@@ -317,6 +320,8 @@ const PUBLIC_VIEWS = new Set([
   // Browsable pre-purchase-inspection directory, and where an inspection
   // business lands to list itself — neither should sit behind a sign-in wall.
   "inspectors",
+  // Free tool: anyone can build the kit; creating the escrow link asks for sign-in.
+  "sellerToolkit",
   // Arrived at from an emailed recovery link, necessarily signed out.
   "resetPassword",
   // Brokers arrive here from an outreach email that has already made the case.
@@ -1856,7 +1861,7 @@ const denyInspector = async (id) => {
   // so page_view reports the new title.
   useEffect(() => {
     if (typeof document === "undefined" || loading) return;
-    if (viewingListing || view === "inspectors" || /^lienPayoff/.test(view)) return;
+    if (viewingListing || view === "inspectors" || view === "sellerToolkit" || /^lienPayoff/.test(view)) return;
     const m = metaForPath(VIEW_PATHS[view]) || { title: DEFAULT_TITLE, description: DEFAULT_DESCRIPTION };
     document.title = m.title;
     let el = document.querySelector('meta[name="description"]');
@@ -1918,6 +1923,16 @@ const denyInspector = async (id) => {
       showToast={showToast}
       onBack={() => { navigate("/"); setView("home"); }}
       onNavigate={setView}
+    />
+  );
+
+  if (view === "sellerToolkit") return (
+    <SellerToolkitView
+      currentUser={currentUser}
+      showToast={showToast}
+      onBack={() => setView(currentUser ? "home" : "landing")}
+      onNavigate={setView}
+      onSignIn={() => { setPendingView("sellerToolkit"); setView("auth"); navigate(VIEW_PATHS.auth); }}
     />
   );
 
@@ -3060,7 +3075,7 @@ function ListingDetailModal({ data, currentUser, isFavorited, isBlocked, onClose
     document.title = `${listing.year} ${listing.make} ${listing.model} — ${priceStr} | DriveLink`;
 
     const descText = (listing.description ? String(listing.description).slice(0, 155) : "") ||
-      `${listing.year} ${listing.make} ${listing.model} for sale on DriveLink, ${priceStr}. Escrow-protected private car sale.`;
+      `${listing.year} ${listing.make} ${listing.model} for sale on DriveLink, ${priceStr}. Protected-payment private car sale.`;
     let meta = document.querySelector('meta[name="description"]');
     const prevDescription = meta?.getAttribute("content") ?? null;
     const createdMeta = !meta;
@@ -4702,8 +4717,8 @@ function AboutView({ onBack, onBrowse, onSafety, onPricing }) {
         <p style={styles.legalUpdated}>A peer-to-peer car marketplace where the money is held safely until the car actually changes hands.</p>
         <div style={styles.legalBody} className="legalBody">
           <h2>Why DriveLink exists</h2>
-          <p>Buying a used car privately usually means choosing between two bad options. Marketplaces like Facebook and Craigslist have the cars but no payment protection at all — you meet a stranger and hand over a cashier's check, hoping the title is clean. Escrow services offer protection but aren't built for cars, so you're bolting a generic process onto a transaction it wasn't designed for.</p>
-          <p>DriveLink puts the two together. Every sale closes through escrow, and the buyer's money is held until the keys and the title have changed hands.</p>
+          <p>Buying a used car privately usually means choosing between two bad options. Marketplaces like Facebook and Craigslist have the cars but no payment protection at all — you meet a stranger and hand over a cashier's check, hoping the title is clean. Third-party escrow services offer protection but aren't built for cars, so you're bolting a generic process onto a transaction it wasn't designed for.</p>
+          <p>DriveLink puts the two together. Every sale closes with protected payment: the seller isn't paid out until the keys and the title have changed hands.</p>
 
           <h2>How a sale works</h2>
           <p>A seller lists their car. A buyer pays through the platform, and that payment is held — it does not reach the seller yet. The two arrange the handover themselves, in person, like any private sale.</p>
@@ -4724,7 +4739,7 @@ function AboutView({ onBack, onBrowse, onSafety, onPricing }) {
           <p>Questions, problems, or something that looks wrong on the platform: <a href="mailto:support@drivelink.deals">support@drivelink.deals</a>.</p>
 
           <h2>Before you meet anyone</h2>
-          <p>Escrow protects the money. It doesn't replace the ordinary care any private sale needs — checking the VIN, meeting somewhere public, confirming the title. Our <button style={styles.legalInlineLink} onClick={onSafety}>meetup safety guide</button> covers what to check and where to meet.</p>
+          <p>Protected payment secures the payment. It doesn't replace the ordinary care any private sale needs — checking the VIN, meeting somewhere public, confirming the title. Our <button style={styles.legalInlineLink} onClick={onSafety}>meetup safety guide</button> covers what to check and where to meet.</p>
 
           <p>
             How we compare:{" "}
@@ -5068,7 +5083,7 @@ function HandoverDateField({ value, onChange }) {
       <div style={{ fontSize: 13, color: "#6b7280", marginTop: 6, lineHeight: 1.5 }}>
         {value ? (
           <>
-            Buyers will see this date before they pay. Their payment stays in escrow until the handover — you're paid when they give you their 6-digit code, or when they confirm receipt in the app.
+            Buyers will see this date before they pay. Their payment is protected until the handover — you're paid when they give you their 6-digit code, or when they confirm receipt in the app.
           </>
         ) : (
           <>Leave blank if you can hand the car over as soon as it sells. Set a date only if the buyer would have to wait — it's what lets someone buy a car you can't deliver yet.</>
@@ -5551,8 +5566,8 @@ function PromoterSignedOut({ onSignUp, onBack }) {
 
       <p style={{ color: "#334155", fontSize: 16, lineHeight: 1.7 }}>
         If you arrange vehicle sales or transport, your customers are already
-        wiring money to people they have never met. DriveLink holds that money
-        in escrow until the keys and title change hands — and pays you{" "}
+        wiring money to people they have never met. DriveLink protects that payment
+        is protected until the keys and title change hands — and pays you{" "}
         <b>1% of every sale</b> that goes through your link.
       </p>
 

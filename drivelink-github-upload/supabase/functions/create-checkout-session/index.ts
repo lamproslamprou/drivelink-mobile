@@ -1,4 +1,11 @@
 // POST /create-checkout-session
+// DIRECT-CHARGE MODE (env DIRECT_CHARGES=on): the Checkout session is created ON
+// THE SELLER'S connected account, so the buyer's money never touches DriveLink.
+// DriveLink receives only application_fee_amount. The seller's payouts are
+// manual (see _shared/direct.ts), so the money waits in the seller's own Stripe
+// balance until the handover code releases it. With the flag off this function
+// behaves exactly as before (funds land on the platform balance).
+//
 // Called when a buyer clicks "Buy Now" on a listing. Creates a real Stripe
 // Checkout session at the listing's asking price. Funds land on the
 // PLATFORM's Stripe balance first (separate-charges-and-transfers, not a
@@ -26,7 +33,18 @@
 // requirement as part of the payment control, not as onboarding polish.
 //
 // See 20260812_01_ach_settlement.sql for the rest of the design.
-import { ACH_MIN_CENTS, corsHeaders, jsonResponse, PROMOTER_FEE, requireUser, stripeClient, supabaseAdmin } from "../_shared/helpers.ts";
+import {
+  ACH_MIN_CENTS,
+  corsHeaders,
+  findPendingReferrals,
+  jsonResponse,
+  platformFeeRate,
+  PROMOTER_FEE,
+  requireUser,
+  stripeClient,
+  supabaseAdmin,
+} from "../_shared/helpers.ts";
+import { directChargesEnabled, ensureHoldingAccount } from "../_shared/direct.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -70,6 +88,24 @@ Deno.serve(async (req) => {
     if (sellerErr || !seller) throw new Error("Seller not found");
     if (!seller.stripe_payouts_enabled) {
       throw new Error("This seller hasn't finished setting up payouts yet");
+    }
+
+    // ── Direct-charge mode ───────────────────────────────────────────────────
+    // Decided once per checkout and stamped on the listing + session metadata,
+    // so a deal that started direct finishes direct even if the flag flips.
+    const direct = directChargesEnabled();
+    let sellerAcct: Awaited<ReturnType<typeof ensureHoldingAccount>> | null = null;
+    if (direct) {
+      if (!seller.stripe_account_id) throw new Error("This seller hasn't finished setting up payouts yet");
+      // Manual payouts + automatic recovery of negative balances. Must succeed:
+      // without manual payouts the seller's bank would be paid before handover.
+      sellerAcct = await ensureHoldingAccount(stripe, seller.stripe_account_id);
+      if (sellerAcct.settings?.payouts?.schedule?.interval !== "manual") {
+        throw new Error("Could not secure this seller's account for protected payment. Try again shortly.");
+      }
+      if (sellerAcct.capabilities?.card_payments !== "active") {
+        throw new Error("This seller can't accept payments yet");
+      }
     }
 
     // ── Buyer identity on the Stripe side ────────────────────────────────────
@@ -273,7 +309,37 @@ Deno.serve(async (req) => {
     // here, only the order.)
     const chargedTotal = priceCents + promoterSurcharge;
     const buyerIdentityVerified = buyer?.identity_verification_status === "verified";
-    const achEligible = chargedTotal >= ACH_MIN_CENTS && buyerIdentityVerified;
+    // In direct mode the SELLER's account must itself be able to take bank
+    // debits. If it can't yet (the capability is requested below and activates
+    // asynchronously), this buyer pays by card and the next one gets ACH.
+    const sellerCanAch = !direct ||
+      sellerAcct?.capabilities?.us_bank_account_ach_payments === "active";
+    const achEligible = chargedTotal >= ACH_MIN_CENTS && buyerIdentityVerified && sellerCanAch;
+    if (direct && chargedTotal >= ACH_MIN_CENTS && !sellerCanAch && seller.stripe_account_id) {
+      await stripe.accounts.update(seller.stripe_account_id, {
+        capabilities: { us_bank_account_ach_payments: { requested: true } },
+      }).catch((e) => console.error("requesting ACH capability failed:", e));
+    }
+
+    // ── Application fee (direct mode) ────────────────────────────────────────
+    // What Stripe splits off to DriveLink the moment the buyer pays:
+    //   our platform fee (0.5% during the October promo, else 1%)
+    //   + the Promoter's 1%, whenever a Promoter is attached to this deal.
+    // The Promoter slice is collected here and passed on at release; it is not
+    // DriveLink's revenue. Whoever was going to bear the commission still bears
+    // it: the buyer through the surcharge line item, or the seller out of
+    // proceeds (their payout is whatever is left after this fee).
+    let applicationFee = 0;
+    let platformFeeCents = 0;
+    let promoterSlice = 0;
+    if (direct) {
+      platformFeeCents = Math.round(priceCents * platformFeeRate());
+      const { refs } = await findPendingReferrals(supabase, String(listing.id));
+      const hasPromoter = attributedPromoterId !== null || refs.length > 0;
+      promoterSlice = hasPromoter ? Math.round(priceCents * PROMOTER_FEE) : 0;
+      applicationFee = platformFeeCents + promoterSlice;
+      if (applicationFee >= chargedTotal) throw new Error("This listing's price is not valid for checkout");
+    }
 
     // Logged rather than silent: "why didn't ACH show up" is otherwise an
     // unanswerable support question.
@@ -303,9 +369,11 @@ Deno.serve(async (req) => {
       (promoterSurcharge > 0
         ? `This total includes a 1% referral fee paid to the broker who referred you. `
         : "") +
-      `DriveLink holds your payment — the seller is not paid at checkout. ` +
+      (direct
+        ? `Your payment is protected — the seller can't withdraw it at checkout. `
+        : `Your payment is protected — the seller is not paid at checkout. `) +
       `You'll get a 6-digit handover code. Give it to the seller only after the vehicle and the signed title are in your hands; ` +
-      `entering it releases the funds. You can also confirm receipt yourself in the app, or report a problem instead. ` +
+      `entering it lets the seller be paid. You can also confirm receipt yourself in the app, or report a problem instead. ` +
       `Nothing is released automatically.` +
       // Shown only when bank debit is actually offered. A buyer who picks it
       // does NOT get a code at checkout, and telling them otherwise on the
@@ -371,9 +439,13 @@ Deno.serve(async (req) => {
           }]
           : []),
       ],
-      // No transfer_data/on_behalf_of on purpose — funds stay on the
-      // platform balance until release-funds explicitly transfers them.
+      // Legacy (flag off): no transfer_data/on_behalf_of on purpose — funds
+      // stay on the platform balance until release-funds transfers them.
+      // Direct (flag on): the session itself lives on the seller's account.
       metadata: {
+        charge_mode: direct ? "direct" : "platform",
+        platform_fee_cents: String(platformFeeCents),
+        promoter_slice_cents: String(promoterSlice),
         listing_id: String(listing.id),
         buyer_id: buyerId,
         seller_id: String(listing.seller_id),
@@ -402,18 +474,24 @@ Deno.serve(async (req) => {
           listing_id: String(listing.id),
           buyer_id: buyerId,
           seller_id: String(listing.seller_id),
+          charge_mode: direct ? "direct" : "platform",
         },
         description: `DriveLink — ${label}`,
+        ...(direct ? { application_fee_amount: applicationFee } : {}),
       },
       success_url: `${origin}/?purchase=success&listing=${listing.id}`,
       cancel_url: `${origin}/?purchase=cancelled&listing=${listing.id}`,
-    });
+    }, direct ? { stripeAccount: seller.stripe_account_id! } : undefined);
 
     // Stamp the session and the attributed Promoter code together. referral_code is
     // written with the service role key (RLS bypassed) — buyers must never have
     // update access to listings, or they could rewrite attribution directly.
     const listingPatch: Record<string, string> = { stripe_checkout_session_id: session.id };
     if (attributedCode) listingPatch.referral_code = attributedCode;
+    if (direct) {
+      listingPatch.charge_mode = "direct";
+      listingPatch.charge_account_id = seller.stripe_account_id!;
+    }
 
     await supabase
       .from("listings")

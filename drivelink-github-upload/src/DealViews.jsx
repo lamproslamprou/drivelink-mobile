@@ -185,7 +185,7 @@ export function StartDealView({ currentUser, promoterCode, onBack, onNavigate, s
     if (navigator.share) {
       try {
         await navigator.share({
-          title: "How DriveLink escrow works",
+          title: "How DriveLink protected payment works",
           url: EXPLAINER_URL,
         });
         return;
@@ -219,14 +219,14 @@ export function StartDealView({ currentUser, promoterCode, onBack, onNavigate, s
           )}
           <h1 style={dealStyles.title}>Buying a car from someone you've never met?</h1>
           <p style={dealStyles.sub}>
-            DriveLink holds the money until the car is actually handed over, so
+            The seller isn't paid until the car is actually handed over, so
             neither side has to go first.
           </p>
 
           <div style={dealStyles.stepsWrap}>
             <ol style={dealStyles.steps}>
               <li style={dealStyles.step}>
-                The buyer pays into escrow. The seller can see the funds are
+                The buyer pays through DriveLink. The seller can see the payment is
                 secured, but can't touch them yet.
               </li>
               <li style={dealStyles.step}>
@@ -242,7 +242,7 @@ export function StartDealView({ currentUser, promoterCode, onBack, onNavigate, s
           <div style={dealStyles.priceCard}>
             <div style={dealStyles.eyebrow}>What it costs</div>
             <div style={dealStyles.priceRow}>
-              <span style={dealStyles.priceLabel}>DriveLink escrow fee{promoActive() ? " (half price through October 31)" : ""}</span>
+              <span style={dealStyles.priceLabel}>DriveLink protection fee{promoActive() ? " (half price through October 31)" : ""}</span>
               <span style={dealStyles.vinValue}>{platformFeeLabel()}</span>
             </div>
             {referrer && (
@@ -270,7 +270,7 @@ export function StartDealView({ currentUser, promoterCode, onBack, onNavigate, s
           {/* Not everyone landing here has a car in mind — some arrive from a
               guide or an ad. Without this, the only path forward is signup,
               which loses the visitor who would happily have looked at
-              inventory first. DriveLink is a marketplace as well as an escrow
+              inventory first. DriveLink is a marketplace as well as a payment-protection
               layer and this screen never said so. */}
           <p style={{ fontSize: 14, color: "#6b7280", marginTop: 22, textAlign: "center" }}>
             Don't have a car picked out yet?{" "}
@@ -312,7 +312,7 @@ export function StartDealView({ currentUser, promoterCode, onBack, onNavigate, s
           <div style={dealStyles.explainerRow}>
             <div style={dealStyles.explainerText}>
               Never heard of DriveLink? Most people haven't. Send them this
-              alongside the deal link and it explains who holds the money and
+              alongside the deal link and it explains how the payment is protected and
               when it's released.
             </div>
             <button
@@ -331,7 +331,7 @@ export function StartDealView({ currentUser, promoterCode, onBack, onNavigate, s
                   ? "Both parties open the link, pick their side, and confirm the car and price."
                   : `${cap(them)} opens the link and confirms the car and price.`}
               </li>
-              <li style={dealStyles.step}>The buyer pays into escrow. DriveLink holds the money.</li>
+              <li style={dealStyles.step}>The buyer pays through DriveLink. The seller isn't paid out until handover is confirmed.</li>
               <li style={dealStyles.step}>
                 The car and title change hands, the buyer confirms, and the seller is paid out.
               </li>
@@ -426,7 +426,7 @@ export function StartDealView({ currentUser, promoterCode, onBack, onNavigate, s
         />
         <div style={{ fontSize: 13, color: "#6b7280", marginTop: 6, marginBottom: 18, lineHeight: 1.5 }}>
           {form.handover_date
-            ? "The other party sees this date before they join. Escrow stays funded until the handover — set it if the car is shipping."
+            ? "The other party sees this date before they join. Payment stays protected until the handover — set it if the car is shipping."
             : "If the car is being transported, put the date it should arrive. Without one, an unconfirmed deal is flagged for review a week after payment — which can be while the car is still on a truck."}
         </div>
 
@@ -455,7 +455,7 @@ export function StartDealView({ currentUser, promoterCode, onBack, onNavigate, s
         </button>
 
         <div style={dealStyles.finePrint}>
-          DriveLink holds the funds until the buyer confirms the car. {platformFeeLabel()} seller fee, taken at payout.
+          The seller is paid once the buyer confirms the car. {platformFeeLabel()} seller fee, taken at payout.
         </div>
       </div>
     </div>
@@ -636,13 +636,13 @@ export function JoinDealView({ token, currentUser, onNavigate, onJoined, showToa
             {isSeller ? (
               <>
                 <li style={dealStyles.step}>Confirm the car and price, and set up payouts.</li>
-                <li style={dealStyles.step}>The buyer pays into escrow. You never wait on a cheque to clear.</li>
+                <li style={dealStyles.step}>The buyer pays through DriveLink. You never wait on a cheque to clear.</li>
                 <li style={dealStyles.step}>Hand over the car and title. The funds are released to your bank.</li>
               </>
             ) : (
               <>
                 <li style={dealStyles.step}>Confirm the car and price.</li>
-                <li style={dealStyles.step}>Pay into escrow. The seller does not receive the money yet.</li>
+                <li style={dealStyles.step}>Pay through DriveLink. The seller isn't paid out until you confirm the handover.</li>
                 <li style={dealStyles.step}>Inspect the car and take the title, then release the funds.</li>
               </>
             )}
@@ -676,7 +676,7 @@ export function JoinDealView({ token, currentUser, onNavigate, onJoined, showToa
         )}
 
         <div style={dealStyles.finePrint}>
-          DriveLink holds the funds until the buyer confirms the car.
+          The seller is paid once the buyer confirms the car.
         </div>
       </div>
     </div>

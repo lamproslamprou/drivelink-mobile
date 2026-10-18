@@ -138,6 +138,7 @@ import {
   corsHeaders,
   jsonResponse,
   notifyAdmin,
+  notifyAdminSync,
   sendEmail,
   alertHtml,
   money,
@@ -259,6 +260,20 @@ function stripeFeeCentsFrom(pi: unknown): number | null {
   return typeof fee === "number" ? fee : null;
 }
 
+// The seller-side NET of the charge, in cents: charge amount minus Stripe's fee
+// minus DriveLink's application fee. On a direct charge this is exactly what
+// lands in the seller's own Stripe balance, so it is the ground truth for what
+// we may pay out — better than re-deriving it from our fee arithmetic.
+function stripeNetCentsFrom(pi: unknown): number | null {
+  if (!pi || typeof pi !== "object") return null;
+  const charge = (pi as { latest_charge?: unknown }).latest_charge;
+  if (!charge || typeof charge !== "object") return null;
+  const bt = (charge as { balance_transaction?: unknown }).balance_transaction;
+  if (!bt || typeof bt !== "object") return null;
+  const net = (bt as { net?: unknown }).net;
+  return typeof net === "number" ? net : null;
+}
+
 // ── settleSale() ────────────────────────────────────────────────────────
 // Extracted per PHASE2_WIRE_RAIL_SPEC.md §5.1. This is the settlement block
 // that used to live inline inside the checkout.session.completed /
@@ -293,12 +308,18 @@ async function settleSale(
     rail: "card" | "ach_debit" | "wire";
     stripeFeeCents: number | null;
     chargedTotalCents: number;
+    /** 'direct' = the money is on the seller's own Stripe account. */
+    chargeMode?: "platform" | "direct";
+    chargeAccountId?: string | null;
+    /** Balance-transaction net of the charge; only meaningful for direct. */
+    directNetCents?: number | null;
   },
 ): Promise<
   | { ok: true; carLabel: string; sellerNet: number }
   | { ok: false; status: number; body: Record<string, unknown> }
 > {
   const { listingId, buyerId, piId, meta, rail, stripeFeeCents: realFeeCents, chargedTotalCents } = input;
+  const isDirect = input.chargeMode === "direct" && !!input.chargeAccountId;
   const bankDebit = rail === "ach_debit";
 
   // ── What the car actually sold for ────────────────────────────────────
@@ -353,8 +374,30 @@ async function settleSale(
 
   // Clamp at zero — see the header comment in this file for why.
   const rawSellerNet = salePrice - platformFee - promoterFeeReserved - stripeFee;
-  const sellerNet = Math.max(0, rawSellerNet);
+  let sellerNet = Math.max(0, rawSellerNet);
   const netWasClamped = rawSellerNet !== sellerNet;
+
+  // Direct charge: Stripe has already taken its fee and OUR application fee out
+  // of the seller's balance, so the balance transaction's net is the most that
+  // can ever be paid out. If it is lower than our arithmetic (a fee we did not
+  // anticipate), trust Stripe; if our arithmetic is lower (e.g. a Promoter
+  // slice that was not collected), keep ours so the seller is never paid money
+  // that belongs to a fee. A mismatch is logged and shown in the admin alert.
+  let directNetMismatch = false;
+  if (isDirect && typeof input.directNetCents === "number") {
+    if (input.directNetCents !== sellerNet) {
+      directNetMismatch = true;
+      console.warn(
+        "direct net differs from computed seller_net:",
+        listingId,
+        "stripe net",
+        input.directNetCents,
+        "computed",
+        sellerNet,
+      );
+    }
+    sellerNet = Math.min(sellerNet, input.directNetCents);
+  }
 
   // ── RELEASE CLOCK ─────────────────────────────────────────────────────
   const paymentReleaseAt = new Date();
@@ -400,6 +443,9 @@ async function settleSale(
       platform_fee: platformFee,
       seller_net: sellerNet,
       stripe_payment_intent_id: piId,
+      ...(isDirect
+        ? { charge_mode: "direct", charge_account_id: input.chargeAccountId, payout_status: "held" }
+        : {}),
       sold_at: todayET(),
       paid_at: new Date().toISOString(),
       ...(handoverDate ? { handover_date: handoverDate } : {}),
@@ -428,6 +474,11 @@ async function settleSale(
   const carLabel = soldListing
     ? `${soldListing.year} ${soldListing.make} ${soldListing.model}`
     : listingId;
+
+  const directNote = isDirect
+    ? ` Direct charge: the buyer's money is in the seller's own Stripe balance with payouts locked; DriveLink holds none of it.` +
+      (directNetMismatch ? ` NOTE: Stripe's net (${money(input.directNetCents ?? 0)}) differed from the computed seller net; the lower figure is stored.` : "")
+    : "";
 
   const subject = netWasClamped
     ? `⚠️ Sale recorded with $0 seller net — ${carLabel}`
@@ -469,7 +520,7 @@ async function settleSale(
         ["Review deadline", todayET(releaseAt)],
         ["Listing ID", listingId],
       ],
-      footnote,
+      footnote + directNote,
     ),
   });
 
@@ -559,6 +610,11 @@ Deno.serve(async (req) => {
     return jsonResponse({ error: "Invalid signature" }, 400);
   }
 
+  // Events from a DIRECT charge arrive on the connected-accounts endpoint with
+  // event.account set. Every API read about such an object must be made as that
+  // account, or Stripe answers "no such session / payment_intent".
+  const acctOpts = event.account ? { stripeAccount: event.account } : undefined;
+
   // Idempotency: Stripe redelivers events on retry. If we've already logged
   // this event id, acknowledge and stop — don't double-process a sale.
   //
@@ -605,7 +661,7 @@ Deno.serve(async (req) => {
       const sessionId = (event.data.object as { id: string }).id;
       const session = await stripe.checkout.sessions.retrieve(sessionId, {
         expand: ["payment_intent.latest_charge.balance_transaction"],
-      });
+      }, acctOpts);
       const meta = session.metadata as Record<string, string>;
       const paymentIntent = session.payment_intent;
       const piId = paymentIntentId(paymentIntent);
@@ -687,6 +743,9 @@ Deno.serve(async (req) => {
             status: "awaiting_payment",
             buyer_id,
             stripe_payment_intent_id: piId,
+            ...(meta.charge_mode === "direct" && event.account
+              ? { charge_mode: "direct", charge_account_id: event.account }
+              : {}),
             ...(handoverDateFromMeta(meta) ? { handover_date: handoverDateFromMeta(meta) } : {}),
           })
           .eq("id", listing_id)
@@ -793,6 +852,12 @@ Deno.serve(async (req) => {
         rail,
         stripeFeeCents: realFeeCents,
         chargedTotalCents,
+        // A session created by a direct checkout carries charge_mode in its
+        // metadata AND arrives with event.account. Both must agree, or it is
+        // treated as a platform-balance sale.
+        chargeMode: meta.charge_mode === "direct" && event.account ? "direct" : "platform",
+        chargeAccountId: event.account ?? null,
+        directNetCents: stripeNetCentsFrom(paymentIntent),
       });
 
       // The buyer has been charged. A settlement failure is a retryable
@@ -837,6 +902,14 @@ Deno.serve(async (req) => {
     // costs nothing extra — it's the same API call, not a second one.
     if (event.type === "payment_intent.succeeded") {
       const eventPiId = (event.data.object as { id: string }).id;
+      // A direct-charge card/ACH payment also fires payment_intent.succeeded on
+      // the connected-accounts endpoint. It is settled by the checkout.session
+      // handler above, so skip it here before touching the API (retrieving it
+      // without the right account would error and put the event in a retry loop).
+      if (event.account) {
+        await claimEvent();
+        return jsonResponse({ received: true, ignored: "connected-account payment_intent" });
+      }
       const pi = await stripe.paymentIntents.retrieve(eventPiId, {
         expand: ["latest_charge.balance_transaction"],
       });
@@ -1100,7 +1173,7 @@ Deno.serve(async (req) => {
     // revoke, nothing to claw back.
     if (event.type === "checkout.session.async_payment_failed") {
       const sessionId = (event.data.object as { id: string }).id;
-      const session = await stripe.checkout.sessions.retrieve(sessionId);
+      const session = await stripe.checkout.sessions.retrieve(sessionId, undefined, acctOpts);
       const meta = (session.metadata ?? {}) as Record<string, string>;
       const { listing_id, buyer_id } = meta;
 
@@ -1187,6 +1260,101 @@ Deno.serve(async (req) => {
 
       await claimEvent();
       return jsonResponse({ received: true, paymentFailed: true });
+    }
+
+    // ── CHARGEBACKS / DISPUTES ───────────────────────────────────────────────
+    // Arrive on the connected-accounts endpoint for direct charges (event.account
+    // = the seller). A dispute means the buyer's bank is reversing the payment.
+    // We (1) stamp the listing so no payout can be made while it is open,
+    // (2) tell the admin immediately. Nothing in this codebase handled disputes
+    // before; they were only visible in the Stripe dashboard.
+    if (
+      event.type === "charge.dispute.created" ||
+      event.type === "charge.dispute.closed" ||
+      event.type === "charge.dispute.funds_withdrawn" ||
+      event.type === "charge.dispute.funds_reinstated"
+    ) {
+      const dispute = event.data.object as {
+        id: string;
+        amount: number;
+        reason?: string;
+        status?: string;
+        payment_intent?: string | null;
+      };
+      let listingRow: { id: string; make: string | null; model: string | null; year: number | null; funds_released: boolean | null } | null = null;
+      if (dispute.payment_intent) {
+        const { data } = await supabase
+          .from("listings")
+          .select("id, make, model, year, funds_released")
+          .eq("stripe_payment_intent_id", dispute.payment_intent)
+          .maybeSingle();
+        listingRow = data;
+      }
+
+      if (listingRow) {
+        const open = event.type !== "charge.dispute.closed" ||
+          (dispute.status !== "won" && dispute.status !== "warning_closed");
+        if (event.type === "charge.dispute.closed" && !open) {
+          // Won: the bank sided with the seller. Clear the hold so a pending
+          // payout can proceed.
+          await supabase.from("listings").update({ stripe_dispute_id: null }).eq("id", listingRow.id);
+        } else {
+          await supabase.from("listings").update({ stripe_dispute_id: dispute.id }).eq("id", listingRow.id);
+        }
+      }
+
+      const label = listingRow
+        ? [listingRow.year, listingRow.make, listingRow.model].filter(Boolean).join(" ")
+        : `PaymentIntent ${dispute.payment_intent ?? "unknown"}`;
+
+      await notifyAdminSync({
+        subject: `🚨 Payment dispute ${event.type.replace("charge.dispute.", "")} — ${label}`,
+        html: alertHtml("Chargeback activity", [
+          ["Vehicle", label],
+          ["Event", event.type],
+          ["Dispute", dispute.id],
+          ["Amount", money(dispute.amount)],
+          ["Reason", dispute.reason ?? "—"],
+          ["Status", dispute.status ?? "—"],
+          ["Seller account", event.account ?? "platform (legacy sale)"],
+          ["Already paid out to seller", listingRow?.funds_released ? "YES" : "no"],
+        ], listingRow?.funds_released
+          ? "The seller has already been paid out. Stripe recovers the loss from the seller's balance and bank; DriveLink is the backstop only if that fails. Submit the handover-code record as evidence in Stripe."
+          : "The seller has NOT been paid. The payout is blocked while the dispute is open. Submit the handover-code record and listing as evidence in Stripe before the deadline."),
+      });
+      await claimEvent();
+      return jsonResponse({ received: true, dispute: dispute.id });
+    }
+
+    // A payout from a seller's balance to their bank failed (closed account,
+    // wrong details). The sale is recorded as paid out, so flag it for a human
+    // rather than leaving the seller waiting on money that is not coming.
+    if (event.type === "payout.failed") {
+      const payout = event.data.object as {
+        id: string;
+        amount: number;
+        failure_message?: string | null;
+        metadata?: Record<string, string> | null;
+      };
+      const failedListingId = payout.metadata?.listing_id;
+      if (failedListingId) {
+        await supabase
+          .from("listings")
+          .update({ payout_status: "failed" })
+          .eq("id", failedListingId);
+      }
+      await notifyAdminSync({
+        subject: `⚠️ Seller payout FAILED at the bank${failedListingId ? ` — ${failedListingId}` : ""}`,
+        html: alertHtml("Payout failed", [
+          ["Payout", payout.id],
+          ["Amount", money(payout.amount)],
+          ["Listing ID", failedListingId ?? "—"],
+          ["Seller account", event.account ?? "—"],
+          ["Reason", payout.failure_message ?? "—"],
+        ], "The sale is complete but the money did not reach the seller's bank. Ask the seller to update their bank details in Stripe; Stripe will retry."),
+      });
+      await claimEvent();
+      return jsonResponse({ received: true, payoutFailed: true });
     }
 
     if (event.type === "account.updated") {

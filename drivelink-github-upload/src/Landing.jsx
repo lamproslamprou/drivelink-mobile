@@ -310,7 +310,7 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn }) {
             <div style={{ ...styles.roleCard, background: "#fff" }}>
               <div style={styles.roleEmoji}>🚗</div>
               <h3 style={styles.roleTitle}>Sellers</h3>
-              <p style={styles.roleDesc}>List your car for free in minutes. Upload photos, set your price, and let our network of promoters share it for you. The buyer's money sits in escrow before you hand over anything — so you're never deciding whether to trust a piece of paper in a parking lot.</p>
+              <p style={styles.roleDesc}>List your car for free in minutes. Upload photos, set your price, and let our network of promoters share it for you. The buyer pays first and you're not asked to hand over anything until the payment is in — so you're never deciding whether to trust a piece of paper in a parking lot.</p>
               <ul style={styles.roleList}>
                 <li>✅ Free to list</li>
                 <li>✅ Buyer's funds verified before handover</li>
@@ -339,10 +339,10 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn }) {
             <div style={{ ...styles.roleCard, background: "#fff" }}>
               <div style={styles.roleEmoji}>🛒</div>
               <h3 style={styles.roleTitle}>Buyers</h3>
-              <p style={styles.roleDesc}>Browse cars listed directly by their owners. No dealer markups, no pressure. Your payment is held in escrow until you confirm you have the car and the title in your hands.</p>
+              <p style={styles.roleDesc}>Browse cars listed directly by their owners. No dealer markups, no pressure. The seller isn't paid out until you confirm you have the car and the title in your hands.</p>
               <ul style={styles.roleList}>
                 <li>✅ Direct from owners</li>
-                <li>✅ Money held until you have the keys</li>
+                <li>✅ Seller not paid until you have the keys</li>
                 <li>✅ Seller ID verification available</li>
               </ul>
               <button style={styles.roleBtn} onClick={onBrowse}>Browse Cars →</button>

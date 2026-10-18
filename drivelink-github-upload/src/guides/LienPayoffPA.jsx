@@ -104,7 +104,7 @@ const COPY = {
     ],
     cta: {
       title: "The safe way to sequence this",
-      body: "DriveLink holds the buyer's money until the car and title have actually changed hands. In Pennsylvania that means funds sit secured while the lien clears and the notary appointment gets booked — the seller can see the money is real, and you're not paying anyone on a promise.",
+      body: "With DriveLink the seller isn't paid until the car and title have actually changed hands. In Pennsylvania that means the payment stays protected while the lien clears and the notary appointment gets booked — the seller can see the money is real, and you're not paying anyone on a promise.",
       button: "See how it works",
     },
     related: [

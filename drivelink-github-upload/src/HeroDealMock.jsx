@@ -17,7 +17,7 @@ const COPY = {
     example: "Example deal",
     car: "2019 Honda CR-V",
     price: "$18,400",
-    held: "Payment held in escrow",
+    held: "Payment protected until handover",
     heldSub: "Held by Stripe. Not paid out yet.",
     codeLabel: "Buyer's handover code",
     codeHelp: "Give this to the seller only once you have the keys and the signed title.",

@@ -30,6 +30,9 @@ const COPY = {
     lede: "Buying a car from a stranger means one of you has to go first. These are the questions people ask us before they do.",
     contactLead: "Still unsure about something?",
     contactBody: "Email us and a person will answer.",
+    transferTitle: "Paid by bank transfer and don't have a handover code yet?",
+    transferBody: "That's expected. Bank transfers take about 5 business days to arrive, and we only issue your code once the money has actually cleared. We'll email it the moment it does. Until then, please don't arrange to collect the car. If it's been more than 5 business days, email us and we'll check your payment.",
+    transferLink: "Check my purchases →",
     safetyLink: "Read the meetup safety tips →",
     compareLabel: "Compare:",
     items: faqItemsEn(),
@@ -41,6 +44,9 @@ const COPY = {
     lede: "Comprarle un auto a un desconocido significa que alguien tiene que dar el primer paso. Estas son las preguntas que nos hacen antes de darlo.",
     contactLead: "¿Te quedó alguna duda?",
     contactBody: "Escríbenos y te responderá una persona.",
+    transferTitle: "¿Pagaste por transferencia bancaria y todavía no tienes código de entrega?",
+    transferBody: "Es lo esperado. Las transferencias bancarias tardan unos 5 días hábiles en llegar, y solo emitimos tu código cuando el dinero se ha acreditado de verdad. Te lo enviaremos por correo apenas ocurra. Hasta entonces, no coordines retirar el auto. Si pasaron más de 5 días hábiles, escríbenos y revisamos tu pago.",
+    transferLink: "Ver mis compras →",
     safetyLink: "Lee los consejos de seguridad para el encuentro →",
     compareLabel: "Comparar:",
     items: [
@@ -106,10 +112,11 @@ export default function FAQView({ onBack, onSafety, onNavigate }) {
   const { lang } = useLang();
   const t = COPY[lang] || COPY.en;
   // The three highest-stakes answers start expanded (who holds the money, what
-  // stops us taking it, why trust a company nobody has heard of) so a skimmer
+  // stops us taking it, why trust a company nobody has heard of) plus the bank-transfer
+  // handover-code answer (index 4), which paying visitors were clicking and collapsing so a skimmer
   // reads answers, not just the fears. Indexes match the item order in both
   // languages. Any item can still be collapsed or opened.
-  const [open, setOpen] = useState(() => new Set([0, 1, 9]));
+  const [open, setOpen] = useState(() => new Set([0, 1, 4, 9]));
   const toggle = (i) =>
     setOpen((prev) => {
       const next = new Set(prev);
@@ -150,6 +157,19 @@ export default function FAQView({ onBack, onSafety, onNavigate }) {
 
         <h1 style={S.title}>{t.title}</h1>
         <p style={S.lede}>{t.lede}</p>
+
+        <div style={S.transferBox} role="note">
+          <strong style={S.transferTitle}>{t.transferTitle}</strong>
+          <p style={S.transferBody}>
+            {t.transferBody}{" "}
+            <a href="mailto:support@drivelink.deals" style={S.link}>support@drivelink.deals</a>
+          </p>
+          {onNavigate && (
+            <button style={{ ...S.link, ...S.linkBtn, marginTop: 8 }} onClick={() => onNavigate("myPurchases")}>
+              {t.transferLink}
+            </button>
+          )}
+        </div>
 
         <div style={S.list}>
           {t.items.map((it, i) => {
@@ -229,7 +249,10 @@ const S = {
   backBtn: { background: "none", border: "1px solid #e5e7eb", padding: "8px 16px", borderRadius: 10, cursor: "pointer", fontSize: 14, fontWeight: 600, color: "#374151" },
   title: { fontSize: 36, fontWeight: 800, color: "#0f172a", letterSpacing: "-0.02em", marginBottom: 10 },
   lede: { fontSize: 15, color: "#6b7280", lineHeight: 1.7, marginBottom: 8, maxWidth: "56ch" },
-  list: { marginTop: 36, borderTop: "1px solid #e5e7eb" },
+  transferBox: { marginTop: 28, padding: "16px 20px", borderLeft: "3px solid #FFB020", background: "#fffbf2", borderRadius: "0 8px 8px 0" },
+  transferTitle: { display: "block", fontSize: 15, fontWeight: 700, color: "#0f172a", marginBottom: 6 },
+  transferBody: { margin: 0, fontSize: 15, color: "#1f2937", lineHeight: 1.65 },
+  list: { marginTop: 28, borderTop: "1px solid #e5e7eb" },
   item: { borderBottom: "1px solid #e5e7eb" },
   answer: { margin: 0, padding: "0 44px 22px 0", fontSize: 15, color: "#374151", lineHeight: 1.7 },
   answerFlag: { borderLeft: "3px solid #FFB020", paddingLeft: 16, background: "#fffbf2", paddingTop: 14, paddingBottom: 14, marginBottom: 22, borderRadius: "0 8px 8px 0", color: "#1f2937" },

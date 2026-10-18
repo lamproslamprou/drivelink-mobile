@@ -27,29 +27,29 @@ const COPY = {
     lede:
       "Somebody you're doing a deal with wants to use DriveLink. Here's exactly what that means for you, in plain terms.",
     back: "← Back",
-    trackTitle: "Where the money sits",
+    trackTitle: "When the seller gets paid",
     steps: [
       {
-        label: "Buyer pays into DriveLink",
-        detail: "The money leaves the buyer's account and lands with us.",
-        who: "Held by DriveLink",
+        label: "Buyer pays through DriveLink",
+        detail: "The payment is taken by Stripe, our payment processor.",
+        who: "Processed by Stripe",
       },
       {
-        label: "We hold it",
+        label: "Payout waits for the handover",
         detail:
-          "Neither of you can touch it. The seller can see it arrived. The buyer can't pull it back.",
-        who: "Held by DriveLink",
+          "The seller can see the payment arrived but isn't paid out yet. The buyer can't pull it back.",
+        who: "Seller not yet paid",
       },
       {
         label: "You meet and hand over the car",
         detail: "Keys, signed title, plates. Same as any private sale.",
-        who: "Held by DriveLink",
+        who: "Seller not yet paid",
       },
       {
         label: "Buyer gives the seller a 6-digit code",
         detail:
           "The buyer received it when they paid. Handing it over is how they confirm they got the car.",
-        who: "Held by DriveLink",
+        who: "Seller not yet paid",
       },
       {
         label: "Seller enters the code, funds release",
@@ -69,7 +69,7 @@ const COPY = {
       },
       {
         q: "What if the buyer pays and then wants their money back?",
-        a: "Once you've entered the code and funds have released, the deal is closed on our side. Before that point, a buyer can only cancel if the car hasn't changed hands. Card and bank payments carry their own dispute rules, which is why we hold funds for a minimum period before release rather than paying out instantly.",
+        a: "Once you've entered the code and funds have released, the deal is closed on our side. Before that point, a buyer can only cancel if the car hasn't changed hands. Card and bank payments carry their own dispute rules, which is why we wait a minimum period before paying the seller rather than paying out instantly.",
       },
       {
         q: "What if the car isn't what was described?",
@@ -85,7 +85,7 @@ const COPY = {
       },
       {
         q: "Who are you?",
-        a: "DriveLink LLC, a New Jersey company. We're an escrow layer for private car sales — not a dealer, not a broker. We don't own cars, don't take possession of them, and don't set prices. Our only job is holding the money until the handover is confirmed.",
+        a: "DriveLink LLC, a New Jersey company. We provide payment protection for private car sales — not a dealer, not a broker. We don't own cars, don't take possession of them, and don't set prices. The seller isn't paid out until the handover is confirmed.",
       },
     ],
     ctaTitle: "Ready to continue the deal?",

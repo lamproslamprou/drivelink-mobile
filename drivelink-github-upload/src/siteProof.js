@@ -54,7 +54,7 @@ export const THIRD_PARTY = [];
 export const HERO_SCREENSHOT = {
   src: "",
   alt: {
-    en: "DriveLink deal screen showing the buyer's payment held in escrow until the handover code is entered",
+    en: "DriveLink deal screen showing the buyer's payment protected until the handover code is entered",
     es: "Pantalla de un trato en DriveLink: el pago del comprador queda retenido hasta que se ingresa el código de entrega",
   },
 };

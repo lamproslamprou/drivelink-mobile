@@ -12,6 +12,7 @@
 // (so "user+2@gmail.com" and "u.ser@gmail.com" resolve to the same inbox),
 // the phone, and any Stripe account previously tied to a banned user.
 import { corsHeaders, jsonResponse, requireUser, stripeClient, supabaseAdmin } from "../_shared/helpers.ts";
+import { directChargesEnabled } from "../_shared/direct.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -67,8 +68,20 @@ Deno.serve(async (req) => {
         capabilities: {
           transfers: { requested: true },
           card_payments: { requested: true },
+          // Direct-charge mode takes bank debits on the seller's own account.
+          ...(directChargesEnabled() ? { us_bank_account_ach_payments: { requested: true } } : {}),
         },
         business_type: "individual",
+        // Direct-charge mode: the seller's balance is held until DriveLink
+        // triggers the payout (handover code). Existing accounts are brought
+        // to the same settings at their next checkout (ensureHoldingAccount).
+        ...(directChargesEnabled()
+          ? {
+            settings: {
+              payouts: { schedule: { interval: "manual" }, debit_negative_balances: true },
+            },
+          }
+          : {}),
       });
       accountId = account.id;
 

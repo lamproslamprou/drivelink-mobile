@@ -481,7 +481,16 @@ export async function sendCompletionEmails(
     transferId: string;
     /** Cents. The same value handed to Stripe — no conversion anywhere. */
     amountCents: number;
-    releasedVia: "handover_code" | "buyer_confirm" | "admin";
+    releasedVia: "handover_code" | "buyer_confirm" | "admin" | "admin_force_confirm";
+    /**
+     * The seller's Promoter code, minted by the caller at payout time.
+     *
+     * Optional on purpose. release-funds passes it; confirm-handover does not
+     * yet, and must keep compiling and sending unchanged until it does. When
+     * absent, the seller's email is byte-for-byte what it was before
+     * 2026-08-17.
+     */
+    promoterCode?: string | null;
   },
 ): Promise<{ ok: boolean; sent: string[]; errors: string[] }> {
   const sent: string[] = [];
@@ -525,7 +534,7 @@ export async function sendCompletionEmails(
       const html = alertHtml(
         "Your DriveLink purchase is complete",
         rows,
-        "The escrow on this sale has closed and the funds have been released to the seller. " +
+        "The payment hold on this sale has ended and the seller has been paid. " +
           "Nothing further is owed through DriveLink. Make sure you have the signed title, then " +
           "transfer it into your name and register the vehicle with your state motor vehicle " +
           "agency — there's a filing deadline, so don't sit on it. Keep this email for your records.",
@@ -543,13 +552,53 @@ export async function sendCompletionEmails(
 
     // ── Seller ───────────────────────────────────────────────────────────
     if (seller?.email) {
+      // The seller has just been paid for a car they sold to a stranger
+      // without either party trusting the other. This is the single most
+      // convinced person the platform will ever have, and until 2026-08-17
+      // the flow ended here and let them leave.
+      //
+      // The code is LIVE in this email, not a link to go and create one. A
+      // seller who has to click through to /promoter and press a button is a
+      // seller who doesn't. ensurePromoterCode is idempotent, so a repeat
+      // seller sees the same code every time — which matters, because they may
+      // already have printed it in an ad.
+      //
+      // Built by concatenation rather than through alertHtml: that function
+      // esc()s every value it is given, which would render the anchor tag as
+      // visible markup instead of a link.
+      const promoterBlock = opts.promoterCode
+        ? `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;
+                    margin:24px 0 0;padding:16px;border:1px solid #e2e8f0;border-radius:8px;background:#f8fafc;">
+             <p style="margin:0 0 8px;font-size:15px;font-weight:600;color:#0f172a;">
+               Know someone else selling a car?
+             </p>
+             <p style="margin:0 0 12px;font-size:14px;color:#334155;line-height:1.5;">
+               You now have a Promoter link. Anyone who opens it and completes a deal
+               through DriveLink earns you <b>1% of that sale price</b>. The 1% is added
+               to the deal — it doesn't come out of the buyer's or seller's pocket.
+               The link doesn't expire and isn't tied to any one car.
+             </p>
+             <p style="margin:0 0 4px;font-size:13px;color:#64748b;">Your link</p>
+             <p style="margin:0 0 12px;font-size:15px;">
+               <a href="https://drivelink.deals/p/${esc(opts.promoterCode)}"
+                  style="color:#1d4ed8;text-decoration:none;font-weight:600;">
+                 drivelink.deals/p/${esc(opts.promoterCode)}
+               </a>
+             </p>
+             <p style="margin:0;font-size:13px;color:#64748b;">
+               Track what you've earned at
+               <a href="https://drivelink.deals/promoter" style="color:#1d4ed8;">drivelink.deals/promoter</a>.
+             </p>
+           </div>`
+        : "";
+
       const html = alertHtml(
         "Your sale is complete — funds released",
         [...rows, ["Released to you", sellerAmount], ["Transfer ID", opts.transferId]],
         "Card payments take a few business days to settle before Stripe pays out to your bank — " +
           "expect it within about 5–7 business days. First payouts on a new account can take " +
           "longer. Make sure you've given the buyer the signed title.",
-      );
+      ) + promoterBlock;
       const ok = await sendEmail({
         to: seller.email,
         subject: `Sale complete — ${sellerAmount} released`,

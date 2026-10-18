@@ -77,9 +77,17 @@ function track(event, params) {
   }
 }
 
+// Remembers that this browser has signed in or signed up before. First-time
+// visitors land on "Create account" — the sign-in screen is also where every
+// gated link sends strangers (/sell, /my-listings, Message seller), and opening
+// on a Sign In form they have no account for reads as a dead end.
+const SEEN_KEY = "dl_seen_account";
+const hasSeenAccount = () => { try { return localStorage.getItem(SEEN_KEY) === "1"; } catch { return false; } };
+const markSeenAccount = () => { try { localStorage.setItem(SEEN_KEY, "1"); } catch { /* private mode */ } };
+
 export default function Auth({ onAuth }) {
   const { t } = useLang();
-  const [tab, setTab] = useState("signin");
+  const [tab, setTab] = useState(() => (hasSeenAccount() ? "signin" : "signup"));
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -104,6 +112,10 @@ export default function Auth({ onAuth }) {
       }
       setError(error.message); setLoading(false); return;
     }
+    markSeenAccount();
+    // HeyCatch had no sign-in event at all (only signup_completed and
+    // identity), so a "Signed in" funnel step could never be reached.
+    try { analytics.trackEvent("signed_in"); } catch { /* ignore */ }
     onAuth(data.user);
   };
 
@@ -128,6 +140,7 @@ export default function Auth({ onAuth }) {
     // confirmation), which is the outcome being counted.
     try { analytics.trackEvent("signup_completed"); } catch { /* ignore */ }
     setLoading(false);
+    markSeenAccount();
     if (data.session) {
       // Email confirmations are turned off in this Supabase project — the user is already signed in.
       onAuth(data.user);

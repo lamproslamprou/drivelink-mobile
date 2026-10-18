@@ -40,7 +40,7 @@ function buildCopy() {
         ["If the deal falls through", "$0. The buyer's money goes back and nobody is charged"],
         ["Card or bank processing", "Charged by Stripe, not by DriveLink. About 2.9% + $0.30 on cards. Bank transfer on purchases over $15,000 costs far less"],
         ["Deal size", "Up to $250,000. Above that, the deal is arranged manually"],
-        ["If something goes wrong", "The buyer can open a dispute. The money stays held until our team resolves it"],
+        ["If something goes wrong", "The buyer can open a dispute. The seller isn't paid until our team resolves it"],
       ],
       exTitle: "A worked example",
       exBody: [

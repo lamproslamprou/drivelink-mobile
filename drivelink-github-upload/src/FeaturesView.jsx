@@ -15,11 +15,11 @@ const COPY = {
   en: {
     back: "← Back to DriveLink",
     title: "What DriveLink does",
-    lede: "DriveLink holds the buyer's money while you hand over a privately sold car. These are the parts, in the order a deal uses them.",
+    lede: "DriveLink protects the buyer's payment while you hand over a privately sold car. These are the parts, in the order a deal uses them.",
     sections: [
       {
         id: "escrow",
-        h: "Escrow",
+        h: "Protected payment",
         p: [
           "The buyer pays through DriveLink and the money is held on a Stripe balance, not in a DriveLink bank account. The seller is not paid yet.",
           "Deals can be up to $250,000. Above that, the deal is arranged manually.",
@@ -52,7 +52,7 @@ const COPY = {
         id: "disputes",
         h: "Disputes",
         p: [
-          "If the car is not as described, the buyer does not give the code. If something goes wrong, the buyer can open a dispute and the money stays held until our team resolves it.",
+          "If the car is not as described, the buyer does not give the code. If something goes wrong, the buyer can open a dispute and the seller isn't paid until our team resolves it.",
         ],
         link: { href: "/faq", label: "How your money is protected", view: "faq" },
       },
@@ -67,7 +67,7 @@ const COPY = {
     sections: [
       {
         id: "escrow",
-        h: "Depósito en garantía",
+        h: "Pago protegido",
         p: [
           "El comprador paga a través de DriveLink y el dinero queda en un saldo de Stripe, no en una cuenta bancaria de DriveLink. Al vendedor todavía no se le paga.",
           "Los tratos pueden ser de hasta $250,000. Por encima de eso, el trato se arregla manualmente.",

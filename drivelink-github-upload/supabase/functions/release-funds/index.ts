@@ -46,6 +46,25 @@
 // before — the money would simply have sat there while everyone waited on a
 // job that no longer transfers. Fail closed: if the risk check itself errors,
 // hold the funds rather than pay out blind.
+//
+// ── PROMOTER CODE AT PAYOUT (added 2026-08-17) ──────────────────────────────
+// After the transfer succeeds, the seller is minted a Promoter code and it
+// ships inside the completion email they already receive. This is the referral
+// loop: the person who just got paid safely by a stranger is the most
+// convinced user the platform will ever have, and before this the flow simply
+// let them walk away.
+//
+// Three properties this must hold:
+//   1. It runs AFTER the transfer, never before. Minting is not a precondition
+//      for paying someone.
+//   2. ensurePromoterCode never throws and returns { code: null } on failure.
+//      A promoter-table problem must not surface as an error on a sale that
+//      completed and moved real money.
+//   3. It is idempotent. A repeat seller gets the same code every time, which
+//      matters because they may already have printed it in a listing.
+//
+// If minting fails, promoterCode is null, sendCompletionEmails omits the block
+// entirely, and the seller gets exactly the email they got before this change.
 import {
   corsHeaders,
   jsonResponse,
@@ -58,6 +77,8 @@ import {
   money,
   sendCompletionEmails,
 } from "../_shared/helpers.ts";
+import { ensurePromoterCode } from "../_shared/promoter.ts";
+import { completeDirectRelease } from "../_shared/direct.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -72,7 +93,7 @@ Deno.serve(async (req) => {
     const { data: listing, error: listingErr } = await supabase
       .from("listings")
       .select(
-        "id, seller_id, buyer_id, status, funds_released, seller_net, sale_price, referral_code, stripe_payment_intent_id, release_not_before, make, model, year",
+        "id, seller_id, buyer_id, status, funds_released, seller_net, sale_price, referral_code, stripe_payment_intent_id, release_not_before, make, model, year, charge_mode, charge_account_id, stripe_dispute_id",
       )
       .eq("id", listing_id)
       .single();
@@ -204,6 +225,54 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ── Open chargeback hold ────────────────────────────────────────────────
+    // A card dispute or returned bank debit on this sale means the buyer's bank
+    // is already pulling the money back. Paying the seller out now would send
+    // out money that is being reversed. Fail closed; an admin clears the field
+    // once the dispute is resolved.
+    if (listing.stripe_dispute_id) {
+      await notifyAdminSync({
+        subject: `⚠️ Release HELD — open chargeback on ${carLabel}`,
+        html: alertHtml("Release blocked by an open payment dispute", [
+          ["Vehicle", carLabel],
+          ["Listing ID", listing.id],
+          ["Dispute", listing.stripe_dispute_id],
+        ], "No payout was made. Resolve the dispute in Stripe, then clear listings.stripe_dispute_id."),
+      });
+      return jsonResponse({
+        heldForReview: true,
+        message: "Your confirmation is recorded. This payment is under a bank review, so the seller can't be paid yet.",
+      });
+    }
+
+    // ── Direct-charge sales: pay out of the seller's own balance ────────────
+    if (listing.charge_mode === "direct") {
+      const result = await completeDirectRelease(
+        supabase,
+        stripe,
+        listing,
+        callerIsAdmin ? "admin_force_confirm" : "buyer_confirm",
+      );
+      if (result.released) {
+        return jsonResponse({
+          released: true,
+          notified: result.notified,
+          transferred: result.amountCents / 100,
+          transferredCents: result.amountCents,
+          transferId: result.payoutId,
+          referral: result.referral,
+          promoterCode: result.promoterCode,
+          promoterCodeMinted: Boolean(result.promoterCode),
+        });
+      }
+      return jsonResponse({
+        heldForSettlement: result.pending,
+        message: result.pending
+          ? "Your confirmation is recorded. The payment is still settling, and the seller is paid automatically as soon as it clears."
+          : "Your confirmation is recorded. The payout needs a quick manual check; support has been notified.",
+      });
+    }
+
     const { data: seller, error: sellerErr } = await supabase
       .from("users")
       .select("id, stripe_account_id")
@@ -262,6 +331,30 @@ Deno.serve(async (req) => {
     // already been paid by the time it runs.
     const referral = await settleReferral(supabase, listing);
 
+    // ── Mint the seller's Promoter code ─────────────────────────────────────
+    // Everything below this line is post-payout. The money has already moved
+    // and cannot be unmoved, so nothing here is allowed to fail the request.
+    //
+    // ensurePromoterCode swallows its own errors and returns { code: null }.
+    // A null code simply means the email renders without the referral block —
+    // the seller still gets their receipt, and they can mint the code
+    // themselves at /promoter as before.
+    let promoterCode: string | null = null;
+    if (listing.seller_id) {
+      const minted = await ensurePromoterCode(supabase, String(listing.seller_id));
+      promoterCode = minted.code;
+      if (!minted.code) {
+        console.error(
+          "promoter mint failed at payout — listing:",
+          listing.id,
+          "seller:",
+          listing.seller_id,
+          "reason:",
+          minted.error,
+        );
+      }
+    }
+
     // Tells the two people in the transaction that it completed. Never throws:
     // by this point the transfer is irreversible, and reporting an email
     // failure to the caller would show an error for a sale that succeeded.
@@ -269,6 +362,7 @@ Deno.serve(async (req) => {
       transferId: transfer.id,
       amountCents: sellerNetCents,
       releasedVia: callerIsAdmin ? "admin_force_confirm" : "buyer_confirm",
+      promoterCode,
     });
 
     return jsonResponse({
@@ -279,6 +373,8 @@ Deno.serve(async (req) => {
       transferId: transfer.id,
       sourceTransaction,
       referral: referral.outcome,
+      promoterCode,
+      promoterCodeMinted: Boolean(promoterCode),
     });
   } catch (err) {
     console.error("release-funds error:", err);

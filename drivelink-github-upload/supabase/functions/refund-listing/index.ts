@@ -36,7 +36,7 @@ Deno.serve(async (req) => {
 
     const { data: listing, error: listingErr } = await supabase
       .from("listings")
-      .select("id, funds_released, stripe_payment_intent_id")
+      .select("id, funds_released, stripe_payment_intent_id, charge_mode, charge_account_id")
       .eq("id", dispute.listing_id)
       .single();
     if (listingErr || !listing) throw new Error("Listing not found");
@@ -45,9 +45,19 @@ Deno.serve(async (req) => {
     }
     if (!listing.stripe_payment_intent_id) throw new Error("No real Stripe payment found for this listing — was it a manual/off-platform sale?");
 
-    const refund = await stripe.refunds.create({
-      payment_intent: listing.stripe_payment_intent_id,
-    });
+    // Direct-charge sales: the money is in the seller's own balance, so the
+    // refund is created on their account, and refund_application_fee hands
+    // DriveLink's fee (and the Promoter slice) back to the buyer too. The
+    // refund is funded by the seller's balance, which still holds the sale
+    // because payouts stay locked until release.
+    const refund = listing.charge_mode === "direct" && listing.charge_account_id
+      ? await stripe.refunds.create(
+        { payment_intent: listing.stripe_payment_intent_id, refund_application_fee: true },
+        { stripeAccount: listing.charge_account_id },
+      )
+      : await stripe.refunds.create({
+        payment_intent: listing.stripe_payment_intent_id,
+      });
 
     await supabase
       .from("disputes")
@@ -56,7 +66,7 @@ Deno.serve(async (req) => {
 
     await supabase
       .from("listings")
-      .update({ status: "active", sale_price: null, buyer_id: null, sold_at: null, stripe_payment_intent_id: null, stripe_checkout_session_id: null })
+      .update({ status: "active", sale_price: null, buyer_id: null, sold_at: null, stripe_payment_intent_id: null, stripe_checkout_session_id: null, charge_mode: "platform", charge_account_id: null, payout_status: "n/a", stripe_dispute_id: null })
       .eq("id", listing.id);
 
     return jsonResponse({ refunded: true, refundId: refund.id });
