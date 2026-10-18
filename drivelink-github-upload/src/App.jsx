@@ -747,6 +747,14 @@ export default function App() {
     if (currentUser) loadDbUser(currentUser);
   }, [users]);
 
+  // Mark this browser as internal once an admin signs in, so HeyCatch's
+  // beforeSend (main.jsx) stops counting it as a customer visitor.
+  useEffect(() => {
+    if (dbUser?.role === "admin") {
+      try { localStorage.setItem("dl_internal", "1"); } catch { /* private mode */ }
+    }
+  }, [dbUser]);
+
   // ── Scroll to top on every view change. Without this, navigating between
   // views (e.g. clicking "Browse Cars" from partway down the Landing page)
   // preserves whatever scroll position you were at, so you land in the

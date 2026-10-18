@@ -85,7 +85,16 @@ export function StartDealView({ currentUser, promoterCode, onBack, onNavigate, s
     return () => { cancelled = true; };
   }, []);
 
-  const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
+  // "Started deal" funnel step: fires once, the first time the visitor types
+  // into the form, so it measures intent rather than just opening the page.
+  const startedTracked = useRef(false);
+  const trackStarted = () => {
+    if (startedTracked.current) return;
+    startedTracked.current = true;
+    try { analytics.trackEvent("deal_started", { role }); } catch { /* ignore */ }
+  };
+
+  const set = (k) => (e) => { trackStarted(); setForm((f) => ({ ...f, [k]: e.target.value })); };
 
   async function decodeVin() {
     const vin = form.vin.trim().toUpperCase();
