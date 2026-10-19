@@ -52,7 +52,7 @@ function pages() {
         "Bring Your Own Deal: start a protected payment on a car listed anywhere else.",
         "Buyers pay nothing beyond the price of the car.",
       ],
-      closing: "PrivateAuto says it does not handle funds itself; its page says funds are held in custody by US Alliance Financial. DriveLink's funds are held in a Stripe balance and released only when the buyer's code is entered.",
+      closing: "PrivateAuto says it does not handle funds itself; its page says funds are held in custody by US Alliance Financial. With DriveLink, the payment is processed by Stripe, held on DriveLink's Stripe balance, and released only when the buyer's code is entered.",
     },
     vsKeySavvy: {
       name: "KeySavvy",

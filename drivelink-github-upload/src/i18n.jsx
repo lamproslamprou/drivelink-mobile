@@ -556,7 +556,7 @@ const dict = {
     "lp.ctaByod": "\u00bfYa encontraste un carro? \u2192",
     "lp.ctaBrowse": "Ver carros",
     "lp.ctaList": "Publicar mi carro",
-    "lp.trustStripe": "\ud83d\udd12 Fondos retenidos por Stripe",
+    "lp.trustStripe": "\ud83d\udd12 Pagos procesados por Stripe",
     "lp.trustId": "\ud83e\udeaa Verificaci\u00f3n de identidad disponible",
     "lp.trustNoFee": "\u2705 Sin cargo si el trato no se concreta",
     "lp.promo.banner": "\ud83c\udf89 Oferta de agradecimiento de octubre: nuestra comisi\u00f3n baja a **la mitad \u2014 solo 0.5%** \u2014 en cada trato pagado hasta el 31 de octubre.",

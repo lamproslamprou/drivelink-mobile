@@ -61,7 +61,7 @@ const COPY = {
     faqs: [
       {
         q: "Who has my money right now?",
-        a: "DriveLink does, in an account separate from our operating funds. Payments are processed by Stripe, the same company that handles checkout for Amazon, Shopify and Instacart. We can't spend it, and neither party can withdraw it while the deal is open.",
+        a: "DriveLink does, on its Stripe account. Payments are processed by Stripe, the same company that handles checkout for Amazon, Shopify and Instacart. The seller isn't paid until the handover is confirmed, and neither party can withdraw the money while the deal is open.",
       },
       {
         q: "When do I actually get paid?",
@@ -134,7 +134,7 @@ const COPY = {
     faqs: [
       {
         q: "¿Quién tiene mi dinero ahora mismo?",
-        a: "DriveLink, en una cuenta separada de nuestros fondos operativos. Los pagos se procesan con Stripe, la misma empresa que maneja los pagos de Amazon, Shopify e Instacart. Nosotros no podemos gastarlo y ninguna de las partes puede retirarlo mientras el trato esté abierto.",
+        a: "DriveLink, en su cuenta de Stripe. Los pagos se procesan con Stripe, la misma empresa que maneja los pagos de Amazon, Shopify e Instacart. Al vendedor no se le paga hasta que se confirma la entrega, y ninguna de las partes puede retirar el dinero mientras el trato esté abierto.",
       },
       {
         q: "¿Cuándo me pagan realmente?",
