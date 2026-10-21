@@ -1,10 +1,14 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "./supabase.js";
 import { useLang, Rich, LangToggle } from "./i18n.jsx";
 import logoFull from "./assets/logo-full.png";
 import { analytics } from "@heycatch/sdk";
 
 const styles = {
+  googleBtn: { width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, padding: "12px 16px", background: "#fff", color: "#1f2937", border: "1.5px solid #d1d5db", borderRadius: 12, fontSize: 15, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", minHeight: 44, marginBottom: 14 },
+  orRow: { display: "flex", alignItems: "center", gap: 10, margin: "2px 0 16px" },
+  orLine: { flex: 1, height: 1, background: "#e5e7eb" },
+  orText: { fontSize: 12, color: "#6b7280", fontWeight: 600 },
   overlay: { minHeight: "100vh", background: "#f8fafc", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Inter', system-ui, sans-serif", padding: 20, boxSizing: "border-box" },
   card: { background: "#fff", borderRadius: 20, padding: 32, width: "100%", maxWidth: 440, boxShadow: "0 8px 40px rgba(0,0,0,.1)", boxSizing: "border-box" },
   logo: { textAlign: "center", marginBottom: 28 },
@@ -85,7 +89,31 @@ const SEEN_KEY = "dl_seen_account";
 const hasSeenAccount = () => { try { return localStorage.getItem(SEEN_KEY) === "1"; } catch { return false; } };
 const markSeenAccount = () => { try { localStorage.setItem(SEEN_KEY, "1"); } catch { /* private mode */ } };
 
-export default function Auth({ onAuth }) {
+// Google sign-in is turned on in the Supabase dashboard, not in code. Ask the
+// project which providers are enabled and show the button only if Google is
+// one of them, so the button can ship before the dashboard is configured and
+// never leads anyone to a "provider is not enabled" error.
+function useGoogleEnabled() {
+  const [on, setOn] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    fetch(`${supabase.supabaseUrl}/auth/v1/settings`, { headers: { apikey: supabase.supabaseKey } })
+      .then((r) => r.json())
+      .then((j) => { if (alive) setOn(!!j?.external?.google); })
+      .catch(() => { /* leave the button hidden */ });
+    return () => { alive = false; };
+  }, []);
+  return on;
+}
+
+// Where to send the visitor once they are signed in, when the trip leaves the
+// page (Google, or the confirmation email opened in a new tab). App.jsx reads
+// and clears it.
+export const RETURN_VIEW_KEY = "dl_post_auth_view";
+const rememberReturnView = (v) => { try { if (v && v !== "auth") localStorage.setItem(RETURN_VIEW_KEY, v); } catch { /* private mode */ } };
+
+export default function Auth({ onAuth, returnView }) {
+  const googleOn = useGoogleEnabled();
   const { t } = useLang();
   const [tab, setTab] = useState(() => (hasSeenAccount() ? "signin" : "signup"));
   const [name, setName] = useState("");
@@ -119,6 +147,17 @@ export default function Auth({ onAuth }) {
     onAuth(data.user);
   };
 
+  const handleGoogle = async () => {
+    setError(""); setLoading(true);
+    rememberReturnView(returnView);
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: window.location.origin },
+    });
+    if (error) { setError(error.message); setLoading(false); }
+    // On success the browser is already leaving for Google.
+  };
+
   const handleSignUp = async () => {
     setError(""); setLoading(true);
     const nameErrorKey = validateDisplayName(name);
@@ -135,6 +174,7 @@ export default function Auth({ onAuth }) {
     // Fired before the session branch so both outcomes count as one signup:
     // an immediate session, and the confirm-your-email path. The account row
     // exists either way, which is what the conversion is measuring.
+    rememberReturnView(returnView);
     track("sign_up", { method: "email" });
     // HeyCatch: the account exists either way (session now, or after email
     // confirmation), which is the outcome being counted.
@@ -263,6 +303,21 @@ export default function Auth({ onAuth }) {
 
         {error && <div style={styles.error}>{error}</div>}
         {success && <div style={styles.success}>{success}</div>}
+
+        {googleOn && (
+          <>
+            <button style={{ ...styles.googleBtn, opacity: loading ? 0.6 : 1 }} onClick={handleGoogle} disabled={loading}>
+              <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true" style={{ flex: "none" }}>
+                <path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.9 6.1C12.4 13.5 17.7 9.5 24 9.5z"/>
+                <path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 3-2.3 5.5-4.8 7.2l7.5 5.8c4.4-4.1 7.1-10.1 7.1-17.5z"/>
+                <path fill="#FBBC05" d="M10.5 28.7A14.5 14.5 0 0 1 9.5 24c0-1.6.3-3.2.8-4.7l-7.9-6.1A24 24 0 0 0 0 24c0 3.9.9 7.5 2.6 10.8l7.9-6.1z"/>
+                <path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.5-5.8c-2.1 1.4-4.8 2.3-8.4 2.3-6.3 0-11.6-4-13.5-9.8l-7.9 6.1C6.5 42.6 14.6 48 24 48z"/>
+              </svg>
+              {t("auth.google")}
+            </button>
+            <div style={styles.orRow}><span style={styles.orLine} /><span style={styles.orText}>{t("auth.or")}</span><span style={styles.orLine} /></div>
+          </>
+        )}
 
         {tab === "signup" && (
           <>

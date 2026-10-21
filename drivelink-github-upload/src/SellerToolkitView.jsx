@@ -3,6 +3,7 @@ import { supabase } from "./supabase";
 import { useLang, LangToggle } from "./i18n.jsx";
 import { analytics } from "@heycatch/sdk";
 import qrcode from "qrcode-generator";
+import { PAYMENTS_OPEN } from "./flags.js";
 
 /*
   SellerToolkitView — free tool at /seller-toolkit.
@@ -28,6 +29,7 @@ const COPY = {
     eyebrow: "FREE FOR PRIVATE SELLERS",
     title: "Sell your car privately, without the guesswork.",
     lede: "Enter your VIN. We write the ad and give you a link that lets buyers pay safely. Post it anywhere you already list.",
+    ledePaused: "Enter your VIN. We look up your car, write a ready-to-post ad and give you a checklist for a smooth private sale. Free.",
     vinLabel: "Vehicle Identification Number (VIN)",
     vinHelp: "It's on the driver-side dashboard, the door jamb sticker, and your registration. We only use it to look up your car's specs.",
     build: "Build my kit",
@@ -69,6 +71,12 @@ const COPY = {
     needPrice: "Add your price and mileage above first.",
     fee: "Fee: charged to the seller when a deal closes. See pricing.",
     escrowInfo: "How protected payment works →",
+    gateTitle: "Your ad is one step away",
+    gateBody: "Create a free account to get your ready-to-post ad. Your details are saved, so you'll come straight back to this page.",
+    gateBtn: "Create a free account",
+    gateSignIn: "Already have an account? Sign in",
+    soonTitle: "Protected-payment links are paused for now",
+    soonBody: "We're rebuilding how payments work, so buyers can't pay through DriveLink yet. Your ad above is ready to post without a payment link, and we'll tell you the moment links are back.",
     ad: {
       sale: "for sale", miles: "miles", asking: "Asking", located: "Located in",
       escrow: "Pay safely through DriveLink: the seller isn't paid until you have the car and the signed title.", pay: "Pay here:",
@@ -81,6 +89,7 @@ const COPY = {
     eyebrow: "GRATIS PARA VENDEDORES PARTICULARES",
     title: "Vende tu auto por tu cuenta, sin adivinar.",
     lede: "Ingresa tu VIN. Escribimos el anuncio y te damos un enlace para que los compradores paguen con seguridad. Publícalo donde ya vendes.",
+    ledePaused: "Ingresa tu VIN. Buscamos tu auto, escribimos un anuncio listo para publicar y te damos una lista para una venta tranquila. Gratis.",
     vinLabel: "Número de identificación del vehículo (VIN)",
     vinHelp: "Está en el tablero del lado del conductor, en la etiqueta de la puerta y en tu registro. Solo lo usamos para buscar las especificaciones.",
     build: "Crear mi kit",
@@ -122,6 +131,12 @@ const COPY = {
     needPrice: "Primero agrega tu precio y millas arriba.",
     fee: "Tarifa: se cobra al vendedor cuando se cierra el trato. Ver precios.",
     escrowInfo: "Cómo funciona el pago protegido →",
+    gateTitle: "Tu anuncio está a un paso",
+    gateBody: "Crea una cuenta gratis para obtener tu anuncio listo para publicar. Guardamos tus datos, así que volverás directo a esta página.",
+    gateBtn: "Crear una cuenta gratis",
+    gateSignIn: "¿Ya tienes cuenta? Inicia sesión",
+    soonTitle: "Los enlaces de pago protegido están en pausa",
+    soonBody: "Estamos rehaciendo cómo funcionan los pagos, así que por ahora los compradores no pueden pagar con DriveLink. Tu anuncio de arriba está listo para publicar sin enlace de pago, y te avisaremos en cuanto regresen los enlaces.",
     ad: {
       sale: "en venta", miles: "millas", asking: "Precio", located: "Ubicado en",
       escrow: "Paga seguro con DriveLink: al vendedor no se le paga hasta que tengas el auto y el título firmado.", pay: "Paga aquí:",
@@ -135,10 +150,10 @@ const titleCase = (s) => (s || "").toLowerCase().replace(/\b\w/g, (c) => c.toUpp
 const fmtNum = (n) => Number(n).toLocaleString("en-US");
 
 function loadDraft() {
-  try { return JSON.parse(sessionStorage.getItem(DRAFT_KEY) || "null"); } catch { return null; }
+  try { return JSON.parse(localStorage.getItem(DRAFT_KEY) || "null"); } catch { return null; }
 }
 function saveDraft(d) {
-  try { sessionStorage.setItem(DRAFT_KEY, JSON.stringify(d)); } catch { /* private mode */ }
+  try { localStorage.setItem(DRAFT_KEY, JSON.stringify(d)); } catch { /* private mode */ }
 }
 
 export default function SellerToolkitView({ currentUser, onBack, onSignIn, onNavigate, showToast }) {
@@ -167,8 +182,8 @@ export default function SellerToolkitView({ currentUser, onBack, onSignIn, onNav
       ? "Kit gratis para vender tu auto | DriveLink"
       : "Free Toolkit to Sell Your Car Privately | DriveLink";
     const desc = lang === "es"
-      ? "Ingresa tu VIN y obtén un anuncio listo para publicar y un enlace de pago protegido para el comprador."
-      : "Enter your VIN and get a ready-to-post ad and a protected-payment link for your private car sale. Free for sellers.";
+      ? (PAYMENTS_OPEN ? "Ingresa tu VIN y obtén un anuncio listo para publicar y un enlace de pago protegido para el comprador." : "Ingresa tu VIN y obtén un anuncio listo para publicar y una lista para vender tu auto por tu cuenta. Gratis.")
+      : (PAYMENTS_OPEN ? "Enter your VIN and get a ready-to-post ad and a protected-payment link for your private car sale. Free for sellers." : "Enter your VIN and get a ready-to-post ad and a checklist for your private car sale. Free for sellers.");
     let meta = document.querySelector('meta[name="description"]');
     const prevDesc = meta?.getAttribute("content") ?? null;
     const created = !meta;
@@ -224,10 +239,10 @@ export default function SellerToolkitView({ currentUser, onBack, onSignIn, onNav
     lines.push(`${fmtNum(info.mileage)} ${t.ad.miles}${info.town ? ` | ${t.ad.located} ${info.town}` : ""}`);
     if (info.condition.trim()) lines.push("", info.condition.trim());
     if (vin.trim().length === 17) lines.push("", `${t.ad.vin}: ${vin.trim().toUpperCase()}`);
-    lines.push("", dealUrl ? `${t.ad.escrow} ${t.ad.pay} ${dealUrl}` : t.ad.escrow);
+    if (PAYMENTS_OPEN) lines.push("", dealUrl ? `${t.ad.escrow} ${t.ad.pay} ${dealUrl}` : t.ad.escrow);
     lines.push("", t.ad.contact);
     return lines.join("\n");
-  }, [car, info, vin, dealUrl, detailsDone, lang]);
+  }, [car, info, vin, dealUrl, detailsDone, lang, PAYMENTS_OPEN]);
 
   async function copy(which, text) {
     try {
@@ -285,7 +300,7 @@ export default function SellerToolkitView({ currentUser, onBack, onSignIn, onNav
 
         <div style={S.pill}>{t.eyebrow}</div>
         <h1 style={S.title}>{t.title}</h1>
-        <p style={S.lede}>{t.lede}</p>
+        <p style={S.lede}>{PAYMENTS_OPEN ? t.lede : t.ledePaused}</p>
 
         <form style={S.card} onSubmit={lookup}>
           <label htmlFor="tk-vin" style={S.label}>{t.vinLabel}</label>
@@ -327,6 +342,14 @@ export default function SellerToolkitView({ currentUser, onBack, onSignIn, onNav
               <textarea style={{ ...S.input, minHeight: 90, resize: "vertical" }} value={info.condition} onChange={setInfoField("condition")} placeholder={t.conditionPh} />
             </div>
 
+            {!currentUser ? (
+              <div style={{ ...S.card, background: "#eff6ff", borderColor: "#bfdbfe" }}>
+                <div style={S.h2}>{t.gateTitle}</div>
+                <p style={S.p}>{t.gateBody}</p>
+                <button style={S.primary} onClick={onSignIn}>{t.gateBtn}</button>
+                <div style={S.help}><button style={S.linkBtn} onClick={onSignIn}>{t.gateSignIn}</button></div>
+              </div>
+            ) : (
             <div style={S.card}>
               <div style={S.h2}>{t.adTitle}</div>
               <div style={S.help}>{t.adHelp}</div>
@@ -344,12 +367,22 @@ export default function SellerToolkitView({ currentUser, onBack, onSignIn, onNav
               )}
             </div>
 
+            )}
+
             <div style={S.card}>
               <div style={S.h2}>{t.checklist}</div>
               <ul style={S.ul}>{t.checks.map((c) => <li key={c} style={S.li}>{c}</li>)}</ul>
               <button style={S.linkBtn} onClick={() => onNavigate?.("lienPayoffNJ")}>{t.lienLink}</button>
             </div>
 
+            {currentUser && !PAYMENTS_OPEN && (
+              <div style={{ ...S.card, background: "#fffbeb", borderColor: "#fde68a" }}>
+                <div style={S.h2}>{t.soonTitle}</div>
+                <p style={S.p}>{t.soonBody}</p>
+              </div>
+            )}
+
+            {currentUser && PAYMENTS_OPEN && (
             <div style={{ ...S.card, background: "#f0fdf4", borderColor: "#bbf7d0" }}>
               <div style={S.h2}>{t.linkTitle}</div>
               <p style={S.p}>{t.linkBody}</p>
@@ -390,6 +423,7 @@ export default function SellerToolkitView({ currentUser, onBack, onSignIn, onNav
                 {" "}<button style={S.linkBtn} onClick={() => onNavigate?.("pricing")}>{t.fee}</button>
               </div>
             </div>
+            )}
           </>
         )}
       </div>

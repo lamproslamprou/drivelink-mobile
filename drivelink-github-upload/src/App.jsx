@@ -743,6 +743,8 @@ export default function App() {
       if (localStorage.getItem(key)) return;
       localStorage.setItem(key, "1");
       window.gtag("event", "sign_up", { method: user.app_metadata?.provider || "email" });
+      // Email sign-ups report signup_completed from Auth.jsx; Google ones never pass through it.
+      if ((user.app_metadata?.provider || "email") !== "email") { try { analytics.trackEvent("signup_completed"); } catch { /* ignore */ } }
     } catch { /* analytics must never break sign-in */ }
   };
 
@@ -751,7 +753,17 @@ export default function App() {
       setCurrentUser(session?.user ?? null);
       loadDbUser(session?.user ?? null);
       setAuthChecked(true);
-      if (session?.user) { identifyAnalytics(session.user); trackSignupConversion(session.user); promotePendingName(session.user); }
+      if (session?.user) {
+        identifyAnalytics(session.user); trackSignupConversion(session.user); promotePendingName(session.user);
+        // Back from Google or from the confirmation email: continue where they were headed.
+        try {
+          const ret = localStorage.getItem("dl_post_auth_view");
+          if (ret) {
+            localStorage.removeItem("dl_post_auth_view");
+            if (VIEW_PATHS[ret] && ret !== "auth") { setView(ret); navigate(VIEW_PATHS[ret], { replace: true }); }
+          }
+        } catch { /* private mode */ }
+      }
     });
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setCurrentUser(session?.user ?? null);
@@ -2126,12 +2138,12 @@ const denyInspector = async (id) => {
       </div>
     );
   }
-  if (!currentUser && view === "auth") return <Auth onAuth={completeSignIn} />;
+  if (!currentUser && view === "auth") return <Auth onAuth={completeSignIn} returnView={pendingView} />;
 
   if (!currentUser && !PUBLIC_VIEWS.has(view)) return (
     // Belt and braces: the effect above normally converts this case to the
     // sign-in screen before render. This catches the frame in between.
-    <Auth onAuth={completeSignIn} />
+    <Auth onAuth={completeSignIn} returnView={pendingView} />
   );
 
   return (

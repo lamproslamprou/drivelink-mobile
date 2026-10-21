@@ -158,6 +158,8 @@ const dict = {
 
     // ── Auth ─────────────────────────────────────────────────────────────
     "auth.signin": "Sign In",
+    "auth.google": "Continue with Google",
+    "auth.or": "or use your email",
     "auth.createAccount": "Create Account",
     "auth.createAccountCta": "Create Account — It's Free",
     "auth.yourName": "Your Name",
@@ -444,6 +446,8 @@ const dict = {
 
 
     "auth.signin": "Iniciar sesión",
+    "auth.google": "Continuar con Google",
+    "auth.or": "o usa tu correo",
     "auth.createAccount": "Crear cuenta",
     "auth.createAccountCta": "Crear cuenta — es gratis",
     "auth.yourName": "Tu nombre",
