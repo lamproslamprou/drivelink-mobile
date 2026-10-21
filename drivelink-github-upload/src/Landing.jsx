@@ -778,7 +778,7 @@ const css = `
     .dl-nav-right button, .dl-nav-right a { min-height: 44px; }
     .dl-trust-strip button { min-height: 44px; padding: 0 4px !important; }
     .dl-trust-callout button { min-height: 44px; }
-    .dl-footer-col button, .dl-footer-col a, .dl-footer-contact a { min-height: 44px; display: inline-flex !important; align-items: center; }
+    .dl-footer-col button, .dl-footer-col a, .dl-footer-contact a { min-height: 36px; display: inline-flex !important; align-items: center; }
     .dl-cards button { min-height: 44px; }
     .dl-section button { min-height: 44px; }
     /* Footer on phones: grouped links in a two-up grid (Compare spans full
