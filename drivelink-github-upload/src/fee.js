@@ -7,7 +7,7 @@
 // If you change a date or rate here, change it there too.
 //
 // October 2026 thank-you promo: DriveLink's own fee is halved (1% -> 0.5%).
-// The Promoter's 1% is NOT part of this and is never touched by the promo.
+// Promoters are paid a flat bounty by DriveLink; there is no Promoter percentage.
 //
 // The promo window is date-gated, so the fee reverts to 1% on its own at
 // midnight Eastern on Nov 1 2026 — no deploy needed. (EDT is UTC-4 until
@@ -34,7 +34,7 @@ export function platformFeeLabel(now = new Date()) {
   return promoActive(now) ? "0.5%" : "1%";
 }
 
-// Platform fee + the Promoter's 1% (unchanged by the promo): "1.5%" or "2%".
+// Kept for callers that used the old platform-fee-plus-Promoter label.
 export function maxFeeLabel(now = new Date()) {
   return platformFeeLabel(now); // no Promoter add-on any more
 }

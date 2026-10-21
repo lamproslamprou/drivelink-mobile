@@ -25,9 +25,23 @@
 // credits a balance. The balance credit itself goes through
 // increment_user_balance(), which adds under a row lock instead of the old
 // read-then-write that could lose a concurrent credit entirely.
-import { corsHeaders, jsonResponse, requireUser, supabaseAdmin } from "../_shared/helpers.ts";
+//
+// ── ATTRIBUTION (fixed 2026-09-19) ──────────────────────────────────────────
+// A marketplace referral row (share_code set) only means a Promoter SHARED the
+// car. It is not evidence the buyer came through them. Until 2026-09-19 this
+// function paid the sole pending referral on a listing whenever
+// listings.referral_code was empty — so an admin marking a car sold off-platform
+// paid a Promoter whose link the buyer never used (Cadence / Mustang
+// l1782940413026, reversed by hand). Now:
+//   - share_code rows pay ONLY when listings.referral_code matches them;
+//   - share_code NULL rows (BYOD — written by create-deal only when a buyer
+//     actually arrived via a code) keep the single-candidate fallback.
+import { corsHeaders, jsonResponse, requireUser, supabaseAdmin, todayET } from "../_shared/helpers.ts";
 
-const PROMOTER_FEE = 0.01; // 1% promoter commission
+// Promoters are paid a flat bounty (promoter_bounties), never a percentage of a
+// sale. Kept as a constant so the commission below resolves to 0 and these
+// rows settle without crediting anything.
+const PROMOTER_FEE = 0;
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -73,14 +87,6 @@ Deno.serve(async (req) => {
     }
 
     // ── The one write that decides who wins ─────────────────────────────────
-    // The confirmed_at check above is a fast path, not a lock: two requests can
-    // both read null before either writes. This update is the real gate. It is
-    // conditional on confirmed_at still being null and returns the rows it
-    // actually changed, so exactly one concurrent caller can see a row back.
-    //
-    // Everything below credits money. Previously it ran unconditionally after
-    // this update, so a double-tap — or a buyer and an admin confirming at the
-    // same moment — ran the referral payout twice off one sale.
     const { data: claimed, error: claimErr } = await supabase
       .from("listings")
       .update({ status: "sold", confirmed_at: new Date().toISOString() })
@@ -91,13 +97,11 @@ Deno.serve(async (req) => {
     if (claimErr) throw claimErr;
 
     if (!claimed || claimed.length === 0) {
-      // Another request got there first and is paying the commission. Report
-      // success — the caller's sale did complete — but touch nothing.
       console.log("confirm-manual-sale: lost the confirm race, no-op:", listing.id);
       return jsonResponse({ alreadyConfirmed: true });
     }
 
-    // ── Resolve which Promoter earned this, same rules as release-funds ──────────
+    // ── Resolve which Promoter earned this, same rules as settleReferral ──────
     const { data: pendingRefs, error: refsErr } = await supabase
       .from("referrals")
       .select("id, promoter_id, share_code")
@@ -108,31 +112,33 @@ Deno.serve(async (req) => {
       console.error("referral lookup failed for listing:", listing.id, refsErr);
     }
 
-    const refs = pendingRefs ?? [];
+    const refs = (pendingRefs ?? []) as Array<{ id: string; promoter_id: string; share_code: string | null }>;
     const commission = Math.round(Number(listing.sale_price || 0) * PROMOTER_FEE);
     let referralOutcome = "none";
 
-    let ref: { id: string; promoter_id: string; share_code: string } | null = null;
-    let ambiguous = false;
+    let ref: { id: string; promoter_id: string; share_code: string | null } | null = null;
+    let ambiguousIds: string[] = [];
 
     if (listing.referral_code) {
       ref = refs.find(
         (r) => (r.share_code ?? "").toUpperCase() === String(listing.referral_code).toUpperCase(),
       ) ?? null;
       if (!ref) console.warn("attributed referral not pending:", listing.referral_code, listing.id);
-    } else if (refs.length === 1) {
-      ref = refs[0];
-    } else if (refs.length > 1) {
-      ambiguous = true;
+    } else {
+      // No buyer attribution recorded. A share-link row alone is not proof the
+      // buyer used it, so only BYOD rows (share_code NULL) are candidates.
+      const byod = refs.filter((r) => !r.share_code);
+      if (byod.length === 1) ref = byod[0];
+      else if (byod.length > 1) ambiguousIds = byod.map((r) => r.id);
     }
 
-    if (ambiguous) {
+    if (ambiguousIds.length) {
       await supabase
         .from("referrals")
         .update({ status: "flagged", commission_amount: commission })
-        .in("id", refs.map((r) => r.id));
+        .in("id", ambiguousIds);
       referralOutcome = "flagged_ambiguous";
-      console.warn("ambiguous referral on listing:", listing.id, refs.length, "competing promoters");
+      console.warn("ambiguous referral on listing:", listing.id, ambiguousIds.length, "competing promoters");
     } else if (ref) {
       if (ref.promoter_id === listing.buyer_id) {
         await supabase
@@ -141,12 +147,9 @@ Deno.serve(async (req) => {
           .eq("id", ref.id);
         referralOutcome = "flagged_self_referral";
       } else {
-        // .eq("status", "pending") is the second gate. Even if two callers
-        // somehow reach here, only the one that flips the referral out of
-        // "pending" gets a row back — and only that one credits the balance.
         const { data: paidRef, error: payErr } = await supabase
           .from("referrals")
-          .update({ status: "paid", commission_amount: commission, paid_at: new Date().toISOString().slice(0, 10) })
+          .update({ status: "paid", commission_amount: commission, paid_at: todayET() })
           .eq("id", ref.id)
           .eq("status", "pending")
           .select("id");
@@ -157,19 +160,12 @@ Deno.serve(async (req) => {
           console.warn("referral already settled, skipping credit:", ref.id, listing.id);
           referralOutcome = "already_settled";
         } else {
-          // Atomic. The previous read-then-write here computed the new balance
-          // from a value fetched over the network, so two concurrent credits
-          // both added to the same starting figure and one silently vanished.
-          // increment_user_balance() does the arithmetic under a row lock.
           const { error: creditErr } = await supabase.rpc("increment_user_balance", {
             p_user_id: ref.promoter_id,
             p_amount: commission,
           });
 
           if (creditErr) {
-            // The referral is marked paid but the money never landed. That is
-            // a discrepancy a human has to reconcile, so make it loud rather
-            // than returning a cheerful 200.
             console.error("balance credit FAILED after marking referral paid:", ref.id, creditErr);
             throw new Error(
               `Sale confirmed and referral ${ref.id} marked paid, but crediting the promoter's ` +

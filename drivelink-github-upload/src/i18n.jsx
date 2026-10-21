@@ -74,7 +74,7 @@ const dict = {
     "card.mi": "mi",
     "card.linkCopied": "Link copied!",
     "card.shareAgain": "Share Again",
-    "card.shareEarn": "Share & Earn 1%",
+    "card.shareEarn": "Share & Earn $10",
     "card.makeOffer": "Make an Offer",
     "card.messageSeller": "Message seller",
     "card.report": "Report",
@@ -169,7 +169,7 @@ const dict = {
     "auth.pleaseWait": "Please wait…",
     "auth.perkSell": "**Sell** your car — list for free",
     "auth.perkBuy": "**Buy** directly from owners",
-    "auth.perkEarn": "**Earn 1%** sharing any listing",
+    "auth.perkEarn": "**Earn $10** for each verified referral",
 
     "auth.err.nameRequired": "Please enter your name.",
     "auth.err.nameFull": "Please enter your full name.",
@@ -317,7 +317,6 @@ const dict = {
 
     "fee.youReceive": "You'll receive about {amount}",
     "fee.breakdown": "Sale price {price} − DriveLink fee {rate} ({platform}) − card processing ({processing})",
-    "fee.promoterNote": "If the buyer arrives through a Promoter's shared link, a further 1% ({promoter}) goes to that Promoter and you'd receive about {netWithPromoter}. Processing is charged by our payment provider, not by DriveLink, and is an estimate until the sale completes.",
 
     // ── Payout timing ────────────────────────────────────────────────────
     "payout.held": "The buyer's payment is protected and waiting for the handover. Once they confirm they've received the car, {amount} is released to you. If they don't confirm, we'll check in with both of you and review the sale. Bank arrival typically takes another few business days after that.",
@@ -325,7 +324,7 @@ const dict = {
 
     // ── Common actions ───────────────────────────────────────────────────
     "action.buyNow": "Buy Now",
-    "action.shareEarn": "Share & Earn 1%",
+    "action.shareEarn": "Share & Earn $10",
     "action.messageSeller": "Message seller",
     "action.report": "Report",
     "action.blockSeller": "Block seller",
@@ -367,7 +366,7 @@ const dict = {
     "card.mi": "mi",
     "card.linkCopied": "¡Enlace copiado!",
     "card.shareAgain": "Compartir de nuevo",
-    "card.shareEarn": "Comparte y gana 1%",
+    "card.shareEarn": "Comparte y gana $10",
     "card.makeOffer": "Hacer una oferta",
     "card.messageSeller": "Enviar mensaje al vendedor",
     "card.report": "Reportar",
@@ -455,7 +454,7 @@ const dict = {
     "auth.pleaseWait": "Un momento…",
     "auth.perkSell": "**Vende** tu carro — publicar es gratis",
     "auth.perkBuy": "**Compra** directamente a los dueños",
-    "auth.perkEarn": "**Gana 1%** al compartir cualquier anuncio",
+    "auth.perkEarn": "**Gana $10** por cada referido verificado",
 
     "auth.err.nameRequired": "Por favor escribe tu nombre.",
     "auth.err.nameFull": "Por favor escribe tu nombre completo.",
@@ -597,13 +596,12 @@ const dict = {
 
     "fee.youReceive": "Recibirás aproximadamente {amount}",
     "fee.breakdown": "Precio de venta {price} − comisión DriveLink {rate} ({platform}) − procesamiento de tarjeta ({processing})",
-    "fee.promoterNote": "Si el comprador llega por el enlace de un Promoter, un 1% adicional ({promoter}) va para esa persona y tú recibirías aproximadamente {netWithPromoter}. El procesamiento lo cobra nuestro proveedor de pagos, no DriveLink, y es un estimado hasta que se complete la venta.",
 
     "payout.held": "El pago del comprador está protegido y espera la entrega. Cuando confirme que recibió el carro, se te entregan {amount}. Si no lo confirma, revisaremos la venta con ambas partes. Después de eso, el dinero suele tardar unos días hábiles más en llegar a tu banco.",
     "payout.released": "💸 Se te entregaron {amount} a tu cuenta de Stripe. Los pagos con tarjeta tardan unos días hábiles en liquidarse antes de que Stripe los deposite en tu banco — cuenta con unos 5 a 7 días hábiles desde la venta. Las cuentas nuevas pueden tardar más en el primer depósito.",
 
     "action.buyNow": "Comprar ahora",
-    "action.shareEarn": "Comparte y gana 1%",
+    "action.shareEarn": "Comparte y gana $10",
     "action.messageSeller": "Enviar mensaje",
     "action.report": "Reportar",
     "action.blockSeller": "Bloquear vendedor",

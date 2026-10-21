@@ -255,17 +255,9 @@ export function StartDealView({ currentUser, promoterCode, onBack, onNavigate, s
               <span style={dealStyles.vinValue}>{platformFeeLabel()}</span>
             </div>
             {referrer && (
-              <div style={{ ...dealStyles.priceRow, marginTop: 10 }}>
-                <span style={dealStyles.priceLabel}>
-                  Referral fee — goes to {referrer}
-                </span>
-                <span style={dealStyles.vinValue}>1%</span>
-              </div>
-            )}
-            {referrer && (
               <div style={{ fontSize: 12, color: "#6b7280", lineHeight: 1.6, marginTop: 12 }}>
-                The referral fee is how {referrer} is paid for sending you here.
-                You can also start a deal directly at drivelink.deals without one.
+                {referrer} sent you here. It costs you nothing extra — DriveLink
+                pays them directly. You can also start a deal directly at drivelink.deals.
               </div>
             )}
           </div>
@@ -345,7 +337,7 @@ export function StartDealView({ currentUser, promoterCode, onBack, onNavigate, s
                 The car and title change hands, the buyer confirms, and the seller is paid out.
               </li>
               {role === "promoter" && (
-                <li style={dealStyles.step}>Your 1% lands in your balance once the sale completes.</li>
+                <li style={dealStyles.step}>Your $10 bounty is credited after a short review period, once a verified user you referred starts the deal.</li>
               )}
             </ol>
           </div>
@@ -392,8 +384,9 @@ export function StartDealView({ currentUser, promoterCode, onBack, onNavigate, s
           <div style={{ ...dealStyles.infoBox, marginTop: -20, marginBottom: 28 }}>
             You're setting this up for two other people. Enter the car and the
             price they agreed on, then send them one link — whoever opens it
-            first says whether they're the buyer or the seller. You earn 1% when
-            the sale completes.
+            first says whether they're the buyer or the seller. You earn a flat $10
+            bounty once a verified user you referred starts the deal — it doesn't
+            depend on the sale closing.
           </div>
         )}
 

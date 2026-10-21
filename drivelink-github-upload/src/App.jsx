@@ -2465,7 +2465,7 @@ function LegalPageView({ type, onBack }) {
             <p>Sellers agree that listing information (price, mileage, condition, photos, VIN) is accurate to the best of their knowledge. DriveLink may remove any listing that is misleading, fraudulent, or violates these terms, at our discretion, with or without notice.</p>
 
             <h2>4. Fees</h2>
-            <p>Listing a car is free. When a listing sells, DriveLink charges a 1% platform fee on the final sale price (reduced to 0.5% for payments made from October 1 through October 31, 2026). Card processing is charged separately by our payment provider at approximately 2.9% + $0.30 per transaction and is also deducted from the seller's proceeds. If a buyer arrived through a promoter's shared link, an additional 1% commission is paid to that promoter. The exact amount you'll receive is shown before you publish a listing.</p>
+            <p>Listing a car is free. When a listing sells, DriveLink charges a 1% platform fee on the final sale price (reduced to 0.5% for payments made from October 1 through October 31, 2026). Card processing is charged separately by our payment provider at approximately 2.9% + $0.30 per transaction and is also deducted from the seller's proceeds. Promoters, if any, are paid separately by DriveLink and nothing extra is charged to you for it. The exact amount you'll receive is shown before you publish a listing.</p>
 
             <h2>5. Payments</h2>
             <p>Checkout is processed through Stripe. DriveLink does not store your payment card details. Once a buyer completes checkout, the transaction between buyer and seller — including vehicle handoff, title transfer, and any related paperwork — is the responsibility of the two parties.</p>
@@ -5600,20 +5600,19 @@ function PromoterSignedOut({ onSignUp, onBack }) {
       >
         ← Back to DriveLink
       </button>
-      <h2 style={styles.pageTitle}>Earn 1% on cars you already move</h2>
+      <h2 style={styles.pageTitle}>Earn $10 for every person you bring to a deal</h2>
 
       <p style={{ color: "#334155", fontSize: 16, lineHeight: 1.7 }}>
         If you arrange vehicle sales or transport, your customers are already
         wiring money to people they have never met. DriveLink protects that payment
         is protected until the keys and title change hands — and pays you{" "}
-        <b>1% of every sale</b> that goes through your link.
+        <b>a flat $10</b> for each new, ID-verified user you send who starts a deal.
       </p>
 
       <div style={{ ...styles.infoBox, marginTop: 24 }}>
-        <b>The 1% is added to the deal, not taken out of it.</b> It does not come
-        out of your customer's pocket at your expense, and it does not reduce
-        what the seller receives beyond the fee they already agreed to. Our own
-        1% stays the same either way.
+        <b>The $10 is paid by DriveLink, not added to the deal.</b> Your customer
+        pays nothing extra, and it does not reduce what the seller receives. It is
+        paid whether or not the sale closes. Monthly caps apply.
       </div>
 
       <div style={{ marginTop: 28 }}>
@@ -5624,7 +5623,7 @@ function PromoterSignedOut({ onSignUp, onBack }) {
           ["1", "Create an account", "Takes a minute. No fee, no contract, nothing to install."],
           ["2", "Get your link", "One standing link. It is not tied to any particular car, and it does not expire."],
           ["3", "Send it to anyone doing a deal", "A customer buying out of state, a seller nervous about a cashier's check \u2014 anyone moving a car privately."],
-          ["4", "Get paid when the sale completes", "1% lands in your balance once the buyer confirms the handover. Paid out to your bank."],
+          ["4", "Get paid when the sale completes", "$10 is credited to your balance after a short review period once the person you referred has verified their ID and started a deal. Paid out to your bank."],
         ].map(([n, title, desc]) => (
           <div key={n} style={{ display: "flex", gap: 14, marginBottom: 18 }}>
             <div style={{
@@ -5684,10 +5683,10 @@ function PromoterCodeView({ currentUser, promoterCode, onMint, onSetupPayouts, o
         <>
           <p style={{ color: "#475569", fontSize: 15, lineHeight: 1.6, maxWidth: 640 }}>
             Send your link to anyone buying or selling a car privately. When they
-            complete a deal through DriveLink, you earn <b>1% of the sale price</b>.
-            That 1% is added to the deal — it doesn't come out of the buyer's or
-            seller's pocket at your expense, and it doesn't reduce what the seller
-            receives beyond the fee they already agreed to.
+            start a deal through DriveLink and have verified their ID, you earn a{" "}
+            <b>flat $10</b>. DriveLink pays it — nothing is added to the deal and it
+            doesn't reduce what the seller receives. It is paid whether or not the
+            sale closes, and monthly caps apply.
           </p>
           <button
             onClick={doMint}
@@ -5750,9 +5749,9 @@ function PromoterCodeView({ currentUser, promoterCode, onMint, onSetupPayouts, o
 
       <div style={styles.infoBox}>
         <b>How it works:</b> Anyone who opens your link and starts a deal is
-        credited to you for 3 days. The commission is confirmed once the sale
-        completes and the buyer confirms the handover, then it lands in your
-        balance. You can share the same link as many times as you like — it
+        credited to you for 3 days. Your $10 bounty is credited to your balance
+        after a short review period, once that person has verified their ID and
+        started a deal. You can share the same link as many times as you like — it
         doesn't expire and it isn't tied to any one car.
       </div>
     </div>
@@ -5814,7 +5813,7 @@ function ReferralRow({ referral: r, listing, standingCode, onRetract }) {
         {r.status === "paid" && <div style={styles.soldBadge}>✅ Commission: {fmt(r.commission_amount)} on {r.paid_at}</div>}
         {r.status === "pending" && (
           <div style={styles.promoterTag}>
-            ⏳ Pending — you'll earn {listing ? fmt(Math.round(listing.price * 0.01)) : "1%"} when {isStanding ? "a deal completes" : "it sells"}
+            ⏳ Pending — you'll earn $10 when a verified user you referred starts a deal
           </div>
         )}
         {r.status === "flagged" && (

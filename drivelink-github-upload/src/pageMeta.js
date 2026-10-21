@@ -77,9 +77,9 @@ export function pageMetaTable() {
         "Put your business in front of people buying and selling cars privately. Placement options and how to get started.",
     },
     "/promoter": {
-      title: "DriveLink Promoter Program: Earn 1% on Closed Car Deals",
+      title: "DriveLink Promoter Program: Earn $10 per Referral",
       description:
-        "Know someone buying or selling a car? Share your link and earn 1% when their deal closes through DriveLink.",
+        "Know someone buying or selling a car? Share your link and earn $10 when a verified user you refer starts a deal on DriveLink.",
     },
     "/terms": {
       title: "Terms of Service | DriveLink",

@@ -327,7 +327,7 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn }) {
               <div style={styles.roleEmoji}>🔗</div>
               <h3 style={{ ...styles.roleTitle, color: "#fff" }}>Promoters</h3>
               <p style={{ fontSize: 13, fontWeight: 700, color: "#60a5fa", marginBottom: 10 }}>Know someone buying or selling a car?</p>
-              <p style={{ ...styles.roleDesc, color: "#94a3b8" }}>Share a listing from here, or send your own link to two people doing a deal on a car we've never seen. Either way you earn 1% when it closes. The 1% is added to the deal, so it never comes out of their pocket at your expense.</p>
+              <p style={{ ...styles.roleDesc, color: "#94a3b8" }}>Share a listing from here, or send your own link to two people doing a deal on a car we've never seen. Either way you earn a flat $10 when someone you refer verifies their ID and starts a deal. DriveLink pays it, so it never comes out of anyone's pocket.</p>
               <ul style={{ ...styles.roleList, color: "#94a3b8" }}>
                 <li>✅ Works on any car, listed here or not</li>
                 <li>✅ One standing link, no expiry</li>
@@ -367,13 +367,13 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn }) {
             <div style={styles.step}>
               <div style={styles.stepNum}>2</div>
               <h4 style={styles.stepTitle}>Share your link</h4>
-              <p style={styles.stepDesc}>Click "Share &amp; Earn 1%" on any listing — or use your standing link, which works on a car we've never seen.</p>
+              <p style={styles.stepDesc}>Click "Share &amp; Earn $10" on any listing — or use your standing link, which works on a car we've never seen.</p>
             </div>
             <div style={styles.stepArrow} className="dl-step-arrow">→</div>
             <div style={styles.step}>
               <div style={styles.stepNum}>3</div>
               <h4 style={styles.stepTitle}>Get paid</h4>
-              <p style={styles.stepDesc}>When someone buys through your link, 1% of the sale is credited to your account instantly.</p>
+              <p style={styles.stepDesc}>When someone you refer verifies their ID and starts a deal, $10 is credited to your account after a short review period.</p>
             </div>
           </div>
           <div style={styles.exampleBox}>
