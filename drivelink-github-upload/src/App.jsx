@@ -2285,7 +2285,7 @@ const denyInspector = async (id) => {
         {view === "dashboard" && <PromoterDashboard currentUser={dbUser} referrals={referrals.filter(r => r.promoter_id === currentUser?.id)} bounties={bounties.filter(b => b.promoter_id === currentUser?.id)} listings={listings} payouts={payouts} standingCode={promoterCode?.code || null} onSetupPayouts={setupPayouts} onRetract={retractReferral} onGetCode={() => setView("promoter")} />}
         {view === "promoter" && <PromoterCodeView currentUser={dbUser} promoterCode={promoterCode} onMint={mintPromoterCode} onSetupPayouts={setupPayouts} onViewEarnings={() => setView("dashboard")} />}
         {view === "profile" && <ProfileView dbUser={dbUser} authEmail={currentUser?.email} onUpdateProfile={updateProfile} onChangeEmail={changeEmail} onChangePassword={changePassword} onSetupPayouts={setupPayouts} onStartIdentityVerification={startIdentityVerification} />}
-       {view === "admin" && <AdminView listings={listings} users={users} riskFlags={riskFlags} onResolveRiskFlag={resolveRiskFlag} referrals={referrals} reports={reports} feedback={feedback} userReports={userReports} reviews={reviews} payouts={payouts} disputes={disputes} adPlacements={adPlacements} inspectors={inspectors} onDeleteAd={deleteAdPlacement} onCompAd={compAdPlacement} onRefreshAds={loadData} onArchive={archiveListing} onMarkSold={markSold} onConfirmReceipt={confirmReceipt} onResolveReport={resolveReport} onResolveUserReport={resolveUserReport} onToggleVerified={toggleVerified} onResetData={resetTestData} onRecordPayout={recordPayout} onPayoutViaStripe={payoutPromoterViaStripe} onResolveDispute={resolveDispute} onDeleteUser={deleteUser} onApproveFlaggedReferral={approveFlaggedReferral} onDenyFlaggedReferral={denyFlaggedReferral} onApproveInspector={approveInspector} onDenyInspector={denyInspector} />}
+       {view === "admin" && <AdminView listings={listings} users={users} riskFlags={riskFlags} onResolveRiskFlag={resolveRiskFlag} referrals={referrals} bounties={bounties} reports={reports} feedback={feedback} userReports={userReports} reviews={reviews} payouts={payouts} disputes={disputes} adPlacements={adPlacements} inspectors={inspectors} onDeleteAd={deleteAdPlacement} onCompAd={compAdPlacement} onRefreshAds={loadData} onArchive={archiveListing} onMarkSold={markSold} onConfirmReceipt={confirmReceipt} onResolveReport={resolveReport} onResolveUserReport={resolveUserReport} onToggleVerified={toggleVerified} onResetData={resetTestData} onRecordPayout={recordPayout} onPayoutViaStripe={payoutPromoterViaStripe} onResolveDispute={resolveDispute} onDeleteUser={deleteUser} onApproveFlaggedReferral={approveFlaggedReferral} onDenyFlaggedReferral={denyFlaggedReferral} onApproveInspector={approveInspector} onDenyInspector={denyInspector} />}
         {view === "success" && <SuccessView onHome={() => setView("home")} />}
       </main>
 
@@ -5571,6 +5571,82 @@ function PromoterDashboard({ currentUser, referrals, bounties, listings, payouts
   );
 }
 
+// Admin control for the flat Promoter bounty program: kill switch, caps, this
+// month's spend, and every bounty with a Block button while it is still inside
+// its review hold. Reads/writes go through RLS (is_admin()); the DB function
+// award_promoter_bounty enforces the caps and the ID-verified rule itself.
+function BountyAdminPanel({ bounties, users }) {
+  const [cfg, setCfg] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState("");
+  const [rows, setRows] = useState(bounties);
+  useEffect(() => { setRows(bounties); }, [bounties]);
+  const loadCfg = async () => {
+    const { data } = await supabase.from("promoter_bounty_config").select("*").eq("id", 1).maybeSingle();
+    if (data) setCfg(data);
+  };
+  useEffect(() => { loadCfg(); }, []);
+  const toggle = async () => {
+    if (!cfg) return;
+    if (cfg.enabled && !window.confirm("Turn the bounty program OFF? No new bounties will be created. Existing pending ones still pay out unless blocked.")) return;
+    setBusy(true); setMsg("");
+    const { error } = await supabase.from("promoter_bounty_config").update({ enabled: !cfg.enabled }).eq("id", 1);
+    setBusy(false);
+    if (error) { setMsg("Couldn't update: " + error.message); return; }
+    await loadCfg();
+  };
+  const block = async (b) => {
+    if (!window.confirm("Block this bounty? It will never be paid.")) return;
+    setBusy(true); setMsg("");
+    const { error } = await supabase.from("promoter_bounties").update({ status: "blocked" }).eq("id", b.id).eq("status", "pending");
+    setBusy(false);
+    if (error) { setMsg("Couldn't block: " + error.message); return; }
+    setRows(rs => rs.map(r => r.id === b.id ? { ...r, status: "blocked" } : r));
+  };
+  const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0);
+  const monthSpend = rows.filter(b => b.status !== "blocked" && new Date(b.created_at) >= monthStart).reduce((s, b) => s + (b.amount_cents || 0), 0);
+  const nameOf = (id) => users.find(u => u.id === id)?.name || id;
+  const pill = (st) => st === "paid" ? { background: "#dcfce7", color: "#15803d" }
+    : st === "blocked" ? { background: "#fee2e2", color: "#b91c1c" } : { background: "#fef9c3", color: "#854d0e" };
+  return (
+    <div style={{ ...styles.infoBox, marginBottom: 20 }}>
+      <b>Promoter bounty program</b>
+      {!cfg ? (
+        <div style={{ fontSize: 13, color: "#6b7280", marginTop: 6 }}>Loading settings… (admin access required)</div>
+      ) : (
+        <>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", marginTop: 8 }}>
+            <span style={{ ...styles.statusPill, ...(cfg.enabled ? { background: "#dcfce7", color: "#15803d" } : { background: "#fee2e2", color: "#b91c1c" }) }}>{cfg.enabled ? "ON" : "OFF"}</span>
+            <button style={cfg.enabled ? styles.removeBtn : styles.soldBtn} disabled={busy} onClick={toggle}>{cfg.enabled ? "Turn off" : "Turn on"}</button>
+            <span style={{ fontSize: 13, color: "#475569" }}>
+              {fmt(cfg.amount_cents)} per bounty • caps {fmt(cfg.monthly_cap_per_promoter)}/Promoter, {fmt(cfg.monthly_cap_program)}/program per month
+            </span>
+          </div>
+          <div style={{ fontSize: 13, color: "#475569", marginTop: 6 }}>
+            This month: {fmt(monthSpend)} of {fmt(cfg.monthly_cap_program)} committed. Pending bounties auto-credit after the 3-day hold (daily at 09:15 UTC). Amount and caps are changed in the database.
+          </div>
+        </>
+      )}
+      {msg && <div style={{ fontSize: 13, color: "#b91c1c", marginTop: 6 }}>{msg}</div>}
+      {rows.length === 0 ? (
+        <div style={{ fontSize: 13, color: "#6b7280", marginTop: 10 }}>No bounties yet.</div>
+      ) : (
+        <div style={{ marginTop: 10 }}>
+          {rows.map(b => (
+            <div key={b.id} style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", padding: "6px 0", borderTop: "1px solid #e2e8f0", fontSize: 13 }}>
+              <span style={{ fontWeight: 600 }}>{fmt(b.amount_cents)}</span>
+              <span>{nameOf(b.promoter_id)} → referred {nameOf(b.referred_user)}</span>
+              <span style={{ color: "#6b7280" }}>listing {b.listing_id || "—"} • {new Date(b.created_at).toLocaleDateString()}{b.status === "pending" ? ` • credits ${new Date(b.approve_after).toLocaleDateString()}` : ""}</span>
+              <span style={{ ...styles.statusPill, ...pill(b.status) }}>{b.status}</span>
+              {b.status === "pending" && <button style={styles.removeBtn} disabled={busy} onClick={() => block(b)}>Block</button>}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // Shows the actual shareable URL with working Copy / Share buttons. The raw code
 // is kept visible but secondary — it's a reference, not the thing you send.
 function PromoterLinkRow({ code, listing, standing = false }) {
@@ -5902,7 +5978,7 @@ function StatBox({ label, value, color }) {
   return <div style={styles.statBox}><div style={{ ...styles.statValue, color }}>{value}</div><div style={styles.statLabel}>{label}</div></div>;
 }
 
-function AdminView({ listings, users, referrals, reports, feedback, userReports, reviews, payouts, disputes, adPlacements, riskFlags, inspectors, onResolveRiskFlag, onDeleteAd, onCompAd, onRefreshAds, onArchive, onMarkSold, onConfirmReceipt, onResolveReport, onResolveUserReport, onToggleVerified, onResetData, onRecordPayout, onPayoutViaStripe, onResolveDispute, onDeleteUser, onApproveFlaggedReferral, onDenyFlaggedReferral, onApproveInspector, onDenyInspector }) {
+function AdminView({ listings, users, referrals, bounties, reports, feedback, userReports, reviews, payouts, disputes, adPlacements, riskFlags, inspectors, onResolveRiskFlag, onDeleteAd, onCompAd, onRefreshAds, onArchive, onMarkSold, onConfirmReceipt, onResolveReport, onResolveUserReport, onToggleVerified, onResetData, onRecordPayout, onPayoutViaStripe, onResolveDispute, onDeleteUser, onApproveFlaggedReferral, onDenyFlaggedReferral, onApproveInspector, onDenyInspector }) {
   const [tab, setTab] = useState("listings");
   const [showDeletedUsers, setShowDeletedUsers] = useState(false);
   const deletedUserCount = (users || []).filter(u => u.deleted_at).length;
@@ -5921,7 +5997,10 @@ function AdminView({ listings, users, referrals, reports, feedback, userReports,
   const activeAndSold = scopedListings.filter(l => l.status !== "archived" && l.status !== "removed");
   const totalRevenue = activeAndSold.filter(l => l.status === "sold" || l.status === "pending_confirmation").reduce((s, l) => s + (l.sale_price || 0), 0);
   const platformEarnings = activeAndSold.filter(l => l.status === "sold").reduce((s, l) => s + (l.platform_fee || Math.round((l.sale_price || 0) * 0.01)), 0);
-  const totalCommissions = referrals.filter(r => r.status === "paid").reduce((s, r) => s + (r.commission_amount || 0), 0);
+  // Flat Promoter bounties (promoter_bounties) plus any legacy 1% commissions on referrals.
+  const totalCommissions = (bounties || []).filter(b => b.status === "paid").reduce((s, b) => s + (b.amount_cents || 0), 0)
+    + referrals.filter(r => r.status === "paid").reduce((s, r) => s + (r.commission_amount || 0), 0);
+  const pendingBountyCents = (bounties || []).filter(b => b.status === "pending").reduce((s, b) => s + (b.amount_cents || 0), 0);
   const openReports = reports.filter(r => r.status === "open");
 
   // ── Ads ──────────────────────────────────────────────────────────────────
@@ -5982,7 +6061,8 @@ function AdminView({ listings, users, referrals, reports, feedback, userReports,
         <StatBox label="Open Disputes" value={openDisputes.length} color="#dc2626" />
         <StatBox label="GMV" value={fmt(totalRevenue)} color="#b45309" />
         <StatBox label="Your Earnings" value={fmt(platformEarnings)} color="#16a34a" />
-        <StatBox label="Promoter Commissions" value={fmt(totalCommissions)} color="#dc2626" />
+        <StatBox label="Promoter Bounties Paid" value={fmt(totalCommissions)} color="#dc2626" />
+        <StatBox label="Bounties Pending" value={fmt(pendingBountyCents)} color="#b45309" />
         <StatBox label="Open Reports" value={openReports.length} color="#dc2626" />
         <StatBox label="Open User Reports" value={openUserReports.length} color="#dc2626" />
       </div>
@@ -6095,6 +6175,7 @@ function AdminView({ listings, users, referrals, reports, feedback, userReports,
       )}
      {tab === "referrals" && (
   <div style={styles.tableWrap}>
+    <BountyAdminPanel bounties={bounties || []} users={users} />
     {referrals.length === 0 && <p style={{ color: "#6b7280" }}>No referrals yet.</p>}
     {referrals.map(r => {
       const promoter = users.find(u => u.id === r.promoter_id);
@@ -6107,7 +6188,7 @@ function AdminView({ listings, users, referrals, reports, feedback, userReports,
         <div key={r.id} style={styles.listingRow} className="app-listing-row">
           <div style={styles.rowInfo} className="app-row-info">
             <div style={styles.rowTitle}>{promoter?.name} → {listing ? `${listing.make} ${listing.model}` : r.listing_id}</div>
-            <div style={styles.rowMeta}>Code: {r.share_code} • Commission: {fmt(r.commission_amount || 0)}</div>
+            <div style={styles.rowMeta}>Code: {r.share_code || "—"}{(r.commission_amount || 0) > 0 ? ` • Legacy commission: ${fmt(r.commission_amount)}` : ""}</div>
             {r.status === "flagged" && <div style={{ fontSize: 12, color: "#b91c1c", marginTop: 4 }}>⚠️ Promoter and buyer appear to be the same account — likely self-referral</div>}
           </div>
           <span style={{ ...styles.statusPill, ...badgeStyle }}>{r.status}</span>
@@ -6341,7 +6422,7 @@ function AdminView({ listings, users, referrals, reports, feedback, userReports,
           ))}
         </div>
       )}
-      {tab === "analytics" && <AnalyticsView listings={scopedListings} referrals={referrals} users={users} />}
+      {tab === "analytics" && <AnalyticsView listings={scopedListings} referrals={referrals} bounties={bounties} users={users} />}
       {tab === "danger" && <DangerZone onResetData={onResetData} />}
     </div>
   );
@@ -6351,7 +6432,7 @@ function AdminView({ listings, users, referrals, reports, feedback, userReports,
 // listed most, sell most, and how fast they move — since this is computable
 // entirely from data we already have (no new tracking needed). Promoter
 // leaderboard and time-series trend sections get added here next.
-function AnalyticsView({ listings, referrals, users }) {
+function AnalyticsView({ listings, referrals, bounties, users }) {
   const nonArchived = listings.filter(l => l.status !== "archived");
 
   // Group by make+model: total listed, sold count, avg price, avg days-to-sell
@@ -6393,6 +6474,13 @@ function AnalyticsView({ listings, referrals, users }) {
     row.totalShares++;
     if (r.status === "paid") { row.paidCount++; row.totalCommission += r.commission_amount || 0; }
     if (r.status === "flagged") row.flaggedCount++;
+  }
+  // Flat bounties count toward the leaderboard too (paid ones are real earnings).
+  for (const b of (bounties || [])) {
+    if (b.status !== "paid") continue;
+    if (!byPromoter[b.promoter_id]) byPromoter[b.promoter_id] = { promoter_id: b.promoter_id, totalShares: 0, paidCount: 0, flaggedCount: 0, totalCommission: 0 };
+    byPromoter[b.promoter_id].paidCount++;
+    byPromoter[b.promoter_id].totalCommission += b.amount_cents || 0;
   }
   const promoterRows = Object.values(byPromoter)
     .map(r => ({
