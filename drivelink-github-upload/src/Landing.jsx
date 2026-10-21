@@ -95,6 +95,9 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn }) {
               {lang === "es" ? "Precios" : "Pricing"}
             </SpaLink>
             <a href="/guides/" style={styles.navMenuItem}>{lang === "es" ? "Guías" : "Guides"}</a>
+            <SpaLink href="/about" view="about" onNavigate={(v) => { setMenuOpen(false); onNavigate?.(v); }} style={styles.navMenuItem}>
+              {lang === "es" ? "Acerca de" : "About"}
+            </SpaLink>
             <button style={styles.navMenuItem} onClick={() => { setMenuOpen(false); onBrowse(); }}>{t("lp.nav.browse")}</button>
           </div>
         )}
@@ -203,6 +206,7 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn }) {
               <p style={styles.problemText}>
                 {t("lp.why.bothText")}
               </p>
+              <a href="/guides/" style={styles.problemLink}>{t("lp.why.bothLink")}</a>
             </div>
           </div>
           <p style={styles.problemClose}>{t("lp.why.close")}</p>
@@ -595,6 +599,7 @@ const styles = {
   problemCard: { background: "#fff", border: "1px solid #e5e7eb", borderRadius: 16, padding: 28 },
   problemLabel: { fontSize: 13, fontWeight: 800, color: "#1d4ed8", marginBottom: 10, letterSpacing: "-0.01em" },
   problemText: { fontSize: 14.5, color: "#4b5563", lineHeight: 1.7, margin: 0 },
+  problemLink: { display: "inline-block", marginTop: 12, fontSize: 14, fontWeight: 700, color: "#1d4ed8", textDecoration: "none" },
   problemClose: { textAlign: "center", fontSize: 19, fontWeight: 700, color: "#0f172a", marginTop: 36, marginBottom: 0, letterSpacing: "-0.02em" },
 
   escrowSteps: { display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 20 },
