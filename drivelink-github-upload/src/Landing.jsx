@@ -659,6 +659,8 @@ const styles = {
   footerCols: { display: "grid", gridTemplateColumns: "repeat(3, auto)", columnGap: 56, rowGap: 16, justifyContent: "center", alignItems: "start", width: "100%", marginTop: 20, textAlign: "left" },
   footerCol: { display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 8 },
   footerColTitle: { fontSize: 12, fontWeight: 700, color: "#374151", textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 2 },
+  footerLinkBtn: { background: "none", border: "none", cursor: "pointer", fontSize: 13, color: "#6b7280", padding: 0, textAlign: "left", textDecoration: "none", fontFamily: "inherit" },
+  footerAnchor: { fontSize: 13, color: "#6b7280", textDecoration: "none" },
   footerBottom: { display: "flex", flexDirection: "column", alignItems: "center", gap: 6, marginTop: 24, paddingTop: 16, borderTop: "1px solid #e5e7eb", width: "100%", maxWidth: 560 },
   footerContactRow: { display: "flex", alignItems: "center", justifyContent: "center", flexWrap: "wrap", gap: "0 16px" },
   // The Guides row sits above the legal row and needs to read as a section,
