@@ -417,62 +417,65 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn }) {
             <span style={{ fontWeight: 800, color: "#0f172a" }}>DriveLink</span>
           </div>
           <p style={styles.footerText} className="dl-footer-text">{t("lp.foot.tagline")}</p>
-          <p style={{ ...styles.footerText, display: "flex", alignItems: "center", gap: 6 }} className="dl-footer-text dl-footer-us">
-            <USFlag size={13} />
-            {t("lp.foot.us")}
-          </p>
-          <p style={styles.footerText}>{t("lp.foot.rights")}</p>
-          <FounderFooterLine style={styles.footerText} />
 
-          <div style={styles.footerLinks} className="dl-footer-links">
-            <SpaLink href="/pricing" view="pricing" onNavigate={onNavigate} style={styles.footerAnchor}>{lang === "es" ? "Precios" : "Pricing"}</SpaLink>
-            <span style={{ color: "#d1d5db" }}>·</span>
-            <SpaLink href="/features" view="features" onNavigate={onNavigate} style={styles.footerAnchor}>{lang === "es" ? "Funciones" : "Features"}</SpaLink>
-            <span style={{ color: "#d1d5db" }}>·</span>
-            <SpaLink href="/about" view="about" onNavigate={onNavigate} style={styles.footerAnchor}>{lang === "es" ? "Acerca de" : "About"}</SpaLink>
-            <span style={{ color: "#d1d5db" }}>·</span>
-            <button style={styles.footerLinkBtn} onClick={() => onNavigate?.("safety")}>{t("lp.foot.safety")}</button>
-            <span style={{ color: "#d1d5db" }}>·</span>
-            <button style={styles.footerLinkBtn} onClick={() => onNavigate?.("inspectors")}>
-              {lang === "es" ? "🔍 Encuentra un inspector" : "🔍 Find an Inspector"}
-            </button>
-            <span style={{ color: "#d1d5db" }}>·</span>
-            <button style={styles.footerLinkBtn} onClick={() => onNavigate?.("faq")}>
-              {lang === "es" ? "Cómo se protege tu dinero" : "How your money is protected"}
-            </button>
-            <span style={{ color: "#d1d5db" }}>·</span>
-            <button style={styles.footerLinkBtn} onClick={() => onNavigate?.("terms")}>{t("lp.foot.terms")}</button>
-            <span style={{ color: "#d1d5db" }}>·</span>
-            <button style={styles.footerLinkBtn} onClick={() => onNavigate?.("privacy")}>{t("lp.foot.privacy")}</button>
-            <span style={{ color: "#d1d5db" }}>·</span>
-            <a href="mailto:support@drivelink.deals" style={styles.footerLinkBtn}>support@drivelink.deals</a>
-            <span style={{ color: "#d1d5db" }}>·</span>
-            <a
-              href="https://instagram.com/drivelink_deals"
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{ ...styles.footerLinkBtn, display: "inline-flex", alignItems: "center", gap: 4 }}
-              aria-label="DriveLink on Instagram"
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect>
-                <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path>
-                <line x1="17.5" y1="6.5" x2="17.5" y2="6.5"></line>
-              </svg>
-              Instagram
-            </a>
+          {/* Links grouped into three labeled columns (two-up grid on phones). */}
+          <div style={styles.footerCols} className="dl-footer-cols">
+            <div style={styles.footerCol} className="dl-footer-col">
+              <span style={styles.footerColTitle}>{lang === "es" ? "Producto" : "Product"}</span>
+              <SpaLink href="/pricing" view="pricing" onNavigate={onNavigate} style={styles.footerAnchor}>{lang === "es" ? "Precios" : "Pricing"}</SpaLink>
+              <SpaLink href="/features" view="features" onNavigate={onNavigate} style={styles.footerAnchor}>{lang === "es" ? "Funciones" : "Features"}</SpaLink>
+              <button style={styles.footerLinkBtn} onClick={() => onNavigate?.("inspectors")}>
+                {lang === "es" ? "🔍 Encuentra un inspector" : "🔍 Find an Inspector"}
+              </button>
+              <button style={styles.footerLinkBtn} onClick={() => onNavigate?.("safety")}>{t("lp.foot.safety")}</button>
+            </div>
+
+            <div style={styles.footerCol} className="dl-footer-col">
+              <span style={styles.footerColTitle}>{lang === "es" ? "Confianza" : "Trust"}</span>
+              <button style={styles.footerLinkBtn} onClick={() => onNavigate?.("faq")}>
+                {lang === "es" ? "Cómo se protege tu dinero" : "How your money is protected"}
+              </button>
+              <SpaLink href="/about" view="about" onNavigate={onNavigate} style={styles.footerAnchor}>{lang === "es" ? "Acerca de" : "About"}</SpaLink>
+              <button style={styles.footerLinkBtn} onClick={() => onNavigate?.("terms")}>{t("lp.foot.terms")}</button>
+              <button style={styles.footerLinkBtn} onClick={() => onNavigate?.("privacy")}>{t("lp.foot.privacy")}</button>
+            </div>
+
+            {/* Comparison pages, as real links so crawlers can follow them from the
+                homepage (audit D5.3). */}
+            <nav style={styles.footerCol} className="dl-footer-col dl-footer-col-compare" aria-label={lang === "es" ? "Comparar" : "Compare"}>
+              <span style={styles.footerColTitle}>{lang === "es" ? "Comparar" : "Compare"}</span>
+              <SpaLink href="/vs/drivelink-vs-privateauto" view="vsPrivateAuto" onNavigate={onNavigate} style={styles.footerAnchor}>vs PrivateAuto</SpaLink>
+              <SpaLink href="/vs/drivelink-vs-keysavvy" view="vsKeySavvy" onNavigate={onNavigate} style={styles.footerAnchor}>vs KeySavvy</SpaLink>
+              <SpaLink href="/vs/drivelink-vs-escrow-com" view="vsEscrowCom" onNavigate={onNavigate} style={styles.footerAnchor}>vs Escrow.com</SpaLink>
+            </nav>
           </div>
 
-          {/* Comparison pages, as real links so crawlers can follow them from the
-              homepage (audit D5.3). */}
-          <nav style={styles.footerLinks} className="dl-footer-links" aria-label={lang === "es" ? "Comparar" : "Compare"}>
-            <span style={styles.footerCompareLabel}>{lang === "es" ? "Comparar:" : "Compare:"}</span>
-            <SpaLink href="/vs/drivelink-vs-privateauto" view="vsPrivateAuto" onNavigate={onNavigate} style={styles.footerAnchor}>vs PrivateAuto</SpaLink>
-            <span style={{ color: "#d1d5db" }}>·</span>
-            <SpaLink href="/vs/drivelink-vs-keysavvy" view="vsKeySavvy" onNavigate={onNavigate} style={styles.footerAnchor}>vs KeySavvy</SpaLink>
-            <span style={{ color: "#d1d5db" }}>·</span>
-            <SpaLink href="/vs/drivelink-vs-escrow-com" view="vsEscrowCom" onNavigate={onNavigate} style={styles.footerAnchor}>vs Escrow.com</SpaLink>
-          </nav>
+          {/* Fine print: one compact block instead of five separate stacked lines. */}
+          <div style={styles.footerBottom} className="dl-footer-bottom">
+            <p style={{ ...styles.footerText, display: "flex", alignItems: "center", gap: 6, margin: 0 }} className="dl-footer-text dl-footer-us">
+              <USFlag size={13} />
+              {t("lp.foot.us")}
+            </p>
+            <FounderFooterLine style={styles.footerText} />
+            <div style={styles.footerContactRow} className="dl-footer-contact">
+              <a href="mailto:support@drivelink.deals" style={styles.footerLinkBtn}>support@drivelink.deals</a>
+              <a
+                href="https://instagram.com/drivelink_deals"
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ ...styles.footerLinkBtn, display: "inline-flex", alignItems: "center", gap: 4 }}
+                aria-label="DriveLink on Instagram"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect>
+                  <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path>
+                  <line x1="17.5" y1="6.5" x2="17.5" y2="6.5"></line>
+                </svg>
+                Instagram
+              </a>
+            </div>
+            <p style={{ ...styles.footerText, margin: 0 }} className="dl-footer-text">{t("lp.foot.rights")}</p>
+          </div>
         </div>
       </footer>
     </div>
@@ -648,10 +651,11 @@ const styles = {
   footerInner: { maxWidth: 1200, margin: "0 auto", display: "flex", flexDirection: "column", alignItems: "center", gap: 8 },
   footerLogo: { display: "flex", alignItems: "center", gap: 8, fontSize: 18, marginBottom: 4 },
   footerText: { fontSize: 13, color: "#6b7280" },
-  footerLinks: { display: "flex", gap: 10, alignItems: "center", marginTop: 8, flexWrap: "wrap", justifyContent: "center" },
-  footerLinkBtn: { background: "none", border: "none", cursor: "pointer", fontSize: 13, color: "#6b7280", padding: 0 },
-  footerAnchor: { fontSize: 13, color: "#6b7280", textDecoration: "none" },
-  footerCompareLabel: { fontSize: 13, fontWeight: 700, color: "#374151" },
+  footerCols: { display: "grid", gridTemplateColumns: "repeat(3, auto)", columnGap: 56, rowGap: 16, justifyContent: "center", alignItems: "start", width: "100%", marginTop: 20, textAlign: "left" },
+  footerCol: { display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 8 },
+  footerColTitle: { fontSize: 12, fontWeight: 700, color: "#374151", textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 2 },
+  footerBottom: { display: "flex", flexDirection: "column", alignItems: "center", gap: 6, marginTop: 24, paddingTop: 16, borderTop: "1px solid #e5e7eb", width: "100%", maxWidth: 560 },
+  footerContactRow: { display: "flex", alignItems: "center", justifyContent: "center", flexWrap: "wrap", gap: "0 16px" },
   // The Guides row sits above the legal row and needs to read as a section,
   // not as another peer link. Slightly darker and heavier than the links it
   // introduces.
@@ -767,15 +771,17 @@ const css = `
     .dl-nav-right button, .dl-nav-right a { min-height: 44px; }
     .dl-trust-strip button { min-height: 44px; padding: 0 4px !important; }
     .dl-trust-callout button { min-height: 44px; }
-    .dl-footer-links button, .dl-footer-links a { min-height: 44px; padding: 0 6px !important; display: inline-flex !important; align-items: center; }
+    .dl-footer-col button, .dl-footer-col a, .dl-footer-contact a { min-height: 44px; display: inline-flex !important; align-items: center; }
     .dl-cards button { min-height: 44px; }
     .dl-section button { min-height: 44px; }
-    /* Footer on phones: no separator dots (they strand at line ends when the
-       row wraps), links centered with even spacing, all lines centered. */
-    .dl-footer-links { gap: 0 14px !important; }
-    .dl-footer-links > span:not(:first-child) { display: none; }
-    .dl-footer-links { text-align: center; }
+    /* Footer on phones: grouped links in a two-up grid (Compare spans full
+       width as a row), tighter fine print, all fine-print lines centered. */
+    .dl-footer-cols { grid-template-columns: 1fr 1fr !important; column-gap: 16px !important; row-gap: 4px !important; margin-top: 12px !important; }
+    .dl-footer-col { gap: 0 !important; }
+    .dl-footer-col-compare { grid-column: 1 / -1; flex-direction: row !important; flex-wrap: wrap; align-items: center !important; gap: 0 16px !important; border-top: 1px solid #e5e7eb; margin-top: 8px; padding-top: 8px; }
+    .dl-footer-col-compare > span { flex-basis: 100%; }
+    .dl-footer-bottom { margin-top: 12px !important; padding-top: 12px !important; }
     .dl-footer-text { text-align: center; justify-content: center; }
-    .dl-footer-us { flex-direction: column; gap: 6px !important; }
+    .dl-footer-us { flex-wrap: wrap; }
   }
 `;
