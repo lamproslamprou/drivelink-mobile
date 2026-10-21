@@ -1722,6 +1722,18 @@ const denyInspector = async (id) => {
     if (window.location.pathname.startsWith("/listing/")) navigate(VIEW_PATHS.home);
   };
 
+  // Back/Home from the public pages (pricing, faq, terms, about, ...). Sets the
+  // view AND the URL in the same batch. Setting only the view left path on the
+  // old URL for one commit, and if a data refresh landed in that commit the
+  // URL→view effect below saw the stale path, mapped it straight back to the
+  // page being left, and swallowed the click. People then tapped Back again and
+  // again (rapid repeat clicks on /pricing in HeyCatch).
+  const backHome = () => {
+    const v = currentUser ? "home" : "landing";
+    setView(v);
+    navigate(VIEW_PATHS[v]);
+  };
+
   // ── Route resolution ────────────────────────────────────────────────────────
   // Runs whenever the path or the loaded data changes. Handles /s/:code Promoter
   // links and /listing/:id deep links; any other path clears the modal.
@@ -1938,7 +1950,7 @@ const denyInspector = async (id) => {
     <SellerToolkitView
       currentUser={currentUser}
       showToast={showToast}
-      onBack={() => setView(currentUser ? "home" : "landing")}
+      onBack={backHome}
       onNavigate={setView}
       onSignIn={() => { setPendingView("sellerToolkit"); setView("auth"); navigate(VIEW_PATHS.auth); }}
     />
@@ -1962,12 +1974,12 @@ const denyInspector = async (id) => {
   );
 
   if (view === "terms" || view === "privacy") return (
-    <LegalPageView type={view} onBack={() => setView(currentUser ? "home" : "landing")} />
+    <LegalPageView type={view} onBack={backHome} />
   );
 
   if (view === "about") return (
     <AboutView
-      onBack={() => setView(currentUser ? "home" : "landing")}
+      onBack={backHome}
       onBrowse={() => setView("home")}
       onSafety={() => setView("safety")}
       onPricing={() => setView("pricing")}
@@ -1975,12 +1987,12 @@ const denyInspector = async (id) => {
   );
 
   if (view === "safety") return (
-    <SafetyTipsView onBack={() => setView(currentUser ? "home" : "landing")} />
+    <SafetyTipsView onBack={backHome} />
   );
 
   if (view === "pricing") return (
     <PricingView
-      onBack={() => setView(currentUser ? "home" : "landing")}
+      onBack={backHome}
       onStart={() => setView("startDeal")}
       onBrowse={() => setView("home")}
       onFaq={() => setView("faq")}
@@ -1989,7 +2001,7 @@ const denyInspector = async (id) => {
 
   if (view === "features") return (
     <FeaturesView
-      onBack={() => setView(currentUser ? "home" : "landing")}
+      onBack={backHome}
       onNavigate={setView}
     />
   );
@@ -1997,7 +2009,7 @@ const denyInspector = async (id) => {
   if (view === "vsPrivateAuto" || view === "vsEscrowCom" || view === "vsKeySavvy") return (
     <VsView
       page={view}
-      onBack={() => setView(currentUser ? "home" : "landing")}
+      onBack={backHome}
       onStart={() => setView("startDeal")}
       onPricing={() => setView("pricing")}
       onNavigate={setView}
@@ -2006,7 +2018,7 @@ const denyInspector = async (id) => {
 
   if (view === "faq") return (
     <FAQView
-      onBack={() => setView(currentUser ? "home" : "landing")}
+      onBack={backHome}
       onSafety={() => setView("safety")}
       onNavigate={setView}
     />
@@ -2015,14 +2027,14 @@ const denyInspector = async (id) => {
   if (view === "inspectors") return (
     <InspectorsView
       inspectors={inspectors.filter(i => i.status === "approved")}
-      onBack={() => setView(currentUser ? "home" : "landing")}
+      onBack={backHome}
       onSubmit={submitInspector}
     />
   );
 
   if (view === "escrow") return (
     <EscrowExplained
-      onBack={() => setView(currentUser ? "home" : "landing")}
+      onBack={backHome}
       onStart={() => setView("startDeal")}
     />
   );
@@ -2036,7 +2048,7 @@ const denyInspector = async (id) => {
       LienPayoffNJ;
     return (
       <Guide
-        onBack={() => setView(currentUser ? "home" : "landing")}
+        onBack={backHome}
         onStart={() => setView("escrow")}
         onNavigate={setView}
       />
@@ -2117,11 +2129,11 @@ const denyInspector = async (id) => {
             role="button"
             tabIndex={0}
             aria-label="DriveLink — home"
-            onClick={() => { setView(currentUser ? "home" : "landing"); setHomeResetKey(k => k + 1); }}
+            onClick={() => { backHome(); setHomeResetKey(k => k + 1); }}
             onKeyDown={(e) => {
               if (e.key === "Enter" || e.key === " ") {
                 e.preventDefault();
-                setView(currentUser ? "home" : "landing");
+                backHome();
                 setHomeResetKey(k => k + 1);
               }
             }}
