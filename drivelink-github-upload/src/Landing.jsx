@@ -377,7 +377,7 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn }) {
             </div>
           </div>
           <div style={styles.exampleBox}>
-            <b>Example:</b> A $30,000 Honda CR-V sells through your referral → You earn <span style={{ color: "#16a34a", fontWeight: 800 }}>$300</span> automatically.
+            <b>Example:</b> You send your link to a friend selling a Honda CR-V. They verify their ID and start a deal → You earn <span style={{ color: "#16a34a", fontWeight: 800 }}>$10</span>, whether or not the sale closes.
           </div>
         </div>
       </section>
