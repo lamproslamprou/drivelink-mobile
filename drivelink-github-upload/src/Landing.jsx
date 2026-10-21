@@ -67,6 +67,11 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn }) {
                 {lang === "es" ? "Precios" : "Pricing"}
               </SpaLink>
             </span>
+            <span className="dl-nav-desk dl-toolkit-nav" style={{ display: "inline-flex" }}>
+              <SpaLink href="/seller-toolkit" view="sellerToolkit" onNavigate={onNavigate} style={styles.guidesNavLink}>
+                {lang === "es" ? "Kit para vendedores" : "Seller Toolkit"}
+              </SpaLink>
+            </span>
             <a href="/guides/" style={styles.guidesNavLink} className="dl-nav-desk dl-guides-nav">
               {lang === "es" ? "Guías" : "Guides"}
             </a>
@@ -93,6 +98,9 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn }) {
             <LangToggle />
             <SpaLink href="/pricing" view="pricing" onNavigate={(v) => { setMenuOpen(false); onNavigate?.(v); }} style={styles.navMenuItem}>
               {lang === "es" ? "Precios" : "Pricing"}
+            </SpaLink>
+            <SpaLink href="/seller-toolkit" view="sellerToolkit" onNavigate={(v) => { setMenuOpen(false); onNavigate?.(v); }} style={styles.navMenuItem}>
+              {lang === "es" ? "Kit para vendedores" : "Seller Toolkit"}
             </SpaLink>
             <a href="/guides/" style={styles.navMenuItem}>{lang === "es" ? "Guías" : "Guides"}</a>
             <SpaLink href="/about" view="about" onNavigate={(v) => { setMenuOpen(false); onNavigate?.(v); }} style={styles.navMenuItem}>
@@ -132,6 +140,12 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn }) {
             <button style={styles.ctaPrimary} onClick={onBrowse}>{t("lp.ctaBrowse")}</button>
             <button style={styles.ctaSecondary} onClick={handleCta}>{t("lp.ctaList")}</button>
           </div>
+
+          <p style={{ margin: "14px 0 0", textAlign: "center" }}>
+            <SpaLink href="/seller-toolkit" view="sellerToolkit" onNavigate={onNavigate} style={{ ...styles.trustLink, textDecoration: "underline" }}>
+              {lang === "es" ? "¿Vendes tu auto? Kit gratuito para vendedores →" : "Selling a car? Free seller toolkit →"}
+            </SpaLink>
+          </p>
 
           <div style={styles.trustStrip} className="dl-trust-strip">
             <span style={styles.trustItem}>{t("lp.trustStripe")}</span>
@@ -427,6 +441,7 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn }) {
             <div style={styles.footerCol} className="dl-footer-col">
               <span style={styles.footerColTitle}>{lang === "es" ? "Producto" : "Product"}</span>
               <SpaLink href="/pricing" view="pricing" onNavigate={onNavigate} style={styles.footerAnchor}>{lang === "es" ? "Precios" : "Pricing"}</SpaLink>
+              <SpaLink href="/seller-toolkit" view="sellerToolkit" onNavigate={onNavigate} style={styles.footerAnchor}>{lang === "es" ? "Kit para vendedores" : "Seller Toolkit"}</SpaLink>
               <SpaLink href="/features" view="features" onNavigate={onNavigate} style={styles.footerAnchor}>{lang === "es" ? "Funciones" : "Features"}</SpaLink>
               <button style={styles.footerLinkBtn} onClick={() => onNavigate?.("inspectors")}>
                 {lang === "es" ? "🔍 Encuentra un inspector" : "🔍 Find an Inspector"}
