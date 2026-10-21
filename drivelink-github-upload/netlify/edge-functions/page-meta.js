@@ -66,6 +66,67 @@ function jsonLdFor(path) {
   return [];
 }
 
+// Real, crawlable body text for the routes whose raw HTML is otherwise just an
+// empty <div id="root">. It goes in a <noscript> block, so people running the
+// app never see it; crawlers and AI fetchers that don't execute JavaScript read
+// a proper summary and follow real links. Written from the same sources as the
+// visible pages (platformFeeLabel, faqItemsEn) so it can't drift into claims the
+// site doesn't make.
+const NAV_LINKS = [
+  ["/browse", "Browse private-party cars"],
+  ["/start-deal", "Start a protected deal on a car you already found"],
+  ["/pricing", "Pricing and fee schedule"],
+  ["/features", "Features"],
+  ["/faq", "Frequently asked questions"],
+  ["/safety", "Safety tips"],
+  ["/about", "About DriveLink"],
+  ["/inspectors", "Find a pre-purchase inspector"],
+  ["/seller-toolkit", "Free seller toolkit"],
+  ["/guides/", "Guides for buying and selling a car privately"],
+  ["/vs/drivelink-vs-privateauto", "DriveLink vs PrivateAuto"],
+  ["/vs/drivelink-vs-keysavvy", "DriveLink vs KeySavvy"],
+  ["/vs/drivelink-vs-escrow-com", "DriveLink vs Escrow.com"],
+];
+const navHtml = () =>
+  `<nav aria-label="DriveLink"><ul>${NAV_LINKS.map(([h, t]) => `<li><a href="${SITE_URL}${h}">${esc(t)}</a></li>`).join("")}</ul></nav>`;
+
+function bodyFor(path, meta) {
+  if (path === "/") {
+    const fee = platformFeeLabel();
+    return `<noscript>
+      <main>
+        <h1>DriveLink: private car sales with protected payment</h1>
+        <p>${esc(meta.description)}</p>
+        <p>DriveLink is for U.S. private-party car sales. A buyer pays through DriveLink, the payment is processed by Stripe, and the seller is paid only once the car and the signed title have changed hands, confirmed with a 6-digit handover code. It works on a car listed on DriveLink or on one you found on Facebook Marketplace, Craigslist or through a friend.</p>
+        <h2>Cost</h2>
+        <p>Listing a car is free. The seller pays ${esc(fee)} of the sale price, only when the deal closes. Buyers pay nothing beyond the price of the car. If the deal falls through, nobody pays DriveLink anything. Card processing is a separate Stripe charge.</p>
+        <h2>Explore</h2>
+        ${navHtml()}
+        <p>DriveLink LLC, Branchburg, New Jersey. U.S. transactions only. Support: support@drivelink.deals. Instagram: https://instagram.com/drivelink_deals</p>
+      </main>
+    </noscript>`;
+  }
+  if (path === "/faq") {
+    return `<noscript>
+      <main>
+        <h1>DriveLink frequently asked questions</h1>
+        ${faqItemsEn().map((it) => `<h2>${esc(it.q)}</h2><p>${esc(it.a)}</p>`).join("\n        ")}
+        ${navHtml()}
+      </main>
+    </noscript>`;
+  }
+  if (path === "/escrow") {
+    return `<noscript>
+      <main>
+        <h1>How a DriveLink deal works</h1>
+        <p>${esc(meta.description)}</p>
+        ${navHtml()}
+      </main>
+    </noscript>`;
+  }
+  return "";
+}
+
 export default async (request, context) => {
   const response = await context.next();
   try {
@@ -100,7 +161,8 @@ export default async (request, context) => {
       .replace(/<link\s+rel="canonical"[^>]*>/i, "")
       .replace(/<meta\s+property="og:[^>]*>/gi, "")
       .replace(/<meta\s+name="twitter:[^>]*>/gi, "")
-      .replace(/<\/head>/i, `${head}\n  </head>`);
+      .replace(/<\/head>/i, `${head}\n  </head>`)
+      .replace(/<div id="root"><\/div>/, (m) => `${m}\n    ${bodyFor(path, meta)}`);
 
     const headers = new Headers(response.headers);
     headers.delete("content-length");
