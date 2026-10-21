@@ -100,29 +100,29 @@ const COPY = {
     lede:
       "Alguien con quien estás haciendo un trato quiere usar DriveLink. Esto es exactamente lo que significa para ti, en términos claros.",
     back: "← Volver",
-    trackTitle: "Dónde está el dinero",
+    trackTitle: "Cuándo cobra el vendedor",
     steps: [
       {
-        label: "El comprador paga a DriveLink",
-        detail: "El dinero sale de la cuenta del comprador y llega a nosotros.",
-        who: "En manos de DriveLink",
+        label: "El comprador paga a través de DriveLink",
+        detail: "Stripe, nuestro procesador de pagos, toma el pago.",
+        who: "Procesado por Stripe",
       },
       {
-        label: "Nosotros lo retenemos",
+        label: "El pago al vendedor espera la entrega",
         detail:
-          "Ninguno de los dos puede tocarlo. El vendedor ve que llegó. El comprador no puede retirarlo.",
-        who: "En manos de DriveLink",
+          "El vendedor ve que el pago llegó, pero todavía no se le paga. El comprador no puede retirarlo.",
+        who: "Vendedor aún sin cobrar",
       },
       {
         label: "Se reúnen y entregan el auto",
         detail: "Llaves, título firmado, placas. Igual que cualquier venta privada.",
-        who: "En manos de DriveLink",
+        who: "Vendedor aún sin cobrar",
       },
       {
         label: "El comprador da al vendedor un código de 6 dígitos",
         detail:
           "El comprador lo recibió al pagar. Entregarlo es como confirma que recibió el auto.",
-        who: "En manos de DriveLink",
+        who: "Vendedor aún sin cobrar",
       },
       {
         label: "El vendedor ingresa el código y se liberan los fondos",
@@ -138,11 +138,11 @@ const COPY = {
       },
       {
         q: "¿Cuándo me pagan realmente?",
-        a: "En el momento en que ingresas el código de 6 dígitos del comprador. Ese es el disparador. Si el comprador desaparece sin darte el código, los fondos se liberan automáticamente 7 días después de la fecha de entrega, para que nadie pueda dejar tu dinero atrapado ignorándote.",
+        a: "En el momento en que ingresas el código de 6 dígitos del comprador. Ese es el disparador. Si el comprador desaparece después de la entrega, revisamos la venta con ambas partes, para que nadie pueda dejar tu pago atrapado ignorándote.",
       },
       {
         q: "¿Y si el comprador paga y luego quiere su dinero de vuelta?",
-        a: "Una vez que ingresas el código y los fondos se liberan, el trato queda cerrado de nuestro lado. Antes de eso, el comprador solo puede cancelar si el auto no ha cambiado de manos. Los pagos con tarjeta y banco tienen sus propias reglas de disputa, por eso retenemos los fondos un período mínimo antes de liberarlos en vez de pagar al instante.",
+        a: "Una vez que ingresas el código y los fondos se liberan, el trato queda cerrado de nuestro lado. Antes de eso, el comprador solo puede cancelar si el auto no ha cambiado de manos. Los pagos con tarjeta y banco tienen sus propias reglas de disputa, por eso esperamos un período mínimo antes de pagar al vendedor en vez de pagar al instante.",
       },
       {
         q: "¿Y si el auto no es como lo describieron?",
@@ -158,7 +158,7 @@ const COPY = {
       },
       {
         q: "¿Quiénes son ustedes?",
-        a: "DriveLink LLC, una empresa de Nueva Jersey. Somos una capa de custodia para ventas privadas de autos — no un concesionario ni un intermediario. No somos dueños de los autos, no tomamos posesión de ellos y no fijamos precios. Nuestro único trabajo es retener el dinero hasta que se confirme la entrega.",
+        a: "DriveLink LLC, una empresa de Nueva Jersey. Ofrecemos protección de pagos para ventas privadas de autos — no somos un concesionario ni un intermediario. No somos dueños de los autos, no tomamos posesión de ellos y no fijamos precios. Al vendedor no se le paga hasta que se confirme la entrega.",
       },
     ],
     ctaTitle: "¿Listo para continuar el trato?",

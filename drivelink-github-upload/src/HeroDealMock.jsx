@@ -28,7 +28,7 @@ const COPY = {
     example: "Trato de ejemplo",
     car: "Honda CR-V 2019",
     price: "$18,400",
-    held: "Pago retenido en depósito",
+    held: "Pago protegido hasta la entrega",
     heldSub: "Retenido en la cuenta de Stripe de DriveLink. Todavía no se paga al vendedor.",
     codeLabel: "Código de entrega del comprador",
     codeHelp: "Dáselo al vendedor solo cuando tengas las llaves y el título firmado.",

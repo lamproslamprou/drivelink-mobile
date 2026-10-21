@@ -63,7 +63,7 @@ const COPY = {
   es: {
     back: "← Volver a DriveLink",
     title: "Qué hace DriveLink",
-    lede: "DriveLink retiene el dinero del comprador mientras ustedes hacen la entrega de un auto vendido entre particulares. Estas son las piezas, en el orden en que las usa un trato.",
+    lede: "DriveLink protege el pago del comprador mientras ustedes hacen la entrega de un auto vendido entre particulares. Estas son las piezas, en el orden en que las usa un trato.",
     sections: [
       {
         id: "escrow",
@@ -100,7 +100,7 @@ const COPY = {
         id: "disputes",
         h: "Disputas",
         p: [
-          "Si el auto no es como lo describieron, el comprador no da el código. Si algo sale mal, el comprador puede abrir una disputa y el dinero queda retenido hasta que nuestro equipo la resuelva.",
+          "Si el auto no es como lo describieron, el comprador no da el código. Si algo sale mal, el comprador puede abrir una disputa y al vendedor no se le paga hasta que nuestro equipo la resuelva.",
         ],
         link: { href: "/faq", label: "Cómo se protege tu dinero", view: "faq" },
       },

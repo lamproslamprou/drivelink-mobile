@@ -86,7 +86,7 @@ const COPY = {
       },
       {
         q: "¿Y si el comprador se lleva el auto y se niega a liberar el pago?",
-        a: "Avísanos. Si una transacción queda sin confirmar, contactamos automáticamente a ambas partes y les preguntamos directamente si el auto ya cambió de manos. Los fondos permanecen en garantía hasta resolverlo — nada se paga ni se reembolsa por un temporizador, y nadie queda esperando indefinidamente sin que una persona revise el caso.",
+        a: "Avísanos. Si una transacción queda sin confirmar, contactamos automáticamente a ambas partes y les preguntamos directamente si el auto ya cambió de manos. Al vendedor no se le paga hasta resolverlo — nada se paga ni se reembolsa por un temporizador, y nadie queda esperando indefinidamente sin que una persona revise el caso.",
       },
       {
         q: "¿Por qué confiar en una empresa de la que nunca he oído hablar?",
