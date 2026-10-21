@@ -724,17 +724,35 @@ export default function App() {
     } catch { /* analytics must never break sign-in */ }
   };
 
+  // GA4 sign-up conversion, for Google Ads. A user counts as new when the
+  // account is under 24h old (covers the email-confirmation path, where the
+  // first session can arrive hours after sign-up). A per-user localStorage
+  // flag keeps it to one event per browser; internal/admin browsers are
+  // skipped. Only the sign-in method is sent: no email, name or user id.
+  const trackSignupConversion = (user) => {
+    try {
+      if (!user || typeof window === "undefined" || typeof window.gtag !== "function") return;
+      if (localStorage.getItem("dl_internal")) return;
+      const age = Date.now() - new Date(user.created_at).getTime();
+      if (!(age >= 0 && age < 24 * 3600 * 1000)) return;
+      const key = "dl_signup_tracked_" + user.id;
+      if (localStorage.getItem(key)) return;
+      localStorage.setItem(key, "1");
+      window.gtag("event", "sign_up", { method: user.app_metadata?.provider || "email" });
+    } catch { /* analytics must never break sign-in */ }
+  };
+
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setCurrentUser(session?.user ?? null);
       loadDbUser(session?.user ?? null);
       setAuthChecked(true);
-      if (session?.user) { identifyAnalytics(session.user); promotePendingName(session.user); }
+      if (session?.user) { identifyAnalytics(session.user); trackSignupConversion(session.user); promotePendingName(session.user); }
     });
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setCurrentUser(session?.user ?? null);
       loadDbUser(session?.user ?? null);
-      if (session?.user) { identifyAnalytics(session.user); promotePendingName(session.user); }
+      if (session?.user) { identifyAnalytics(session.user); trackSignupConversion(session.user); promotePendingName(session.user); }
       if (event === "SIGNED_OUT") {
         try { analytics.resetIdentity(); } catch { /* ignore */ }
       }
@@ -2470,7 +2488,10 @@ function LegalPageView({ type, onBack }) {
             <h2>11. Changes to These Terms</h2>
             <p>We may update these terms from time to time. Continued use of DriveLink after a change means you accept the updated terms.</p>
 
-            <h2>12. Contact</h2>
+            <h2>12. Governing Law &amp; Disputes</h2>
+            <p>These terms, and any dispute arising from your use of DriveLink, are governed by the laws of the State of New Jersey, without regard to its conflict-of-law rules. If you have a problem, email <a href="mailto:support@drivelink.deals" style={styles.vinLink}>support@drivelink.deals</a> first and give us 30 days to try to resolve it. A claim that cannot be resolved that way must be brought in the state or federal courts located in New Jersey (for state court, Morris County), and you and DriveLink consent to those courts' jurisdiction. Nothing in this section limits any consumer protection rights that the law does not allow to be waived.</p>
+
+            <h2>13. Contact</h2>
             <p>Questions about these terms can be sent through the feedback form on our homepage, or emailed to <a href="mailto:support@drivelink.deals" style={styles.vinLink}>support@drivelink.deals</a>.</p>
           </div>
         ) : (
