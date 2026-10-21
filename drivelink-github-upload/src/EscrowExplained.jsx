@@ -65,7 +65,7 @@ const COPY = {
       },
       {
         q: "When do I actually get paid?",
-        a: "The moment you enter the buyer's 6-digit code. That's the release trigger. If the buyer disappears without giving you the code, funds release automatically 7 days after the handover date, so a buyer can't strand your money by ghosting you.",
+        a: "The moment you enter the buyer's 6-digit code. That's the release trigger. If the buyer goes quiet after you've handed over the car, we check in with both of you and review the sale ourselves, so a buyer can't strand your payout by ghosting you.",
       },
       {
         q: "What if the buyer pays and then wants their money back?",

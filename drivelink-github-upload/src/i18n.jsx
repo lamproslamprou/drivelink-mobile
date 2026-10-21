@@ -320,7 +320,7 @@ const dict = {
     "fee.promoterNote": "If the buyer arrives through a Promoter's shared link, a further 1% ({promoter}) goes to that Promoter and you'd receive about {netWithPromoter}. Processing is charged by our payment provider, not by DriveLink, and is an estimate until the sale completes.",
 
     // ── Payout timing ────────────────────────────────────────────────────
-    "payout.held": "The buyer's payment is held safely. Once they confirm they've received the car, {amount} is released to you — or automatically after 7 days if they don't. Bank arrival typically takes another few business days after that.",
+    "payout.held": "The buyer's payment is protected and waiting for the handover. Once they confirm they've received the car, {amount} is released to you. If they don't confirm, we'll check in with both of you and review the sale. Bank arrival typically takes another few business days after that.",
     "payout.released": "💸 {amount} released to your Stripe account. Card payments take a few business days to settle before Stripe pays out to your bank — expect it within about 5–7 business days of the sale. New accounts can take longer on the first payout.",
 
     // ── Common actions ───────────────────────────────────────────────────
