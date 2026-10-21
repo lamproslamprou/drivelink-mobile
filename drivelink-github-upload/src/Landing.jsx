@@ -157,7 +157,7 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn }) {
             </div>
             <div style={styles.heroStatDiv} />
             <div style={styles.heroStat}>
-              <span style={styles.heroStatNum}>{maxFeeLabel()} max</span>
+              <span style={styles.heroStatNum}>$0</span>
               <span style={styles.heroStatLabel}>{t("lp.statPromoter")}</span>
             </div>
           </div>
@@ -314,7 +314,7 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn }) {
               <ul style={styles.roleList}>
                 <li>✅ Free to list</li>
                 <li>✅ Buyer's funds verified before handover</li>
-                <li>✅ {platformFeeLabel()} fee, {maxFeeLabel()} max if referred</li>
+                <li>✅ {platformFeeLabel()} fee, paid by the seller</li>
               </ul>
               <button style={styles.roleBtn} onClick={handleCta}>List My Car →</button>
             </div>

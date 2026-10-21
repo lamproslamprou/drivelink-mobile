@@ -36,5 +36,5 @@ export function platformFeeLabel(now = new Date()) {
 
 // Platform fee + the Promoter's 1% (unchanged by the promo): "1.5%" or "2%".
 export function maxFeeLabel(now = new Date()) {
-  return promoActive(now) ? "1.5%" : "2%";
+  return platformFeeLabel(now); // no Promoter add-on any more
 }

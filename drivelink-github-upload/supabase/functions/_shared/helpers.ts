@@ -376,7 +376,7 @@ export const PLATFORM_FEE = 0.01;
 export const PLATFORM_FEE_PROMO = 0.005;
 export const PLATFORM_FEE_PROMO_START = "2026-10-01T04:00:00Z";
 export const PLATFORM_FEE_PROMO_END = "2026-11-01T04:00:00Z"; // exclusive
-export const PROMOTER_FEE = 0.01;
+export const PROMOTER_FEE = 0; // Promoters get a flat bounty (promoter_bounties), never a % of the sale
 
 export function platformFeeRate(now: Date = new Date()): number {
   const t = now.getTime();

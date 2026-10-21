@@ -86,7 +86,7 @@ function todayET() {
 // DriveLink's own fee now comes from platformFeeRate() in ./fee.js: 0.5% during
 // the October 2026 promo, 1% otherwise (reverts automatically Nov 1 ET). The
 // Promoter's cut below is never part of the promo.
-const PROMOTER_FEE = 0.01; // 1% promoter commission
+const PROMOTER_FEE = 0; // Promoters get a flat bounty, never a % of the sale
 // $15,000 (cents). Mirrors ACH_MIN_CENTS in supabase/functions/_shared/helpers.ts —
 // the backend re-enforces this gate itself (create-wire-session throws if the
 // charged total is below it), so this constant only controls whether the
@@ -2433,7 +2433,7 @@ function LegalPageView({ type, onBack }) {
       <div style={styles.legalInner}>
         <button style={styles.legalBackBtn} onClick={onBack}>← Back to DriveLink</button>
         <h1 style={styles.legalTitle}>{isTerms ? "Terms of Service" : "Privacy Policy"}</h1>
-        <p style={styles.legalUpdated}>Last updated: July 2026</p>
+        <p style={styles.legalUpdated}>Last updated: October 2026</p>
 
         {isTerms ? (
           <div style={styles.legalBody} className="legalBody">
@@ -2462,7 +2462,7 @@ function LegalPageView({ type, onBack }) {
             <p>Reviews must reflect genuine transactions. Fake or retaliatory reviews may be removed. You may block or report another user for abusive, fraudulent, or unsafe behavior; DriveLink may suspend accounts found to violate these terms.</p>
 
             <h2>9. Referral Program</h2>
-            <p>Promoters earn a 1% commission when a buyer completes a purchase through their shared link. Commissions are credited to the promoter's account balance once a sale is confirmed and are subject to review for fraudulent referral activity.</p>
+            <p>Promoters share links to DriveLink. DriveLink pays a Promoter a flat bounty (currently $10) for each new, identity-verified user the Promoter refers who starts a deal on DriveLink. The bounty does not depend on a sale closing and is not based on any sale price. Bounties are paid by DriveLink only, are credited to the Promoter's account balance after a short review period, are capped per Promoter and in total each month, and are subject to review for fraudulent or self-referral activity. A Promoter only shares links. A Promoter does not negotiate, arrange or complete any vehicle sale, handle any money, or act as an agent of any buyer or seller, and DriveLink is not a dealer or broker. DriveLink may change or end the Promoter program at any time.</p>
 
             <h2>10. Disclaimers &amp; Limitation of Liability</h2>
             <p>DriveLink is provided "as is." We do not guarantee the accuracy of any listing, the condition of any vehicle, or the conduct of any user. To the fullest extent permitted by law, DriveLink is not liable for damages arising from a transaction between a buyer and seller.</p>
@@ -2679,7 +2679,7 @@ for (const l of allListings.filter(l => l.status === "active")) {
                 <div style={styles.heroStatDiv} />
               </>
             )}
-            <div style={styles.heroStat}><span style={styles.heroStatNum}>1%</span><span style={styles.heroStatLabel}>{t("home.statPromoter")}</span></div>
+            <div style={styles.heroStat}><span style={styles.heroStatNum}>$10</span><span style={styles.heroStatLabel}>{t("home.statPromoter")}</span></div>
           </div>
         </div>
       </div>
@@ -2913,7 +2913,7 @@ function CarCard({ listing, seller, avgPrice, similarCount, onSeeSimilar, curren
             VIN: {listing.vin} {listing.vin_verified && <span style={styles.verifiedBadge} title="VIN was decoded and matches the make/model/year on this listing">✓ VIN Verified</span>} · <a href="https://www.carfax.com/vehicle-history-reports/" target="_blank" rel="noreferrer noopener" style={styles.vinLink}>{t("detail.carfax")} →</a> · <a href="https://www.nicb.org/vincheck" target="_blank" rel="noreferrer noopener" style={styles.vinLink}>{t("detail.nicb")} →</a>
           </div>
         )}
-        {myRef && <div style={styles.refTag}>{myRef.status === "paid" ? `✅ Commission paid: ${fmt(myRef.commission_amount)}` : "🔗 Your Promoter link is live — you'll earn 1% if this sells through it"}</div>}
+        {myRef && <div style={styles.refTag}>{myRef.status === "paid" ? `✅ Bounty paid` : "🔗 Your Promoter link is live — you'll earn $10 when a verified user you refer starts a deal"}</div>}
         <div style={styles.cardActions}>
           {currentUser && !isOwnListing && (
             <button style={styles.buyBtn} onClick={() => onBuy(listing)}>💳 {t("action.buyNow")}</button>
@@ -3212,7 +3212,7 @@ function ListingDetailModal({ data, currentUser, isFavorited, isBlocked, onClose
             </div>
           )}
 
-          {myRef && <div style={styles.refTag}>{myRef.status === "paid" ? `✅ Commission paid: ${fmt(myRef.commission_amount)}` : "🔗 Your Promoter link is live — you'll earn 1% if this sells through it"}</div>}
+          {myRef && <div style={styles.refTag}>{myRef.status === "paid" ? `✅ Bounty paid` : "🔗 Your Promoter link is live — you'll earn $10 when a verified user you refer starts a deal"}</div>}
 
           {!isOwnListing && (
             <div style={styles.safetyBanner}>
@@ -5151,9 +5151,6 @@ function SellerNetPreview({ price }) {
       <div style={{ fontSize: 13, lineHeight: 1.6 }}>
         {t("fee.breakdown", { price: fmt(b.price), rate: platformFeeLabel(), platform: fmt(b.platformFee), processing: fmt(b.processing) })}
       </div>
-      <div style={{ fontSize: 12, color: "#6b7280", marginTop: 6 }}>
-        {t("fee.promoterNote", { promoter: fmt(b.promoter), netWithPromoter: fmt(b.netWithPromoter) })}
-      </div>
     </div>
   );
 }
@@ -5494,7 +5491,7 @@ function PromoterDashboard({ currentUser, referrals, listings, payouts, standing
         </div>
       )}
       <h3 style={styles.sectionTitle}>Your Referrals</h3>
-      {referrals.length === 0 && <p style={{ color: "#6b7280" }}>No referrals yet. Browse listings and share to earn 1% commission on sales.</p>}
+      {referrals.length === 0 && <p style={{ color: "#6b7280" }}>No referrals yet. Share your Promoter link to earn $10 for each verified new user who starts a deal.</p>}
       <div style={styles.tableWrap}>
         {referrals.map(r => (
           <ReferralRow
@@ -5506,7 +5503,7 @@ function PromoterDashboard({ currentUser, referrals, listings, payouts, standing
           />
         ))}
       </div>
-      <div style={styles.infoBox}><b>How commissions work:</b> Share a listing, or send your Promoter link to someone doing a deal they found elsewhere. Either way, 1% of the sale price is credited to you once the sale completes.</div>
+      <div style={styles.infoBox}><b>How bounties work:</b> Share your Promoter link. When a new user you referred verifies their identity and starts a deal, $10 is credited to you after a short review period. It is paid whether or not the sale closes. Monthly caps apply.</div>
       <h3 style={{ ...styles.sectionTitle, marginTop: 32 }}>Payout History</h3>
       {myPayouts.length === 0 ? (
         <p style={{ color: "#6b7280" }}>No payouts yet — your available balance above is what's owed to you.</p>

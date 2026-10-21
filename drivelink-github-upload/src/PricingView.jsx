@@ -36,7 +36,6 @@ function buildCopy() {
         ["Listing a car", "$0"],
         ["Buyers", "$0 beyond the price of the car"],
         [`DriveLink fee (seller)${promo ? " — October offer" : ""}`, `${FEE} of the sale price, charged when the deal closes${promo ? ". Normally 1%." : "."}`],
-        ["If a Promoter referred the buyer", `A further 1% goes to the Promoter, so ${MAX} in total at most`],
         ["If the deal falls through", "$0. The buyer's money goes back and nobody is charged"],
         ["Card or bank processing", "Charged by Stripe, not by DriveLink. About 2.9% + $0.30 on cards. Bank transfer on purchases over $15,000 costs far less"],
         ["Deal size", "Up to $250,000. Above that, the deal is arranged manually"],
@@ -45,7 +44,7 @@ function buildCopy() {
       exTitle: "A worked example",
       exBody: [
         `A car sells for ${usd(EXAMPLE_PRICE)}.`,
-        `DriveLink's fee is ${usd(f.fee)} (${FEE}). If a Promoter referred the buyer, the total is ${usd(f.withPromoter)} (${MAX}).`,
+        `DriveLink's fee is ${usd(f.fee)} (${FEE}).`,
         `If the deal falls through, you pay ${"$0"}.`,
         `Card processing is separate, paid to Stripe, and comes out of the seller's proceeds: about ${usd(f.cardProcessing)} on a card payment of ${usd(EXAMPLE_PRICE)}. Paying by bank transfer instead costs much less.`,
       ],
@@ -63,7 +62,6 @@ function buildCopy() {
         ["Publicar un auto", "$0"],
         ["Compradores", "$0 aparte del precio del auto"],
         [`Comisión de DriveLink (vendedor)${promo ? " — oferta de octubre" : ""}`, `${FEE} del precio de venta, cobrada cuando se cierra el trato${promo ? ". Normalmente 1%." : "."}`],
-        ["Si un promotor trajo al comprador", `Otro 1% va al promotor, así que ${MAX} en total como máximo`],
         ["Si el trato no se concreta", "$0. El dinero del comprador se devuelve y no se cobra nada"],
         ["Procesamiento de tarjeta o banco", "Lo cobra Stripe, no DriveLink. Alrededor de 2.9% + $0.30 con tarjeta. La transferencia bancaria en compras de más de $15,000 cuesta mucho menos"],
         ["Tamaño del trato", "Hasta $250,000. Por encima de eso, el trato se arregla manualmente"],
@@ -72,7 +70,7 @@ function buildCopy() {
       exTitle: "Un ejemplo con números",
       exBody: [
         `Un auto se vende por ${usd(EXAMPLE_PRICE)}.`,
-        `La comisión de DriveLink es ${usd(f.fee)} (${FEE}). Si un promotor trajo al comprador, el total es ${usd(f.withPromoter)} (${MAX}).`,
+        `La comisión de DriveLink es ${usd(f.fee)} (${FEE}).`,
         "Si el trato no se concreta, pagas $0.",
         `El procesamiento es aparte, se paga a Stripe y sale de lo que recibe el vendedor: alrededor de ${usd(f.cardProcessing)} con un pago de ${usd(EXAMPLE_PRICE)} por tarjeta. Pagar por transferencia bancaria cuesta mucho menos.`,
       ],
