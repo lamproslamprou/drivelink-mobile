@@ -356,6 +356,7 @@ export default function App() {
   const [dbUser, setDbUser] = useState(null);
   const [listings, setListings] = useState([]);
   const [referrals, setReferrals] = useState([]);
+  const [bounties, setBounties] = useState([]); // the signed-in Promoter's own bounty rows (RLS-scoped)
   const [users, setUsers] = useState([]);
   const [reports, setReports] = useState([]);
   const [feedback, setFeedback] = useState([]);
@@ -514,6 +515,8 @@ export default function App() {
   const loadData = async () => {
     const { data: listingsData } = await supabase.from("listings").select("*").order("created_at", { ascending: false });
     const { data: referralsData } = await supabase.from("referrals").select("*");
+    // Read-only, own rows only (RLS). Empty for anyone who is not a Promoter.
+    const { data: bountiesData } = await supabase.from("promoter_bounties").select("*").order("created_at", { ascending: false });
     // Under RLS, `users` returns only your own row (or everything, if you're an
     // admin). Seller names and badges across the marketplace come from the
     // public_profiles view instead, which exposes display fields only. Merge the
@@ -551,6 +554,7 @@ export default function App() {
     // blocked by RLS — and only happening when someone happened to visit.
     if (finalListings) setListings(finalListings);
     if (referralsData) setReferrals(referralsData);
+    if (bountiesData) setBounties(bountiesData);
     if (profilesData || usersData) {
       const byId = new Map((profilesData || []).map(p => [p.id, p]));
       for (const u of usersData || []) byId.set(u.id, { ...(byId.get(u.id) || {}), ...u });
@@ -951,13 +955,13 @@ export default function App() {
     }
     await loadData();
     if (data?.referral === "flagged_ambiguous") {
-      showToast("Sale confirmed. Several Promoters shared this listing, so the commission is flagged for review before it's paid.", "info");
+      showToast("Sale confirmed.", "info");
     } else if (data?.referral === "flagged_self_referral") {
       showToast("Sale confirmed. The referral looks like a self-purchase and has been flagged for review.", "info");
     } else if (listing.stripe_payment_intent_id) {
       showToast("Receipt confirmed — funds released to the seller. It takes a few business days to reach their bank.");
     } else {
-      showToast("Receipt confirmed — sale finalized and commission released.");
+      showToast("Receipt confirmed — sale finalized.");
     }
   };
 
@@ -978,7 +982,7 @@ export default function App() {
     if (data?.heldForReview) {
       showToast("Handover confirmed. This sale is under a short review before funds are released.", "info");
     } else if (data?.referral === "flagged_ambiguous" || data?.referral === "flagged_self_referral") {
-      showToast("Handover confirmed and funds released. The Promoter commission is flagged for review before it's paid.", "info");
+      showToast("Handover confirmed — funds released to your Stripe account. Expect them in your bank within a few business days.");
     } else {
       showToast("Handover confirmed — funds released to your Stripe account. Expect them in your bank within a few business days.");
     }
@@ -2278,7 +2282,7 @@ const denyInspector = async (id) => {
         {view === "savedSearches" && <SavedSearchesView savedSearches={savedSearches} onDelete={deleteSavedSearch} onBrowse={() => setView("home")} />}
         {view === "favorites" && <FavoritesView favorites={favorites} listings={listings} users={users} referrals={referrals} currentUser={dbUser} onShare={generateShare} onBuy={handleBuyNow} onMessageSeller={messageSeller} onReport={fileReport} onToggleFavorite={toggleFavorite} onBrowse={() => setView("home")} onOpenListing={openListing} />}
         {view === "blocked" && <BlockedUsersView blocks={blocks} users={users} onToggleBlock={toggleBlock} onBrowse={() => setView("home")} />}
-        {view === "dashboard" && <PromoterDashboard currentUser={dbUser} referrals={referrals.filter(r => r.promoter_id === currentUser?.id)} listings={listings} payouts={payouts} standingCode={promoterCode?.code || null} onSetupPayouts={setupPayouts} onRetract={retractReferral} onGetCode={() => setView("promoter")} />}
+        {view === "dashboard" && <PromoterDashboard currentUser={dbUser} referrals={referrals.filter(r => r.promoter_id === currentUser?.id)} bounties={bounties.filter(b => b.promoter_id === currentUser?.id)} listings={listings} payouts={payouts} standingCode={promoterCode?.code || null} onSetupPayouts={setupPayouts} onRetract={retractReferral} onGetCode={() => setView("promoter")} />}
         {view === "promoter" && <PromoterCodeView currentUser={dbUser} promoterCode={promoterCode} onMint={mintPromoterCode} onSetupPayouts={setupPayouts} onViewEarnings={() => setView("dashboard")} />}
         {view === "profile" && <ProfileView dbUser={dbUser} authEmail={currentUser?.email} onUpdateProfile={updateProfile} onChangeEmail={changeEmail} onChangePassword={changePassword} onSetupPayouts={setupPayouts} onStartIdentityVerification={startIdentityVerification} />}
        {view === "admin" && <AdminView listings={listings} users={users} riskFlags={riskFlags} onResolveRiskFlag={resolveRiskFlag} referrals={referrals} reports={reports} feedback={feedback} userReports={userReports} reviews={reviews} payouts={payouts} disputes={disputes} adPlacements={adPlacements} inspectors={inspectors} onDeleteAd={deleteAdPlacement} onCompAd={compAdPlacement} onRefreshAds={loadData} onArchive={archiveListing} onMarkSold={markSold} onConfirmReceipt={confirmReceipt} onResolveReport={resolveReport} onResolveUserReport={resolveUserReport} onToggleVerified={toggleVerified} onResetData={resetTestData} onRecordPayout={recordPayout} onPayoutViaStripe={payoutPromoterViaStripe} onResolveDispute={resolveDispute} onDeleteUser={deleteUser} onApproveFlaggedReferral={approveFlaggedReferral} onDenyFlaggedReferral={denyFlaggedReferral} onApproveInspector={approveInspector} onDenyInspector={denyInspector} />}
@@ -2506,7 +2510,7 @@ function LegalPageView({ type, onBack }) {
             <p>The city or ZIP code you enter on a listing is converted to approximate map coordinates (via OpenStreetMap's Nominatim service) so your car can appear on the listings map. We don't collect precise device location.</p>
 
             <h2>4. How We Use Your Information</h2>
-            <p>We use your information to operate the marketplace: displaying listings, enabling buyer-seller messaging, calculating referral commissions, processing reviews, and sending you account-related notifications. We do not sell your personal information to third parties.</p>
+            <p>We use your information to operate the marketplace: displaying listings, enabling buyer-seller messaging, paying referral bounties, processing reviews, and sending you account-related notifications. We do not sell your personal information to third parties.</p>
 
             <h2>5. What Other Users Can See</h2>
             <p>Your name and verified-seller status are visible on your listings. Your email is only visible to DriveLink and is not shown to other users unless you choose to share it (for example, in a message).</p>
@@ -4638,7 +4642,7 @@ function ProfileView({ dbUser, authEmail, onUpdateProfile, onChangeEmail, onChan
         <div style={{ fontSize: 13, color: "#16a34a" }}>✅ Stripe payouts are set up.</div>
       ) : (
         <div>
-          <p style={{ fontSize: 13, color: "#6b7280", marginBottom: 8 }}>Set up payouts to get paid automatically for sales and commissions.</p>
+          <p style={{ fontSize: 13, color: "#6b7280", marginBottom: 8 }}>Set up payouts to get paid automatically for sales and Promoter bounties.</p>
           <button style={styles.confirmBtn} onClick={onSetupPayouts}>Set up payouts</button>
         </div>
       )}
@@ -5483,27 +5487,31 @@ function YearField({ value, onChange }) {
   );
 }
 
-function PromoterDashboard({ currentUser, referrals, listings, payouts, standingCode, onSetupPayouts, onRetract, onGetCode }) {
+function PromoterDashboard({ currentUser, referrals, bounties, listings, payouts, standingCode, onSetupPayouts, onRetract, onGetCode }) {
   const pending = referrals.filter(r => r.status === "pending");
-  const lifetimeEarned = referrals.filter(r => r.status === "paid").reduce((s, r) => s + (r.commission_amount || 0), 0);
+  // Flat bounties live in promoter_bounties; legacy 1% commissions (if any) are still on referrals.
+  const myBounties = (bounties || []).filter(b => b.status !== "blocked");
+  const paidBounties = myBounties.filter(b => b.status === "paid");
+  const lifetimeEarned = paidBounties.reduce((s, b) => s + (b.amount_cents || 0), 0)
+    + referrals.filter(r => r.status === "paid").reduce((s, r) => s + (r.commission_amount || 0), 0);
   const myPayouts = (payouts || []).filter(p => p.user_id === currentUser?.id);
   return (
     <div style={styles.pageWrap}>
       <h2 style={styles.pageTitle}>Earnings Dashboard</h2>
       {currentUser && !currentUser.stripe_payouts_enabled && (
         <div style={styles.safetyBanner}>
-          💳 Set up Stripe payouts to get your commission sent directly instead of waiting on a manual payout.{" "}
+          💳 Set up Stripe payouts to get your earnings sent directly instead of waiting on a manual payout.{" "}
           <button style={styles.safetyBannerLink} onClick={onSetupPayouts}>Set up payouts</button>
         </div>
       )}
       {currentUser && currentUser.stripe_payouts_enabled && (
-        <div style={{ fontSize: 13, color: "#16a34a", marginBottom: 12 }}>✅ Stripe payouts are set up — commissions can be sent to you directly.</div>
+        <div style={{ fontSize: 13, color: "#16a34a", marginBottom: 12 }}>✅ Stripe payouts are set up — your earnings can be sent to you directly.</div>
       )}
       <div style={styles.statsRow}>
         <StatBox label="Available Balance" value={fmt(currentUser?.balance || 0)} color="#16a34a" />
         <StatBox label="Lifetime Earned" value={fmt(lifetimeEarned)} color="#1d4ed8" />
         <StatBox label="Shares Active" value={pending.length} color="#1d4ed8" />
-        <StatBox label="Sales Converted" value={referrals.filter(r => r.status === "paid").length} color="#7c3aed" />
+        <StatBox label="Bounties Paid" value={paidBounties.length} color="#7c3aed" />
       </div>
       {!standingCode && (
         <div style={styles.safetyBanner}>
@@ -5525,6 +5533,25 @@ function PromoterDashboard({ currentUser, referrals, listings, payouts, standing
         ))}
       </div>
       <div style={styles.infoBox}><b>How bounties work:</b> Share your Promoter link. When a new user you referred verifies their identity and starts a deal, $10 is credited to you after a short review period. It is paid whether or not the sale closes. Monthly caps apply.</div>
+      <h3 style={{ ...styles.sectionTitle, marginTop: 32 }}>Your Bounties</h3>
+      {myBounties.length === 0 ? (
+        <p style={{ color: "#6b7280" }}>No bounties yet. One appears here when someone you referred verifies their ID and starts a deal.</p>
+      ) : (
+        <div style={styles.tableWrap}>
+          {myBounties.map(b => (
+            <div key={b.id} style={styles.listingRow} className="app-listing-row">
+              <div style={styles.rowInfo} className="app-row-info">
+                <div style={styles.rowTitle}>{fmt(b.amount_cents)} bounty</div>
+                <div style={styles.rowMeta}>
+                  {b.status === "paid"
+                    ? `✅ Credited ${new Date(b.paid_at).toLocaleDateString()}`
+                    : `⏳ Pending review — credited on or after ${new Date(b.approve_after).toLocaleDateString()}`}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
       <h3 style={{ ...styles.sectionTitle, marginTop: 32 }}>Payout History</h3>
       {myPayouts.length === 0 ? (
         <p style={{ color: "#6b7280" }}>No payouts yet — your available balance above is what's owed to you.</p>
@@ -5740,7 +5767,7 @@ function PromoterCodeView({ currentUser, promoterCode, onMint, onSetupPayouts, o
 
           {currentUser && !currentUser.stripe_payouts_enabled && (
             <div style={{ ...styles.safetyBanner, marginTop: 20 }}>
-              💳 Set up payouts so your commission can be sent to you directly.{" "}
+              💳 Set up payouts so your earnings can be sent to you directly.{" "}
               <button style={styles.safetyBannerLink} onClick={onSetupPayouts}>Set up payouts</button>
             </div>
           )}
@@ -5810,7 +5837,7 @@ function ReferralRow({ referral: r, listing, standingCode, onRetract }) {
           <PromoterLinkRow code={r.share_code} listing={listing} />
         )}
 
-        {r.status === "paid" && <div style={styles.soldBadge}>✅ Commission: {fmt(r.commission_amount)} on {r.paid_at}</div>}
+        {r.status === "paid" && (r.commission_amount || 0) > 0 && <div style={styles.soldBadge}>✅ Commission: {fmt(r.commission_amount)} on {r.paid_at}</div>}
         {r.status === "pending" && (
           <div style={styles.promoterTag}>
             ⏳ Pending — you'll earn $10 when a verified user you referred starts a deal
@@ -5818,12 +5845,12 @@ function ReferralRow({ referral: r, listing, standingCode, onRetract }) {
         )}
         {r.status === "flagged" && (
           <div style={{ fontSize: 13, color: "#b45309", marginTop: 6 }}>
-            🔍 Under review — we'll confirm this commission before it's paid.
+            🔍 Under review — we'll review this referral before any bounty is paid.
           </div>
         )}
         {r.status === "denied" && (
           <div style={{ fontSize: 13, color: "#6b7280", marginTop: 6 }}>
-            This referral wasn't eligible for a commission.
+            This referral wasn't eligible for a bounty.
           </div>
         )}
 
