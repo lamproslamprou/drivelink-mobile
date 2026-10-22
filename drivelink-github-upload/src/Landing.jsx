@@ -141,27 +141,6 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn, list
             <button style={styles.ctaSecondary} onClick={handleCta}>{t("lp.ctaList")}</button>
           </div>
 
-          {listings.length > 0 && (
-            <div style={styles.carStrip}>
-              <div style={styles.carStripHead}>
-                <span style={styles.carStripTitle}>{t("lp.carsNow")}</span>
-                <button style={styles.trustLink} onClick={onBrowse}>{t("lp.carsAll")}</button>
-              </div>
-              <div style={styles.carStripRow}>
-                {listings.slice(0, 4).map((c) => {
-                  const img = (c.images && c.images[0]) || c.image;
-                  return (
-                    <button key={c.id} style={styles.carTile} onClick={() => onOpenCar?.(c.id)}>
-                      {img && <img src={img} alt={`${c.year} ${c.make} ${c.model}`} style={styles.carTileImg} loading="lazy" />}
-                      <span style={styles.carTileName}>{c.year} {c.make} {c.model}</span>
-                      <span style={styles.carTilePrice}>{(() => { const d = Number(c.price) / 100; return d.toLocaleString("en-US", { style: "currency", currency: "USD", minimumFractionDigits: d % 1 === 0 ? 0 : 2, maximumFractionDigits: d % 1 === 0 ? 0 : 2 }); })()}</span>
-                      {c.location_text && <span style={styles.carTileMeta}>{c.location_text}</span>}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
 
           <p style={{ margin: "0 0 18px", textAlign: "left" }}>
             <SpaLink href="/seller-toolkit" view="sellerToolkit" onNavigate={onNavigate} style={{ ...styles.trustLink, textDecoration: "underline" }}>
@@ -212,6 +191,29 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn, list
           )}
         </div>
       </section>
+
+      {listings.length > 0 && (
+        <section style={styles.carStripSection} className="dl-car-strip">
+          <div style={styles.carStripHead}>
+            <span style={styles.carStripTitle}>{t("lp.carsNow")}</span>
+            <button style={styles.trustLink} onClick={onBrowse}>{t("lp.carsAll")}</button>
+          </div>
+          <div style={styles.carStripRow}>
+            {listings.slice(0, 6).map((c) => {
+              const img = (c.images && c.images[0]) || c.image;
+              const d = Number(c.price) / 100;
+              return (
+                <button key={c.id} style={styles.carTile} onClick={() => onOpenCar?.(c.id)}>
+                  {img && <img src={img} alt={`${c.year} ${c.make} ${c.model}`} style={styles.carTileImg} loading="lazy" />}
+                  <span style={styles.carTileName}>{c.year} {c.make} {c.model}</span>
+                  <span style={styles.carTilePrice}>{d.toLocaleString("en-US", { style: "currency", currency: "USD", minimumFractionDigits: d % 1 === 0 ? 0 : 2, maximumFractionDigits: d % 1 === 0 ? 0 : 2 })}</span>
+                  {c.location_text && <span style={styles.carTileMeta}>{c.location_text}</span>}
+                </button>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       {/* Real, dated third-party mentions only — renders nothing until
           THIRD_PARTY in siteProof.js has entries. */}
@@ -602,7 +604,7 @@ const styles = {
   hamburgerBtn: { background: "none", border: "1px solid #e5e7eb", borderRadius: 10, cursor: "pointer", color: "#374151", minWidth: 44, minHeight: 44, padding: 0, alignItems: "center", justifyContent: "center" },
   navMenu: { borderTop: "1px solid #e5e7eb", background: "#fff", padding: "12px 16px 16px", display: "flex", flexDirection: "column", alignItems: "stretch", gap: 4, boxShadow: "0 12px 24px rgba(15,23,42,.08)" },
   navMenuItem: { background: "none", border: "none", textAlign: "left", padding: "0 4px", minHeight: 48, display: "flex", alignItems: "center", fontSize: 16, fontWeight: 600, color: "#0f172a", cursor: "pointer", textDecoration: "none", fontFamily: "inherit" },
-  hero: { maxWidth: 1200, margin: "0 auto", padding: "80px 24px 60px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 48, alignItems: "center" },
+  hero: { maxWidth: 1200, margin: "0 auto", padding: "80px 24px 36px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 48, alignItems: "start" },
   heroInner: {},
   heroBannerWrap: { gridColumn: "1 / -1", display: "flex", justifyContent: "center", marginBottom: 12 },
   heroBanner: { position: "relative", overflow: "hidden", display: "inline-flex", alignItems: "center", gap: 10, background: "linear-gradient(90deg,#1d4ed8,#3b82f6,#1d4ed8)", backgroundSize: "200% 100%", color: "#fff", fontSize: 13, fontWeight: 700, letterSpacing: ".04em", padding: "10px 22px", borderRadius: 999, boxShadow: "0 8px 24px rgba(29,78,216,.35)" },
@@ -612,10 +614,10 @@ const styles = {
   heroAccent: { color: "#3b82f6" },
   heroSub: { fontSize: 18, color: "#4b5563", lineHeight: 1.7, marginBottom: 28 },
   heroActions: { display: "flex", gap: 10, rowGap: 10, marginBottom: 22, flexWrap: "wrap", alignItems: "stretch" },
-  carStrip: { margin: "0 0 20px" },
-  carStripHead: { display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 10 },
+  carStripSection: { maxWidth: 1200, margin: "0 auto", padding: "0 24px 48px" },
+  carStripHead: { display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 12, paddingTop: 20, borderTop: "1px solid #e5e7eb" },
   carStripTitle: { fontSize: 14, fontWeight: 700, color: "#0f172a" },
-  carStripRow: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 190px))", gap: 12, justifyContent: "start" },
+  carStripRow: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 14 },
   carTile: { display: "flex", flexDirection: "column", gap: 3, textAlign: "left", background: "#fff", border: "1px solid #e5e7eb", borderRadius: 12, padding: 8, cursor: "pointer", fontFamily: "inherit" },
   carTileImg: { width: "100%", aspectRatio: "4 / 3", objectFit: "cover", borderRadius: 8, marginBottom: 4, background: "#f1f5f9" },
   carTileName: { fontSize: 13.5, fontWeight: 700, color: "#0f172a" },
@@ -634,7 +636,7 @@ const styles = {
   // background shows while the remote Unsplash photo is still loading —
   // without it this box is flat white for a beat on first paint, which reads
   // as a broken image rather than a photo that's on its way in.
-  heroImageWrap: { borderRadius: 20, overflow: "hidden", boxShadow: "0 20px 60px rgba(0,0,0,.15)", background: "linear-gradient(135deg, #1e293b, #334155)" },
+  heroImageWrap: { marginTop: 36, borderRadius: 20, overflow: "hidden", boxShadow: "0 20px 60px rgba(0,0,0,.15)", background: "linear-gradient(135deg, #1e293b, #334155)" },
   heroImage: { width: "100%", height: 400, objectFit: "cover", display: "block" },
   section: { padding: "80px 24px" },
   sectionInner: { maxWidth: 1200, margin: "0 auto" },
