@@ -106,6 +106,25 @@ const ACCEPTANCE_WINDOW_MS = 48 * 60 * 60 * 1000;    // buyer has 48h to close b
 //                   to the canonical /listing/:id for that code.
 const SITE_ORIGIN = typeof window !== "undefined" ? window.location.origin : "https://drivelink.deals";
 const listingUrl = (id) => `${SITE_ORIGIN}/listing/${id}`;
+
+// A signed-out visitor who taps Buy / Offer / Message / Save on a car is sent to
+// sign-in. This remembers which car, so after sign-in (or Google, or the
+// confirmation email in a new tab) they land back on that car instead of the
+// grid. Stored with a timestamp so an abandoned attempt can't redirect a much
+// later sign-in.
+const POST_AUTH_LISTING_KEY = "dl_post_auth_listing";
+const rememberPostAuthListing = (id) => {
+  try { if (id) localStorage.setItem(POST_AUTH_LISTING_KEY, JSON.stringify({ id, t: Date.now() })); } catch { /* private mode */ }
+};
+const takePostAuthListing = () => {
+  try {
+    const raw = localStorage.getItem(POST_AUTH_LISTING_KEY);
+    if (!raw) return null;
+    localStorage.removeItem(POST_AUTH_LISTING_KEY);
+    const v = JSON.parse(raw);
+    return v?.id && Date.now() - Number(v.t) < 2 * 60 * 60 * 1000 ? String(v.id) : null;
+  } catch { return null; }
+};
 const promoterUrl = (code) => `${SITE_ORIGIN}/s/${code}`;
 // Standing Promoter link. Unlike promoterUrl() this points at no particular car:
 // /p/:code stores the code and drops the visitor straight into Start a Deal,
@@ -774,6 +793,8 @@ export default function App() {
             if (VIEW_PATHS[ret] && ret !== "auth") { setView(ret); navigate(VIEW_PATHS[ret], { replace: true }); }
           }
         } catch { /* private mode */ }
+        const retListing = takePostAuthListing();
+        if (retListing) navigate(`/listing/${retListing}`, { replace: true });
       }
     });
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
@@ -1391,8 +1412,15 @@ const denyInspector = async (id) => {
     await loadSavedSearches(currentUser.id);
   };
 
+  const signInForListing = (listingId) => {
+    rememberPostAuthListing(listingId);
+    setViewingListing(null);
+    setView("auth");
+    navigate(VIEW_PATHS.auth);
+  };
+
   const toggleFavorite = async (listingId) => {
-    if (!currentUser) { setView("auth"); return; }
+    if (!currentUser) { signInForListing(listingId); return; }
     const existing = favorites.find(f => f.listing_id === listingId);
     if (existing) {
       await supabase.from("favorites").delete().eq("id", existing.id);
@@ -2128,6 +2156,14 @@ const denyInspector = async (id) => {
     loadDbUser(user);
     loadData();
     // Continue to whatever they were trying to reach, else the grid.
+    const retListing = takePostAuthListing();
+    if (retListing) {
+      // The /listing/:id route effect reopens the car once listings have loaded.
+      setView("home");
+      setPendingView(null);
+      navigate(`/listing/${retListing}`, { replace: true });
+      return;
+    }
     const target = pendingView && pendingView !== "auth" ? pendingView : "home";
     setView(target);
     setPendingView(null);
@@ -2298,7 +2334,7 @@ const denyInspector = async (id) => {
 
       <main style={styles.main} className="app-main">
         {view === "advertise" && <AdvertiseView currentUser={dbUser} onSubmit={createAdCheckout} onSignIn={() => { setPendingView("advertise"); setView("auth"); }} />}
-        {view === "home" && <HomeView key={homeResetKey} listings={activeListings} allListings={listings} currentUser={dbUser} users={users} onShare={generateShare} onBuy={handleBuyNow} referrals={referrals} onSignIn={() => setView("auth")} onMessageSeller={messageSeller} onReport={fileReport} onSaveSearch={saveSearch} favorites={favorites} onToggleFavorite={toggleFavorite} onToggleBlock={toggleBlock} onReportUser={reportUserAction} blocks={blocks} reviews={reviews} offers={offers} onMakeOffer={makeOffer} onOpenListing={openListing} />}
+        {view === "home" && <HomeView key={homeResetKey} listings={activeListings} allListings={listings} currentUser={dbUser} users={users} onShare={generateShare} onBuy={handleBuyNow} referrals={referrals} onSignIn={signInForListing} onMessageSeller={messageSeller} onReport={fileReport} onSaveSearch={saveSearch} favorites={favorites} onToggleFavorite={toggleFavorite} onToggleBlock={toggleBlock} onReportUser={reportUserAction} blocks={blocks} reviews={reviews} offers={offers} onMakeOffer={makeOffer} onOpenListing={openListing} />}
         {view === "myListings" && <MyListingsView listings={listings.filter(l => l.seller_id === currentUser?.id)} referrals={referrals} users={users} offers={offers} stats={listingStats} onMarkSold={markSold} onSetStatus={setListingStatus} onUpdate={updateListing} onRespondToOffer={respondToOffer} onRescindOffer={rescindOffer} onOpenSafety={() => setView("safety")} onConfirmHandover={confirmHandover} currentUser={dbUser} onSetupPayouts={setupPayouts} onDelete={deleteListing} onRestore={restoreListing} />}
         {view === "myPurchases" && <MyPurchasesView listings={listings.filter(l => l.buyer_id === currentUser?.id)} users={users} reviews={reviews} currentUser={currentUser} handoverCodes={handoverCodes} onSubmitReview={submitReview} onConfirmReceipt={confirmReceipt} onFileDispute={fileDispute} onBuy={handleBuyNow} onBrowse={() => setView("home")} onOpenSafety={() => setView("safety")} onFindInspector={() => setView("inspectors")} />}
         {view === "myOffers" && <MyOffersView offers={offers.filter(o => o.buyer_id === currentUser?.id)} listings={listings} onRespondToCounter={respondToCounter} onBuy={handleBuyNow} onBrowse={() => setView("home")} onOpenListing={(l) => openListing(buildListingPayload(l))} />}
@@ -2367,7 +2403,7 @@ const denyInspector = async (id) => {
           onToggleFavorite={toggleFavorite}
           onToggleBlock={toggleBlock}
           onMakeOffer={makeOffer}
-          onSignIn={() => setView("auth")}
+          onSignIn={() => signInForListing(viewingListing.listing.id)}
           onCheckDeal={checkDealAssessment}
           onTranslate={translateListing}
           onFindInspector={() => setView("inspectors")}
@@ -2816,7 +2852,7 @@ for (const l of allListings.filter(l => l.status === "active")) {
                 onShare={onShare}
                 onBuy={onBuy}
                 myRef={myRef}
-                onSignIn={onSignIn}
+                onSignIn={() => onSignIn(l.id)}
                 onMessageSeller={onMessageSeller}
                 onReport={onReport}
                 isFavorited={favorites?.some(f => f.listing_id === l.id)}
