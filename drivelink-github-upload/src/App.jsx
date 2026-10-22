@@ -4038,6 +4038,10 @@ function MyPurchasesView({ listings, users, reviews, currentUser, handoverCodes,
           const myReview = reviews.find(r => r.listing_id === l.id && r.buyer_id === currentUser.id);
           const cover = (l.images && l.images[0]) || l.image;
           const awaitingConfirmation = l.status === "pending_confirmation";
+          // The seller entered the buyer's code but Stripe has not yet made the
+          // funds available, so the payout is queued. Showing the code and a
+          // Confirm Receipt button again would read as if nothing had happened.
+          const handoverDone = awaitingConfirmation && (l.payout_status === "pending" || l.payout_status === "failed");
           const disputed = l.status === "disputed";
           // A BYOD deal sits here as an active, unpaid listing from the moment
           // the seller joins until the buyer funds escrow. This view was built
@@ -4070,7 +4074,12 @@ function MyPurchasesView({ listings, users, reviews, currentUser, handoverCodes,
                     </div>
                   </div>
                 )}
-                {awaitingConfirmation && (
+                {awaitingConfirmation && handoverDone && (
+                  <div style={{ marginTop: 6, fontSize: 13, color: "#15803d", fontWeight: 600, lineHeight: 1.5 }}>
+                    ✅ Handover confirmed — the seller entered your code. Their payout is being processed. Something not right? You can still report a problem.
+                  </div>
+                )}
+                {awaitingConfirmation && !handoverDone && (
                   <div style={{ marginTop: 6 }}>
                     <div style={{ fontSize: 13, color: "#1d4ed8", fontWeight: 600 }}>
                       Your payment is protected — the seller can't withdraw it until you have the car. Had a problem instead? Report it rather than confirming.
@@ -4099,7 +4108,7 @@ function MyPurchasesView({ listings, users, reviews, currentUser, handoverCodes,
                 {awaitingPayment && (
                   <div style={{ marginTop: 6 }}>
                     <div style={{ fontSize: 13, color: "#1d4ed8", fontWeight: 600 }}>
-                      The seller has joined and is ready. Your payment is held by DriveLink until you confirm you have the car and the signed title.
+                      The seller has joined and is ready. Your payment is protected — the seller can't withdraw it until you confirm you have the car and the signed title.
                     </div>
                     {l.handover_date && (
                       <div style={{ fontSize: 13, color: "#6b7280", marginTop: 4 }}>
@@ -4120,7 +4129,7 @@ function MyPurchasesView({ listings, users, reviews, currentUser, handoverCodes,
               )}
               {awaitingConfirmation && (
                 <>
-                  <button style={styles.soldBtn} onClick={() => onConfirmReceipt(l.id)}>✅ Confirm Receipt</button>
+                  {!handoverDone && <button style={styles.soldBtn} onClick={() => onConfirmReceipt(l.id)}>✅ Confirm Receipt</button>}
                   <button style={styles.reportBtn} onClick={() => setDisputing(l)}>⚠️ Report a Problem</button>
                 </>
               )}
@@ -4797,7 +4806,7 @@ function AboutView({ onBack, onBrowse, onSafety, onPricing }) {
       <div style={styles.legalInner}>
         <button style={styles.legalBackBtn} onClick={onBack}>← Back to DriveLink</button>
         <h1 style={styles.legalTitle}>About DriveLink</h1>
-        <p style={styles.legalUpdated}>A peer-to-peer car marketplace where the money is held safely until the car actually changes hands.</p>
+        <p style={styles.legalUpdated}>A peer-to-peer car marketplace where the payment is protected until the car actually changes hands.</p>
         <div style={styles.legalBody} className="legalBody">
           <h2>Why DriveLink exists</h2>
           <p>Buying a used car privately usually means choosing between two bad options. Marketplaces like Facebook and Craigslist have the cars but no payment protection at all — you meet a stranger and hand over a cashier's check, hoping the title is clean. Third-party escrow services offer protection but aren't built for cars, so you're bolting a generic process onto a transaction it wasn't designed for.</p>
