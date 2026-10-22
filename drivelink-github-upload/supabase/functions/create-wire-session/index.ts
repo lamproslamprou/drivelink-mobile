@@ -43,6 +43,8 @@
 // behavior nothing else here has.
 import {
   ACH_MIN_CENTS,
+  findPendingReferrals,
+  platformFeeRate,
   alertHtml,
   corsHeaders,
   jsonResponse,
@@ -54,6 +56,7 @@ import {
   stripeClient,
   supabaseAdmin,
 } from "../_shared/helpers.ts";
+import { directChargesEnabled, ensureHoldingAccount } from "../_shared/direct.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -62,10 +65,12 @@ Deno.serve(async (req) => {
   // is exactly the custody direct-charge mode exists to remove. Until bank
   // transfers are confirmed to work as direct charges on connected accounts,
   // the wire rail is switched off whenever direct-charge mode is on.
-  if ((Deno.env.get("DIRECT_CHARGES") ?? "").toLowerCase() === "on") {
-    return jsonResponse({
-      error: "Wire transfers aren't available right now. Please pay by card or bank debit.",
-    }, 400);
+  // Wire is a DIRECT charge now: the bank-transfer PaymentIntent and its virtual
+  // account live on the seller's own connected account, so DriveLink never holds
+  // the money. Without direct mode there is no way to take a wire that avoids
+  // custody, so it stays off.
+  if (!directChargesEnabled()) {
+    return jsonResponse({ error: "Wire transfers aren't available right now." }, 400);
   }
 
   try {
@@ -100,8 +105,28 @@ Deno.serve(async (req) => {
       .eq("id", listing.seller_id)
       .single();
     if (sellerErr || !seller) throw new Error("Seller not found");
-    if (!seller.stripe_payouts_enabled) {
+    if (!seller.stripe_payouts_enabled || !seller.stripe_account_id) {
       throw new Error("This seller hasn't finished setting up payouts yet");
+    }
+
+    // Same guarantees as create-checkout-session: manual payouts so the seller's
+    // bank cannot be paid before handover, and the account able to take payments.
+    const sellerAcct = await ensureHoldingAccount(stripe, seller.stripe_account_id);
+    if (sellerAcct.settings?.payouts?.schedule?.interval !== "manual") {
+      throw new Error("Could not secure this seller's account for protected payment. Try again shortly.");
+    }
+    if (sellerAcct.capabilities?.card_payments !== "active") {
+      throw new Error("This seller can't accept payments yet");
+    }
+    // Bank transfers on a direct charge need the SELLER's account to have the
+    // capability itself. It activates asynchronously after being requested.
+    if (sellerAcct.capabilities?.us_bank_transfer_payments !== "active") {
+      await stripe.accounts.update(seller.stripe_account_id, {
+        capabilities: { us_bank_transfer_payments: { requested: true } },
+      }).catch((e) => console.error("requesting bank transfer capability failed:", e));
+      throw new Error(
+        "This seller's account is being enabled for wire transfers. Please try again in a few minutes.",
+      );
     }
 
     const { data: buyer, error: buyerErr } = await supabase
@@ -233,12 +258,23 @@ Deno.serve(async (req) => {
       );
     }
 
-    // ── Stripe Customer (required — see header comment) ───────────
+    // ── Application fee: what Stripe splits to DriveLink when the wire lands.
+    // Same arithmetic as create-checkout-session.
+    const platformFeeCents = Math.round(priceCents * platformFeeRate());
+    const { refs: pendingRefs } = await findPendingReferrals(supabase, String(listing.id));
+    const hasPromoter = attributedPromoterId !== null || pendingRefs.length > 0;
+    const promoterSlice = hasPromoter ? Math.round(priceCents * PROMOTER_FEE) : 0;
+    const applicationFee = platformFeeCents + promoterSlice;
+    if (applicationFee >= chargedTotal) throw new Error("This listing's price is not valid for checkout");
+
+    const acct = { stripeAccount: seller.stripe_account_id };
+
+    // ── Stripe Customer (required — see header comment), on the seller's account
     const customer = await stripe.customers.create({
       email: buyerEmail,
       name: typeof buyer?.name === "string" ? buyer.name : undefined,
       metadata: { drivelink_user_id: buyerId },
-    });
+    }, acct);
 
     const label = [listing.year, listing.make, listing.model].filter(Boolean).join(" ") ||
       "DriveLink vehicle purchase";
@@ -268,8 +304,12 @@ Deno.serve(async (req) => {
           },
         },
         confirm: true,
+        application_fee_amount: applicationFee,
         description: `DriveLink — ${label}`,
         metadata: {
+          charge_mode: "direct",
+          platform_fee_cents: String(platformFeeCents),
+          promoter_slice_cents: String(promoterSlice),
           listing_id: String(listing.id),
           buyer_id: buyerId,
           seller_id: String(listing.seller_id),
@@ -279,7 +319,7 @@ Deno.serve(async (req) => {
           promoter_surcharge: String(promoterSurcharge),
           rail: "wire",
         },
-      });
+      }, acct);
     } catch (stripeErr) {
       console.error("Stripe PaymentIntent creation failed:", stripeErr);
       throw new Error(
@@ -327,6 +367,8 @@ Deno.serve(async (req) => {
         status: "awaiting_payment",
         buyer_id: buyerId,
         stripe_payment_intent_id: pi.id,
+        charge_mode: "direct",
+        charge_account_id: seller.stripe_account_id,
         funding_type: "wire",
         payment_started_at: new Date().toISOString(),
         ...(handoverDate ? { handover_date: handoverDate } : {}),
@@ -347,7 +389,7 @@ Deno.serve(async (req) => {
       // The PaymentIntent above has already been created and confirmed —
       // cancel it so a buyer's bank doesn't get funding instructions for a
       // car that just sold out from under them.
-      await stripe.paymentIntents.cancel(pi.id).catch((e) =>
+      await stripe.paymentIntents.cancel(pi.id, undefined, acct).catch((e) =>
         console.error("failed to cancel orphaned wire PaymentIntent:", pi.id, e)
       );
       throw new Error("This listing was just purchased by someone else.");

@@ -906,13 +906,12 @@ Deno.serve(async (req) => {
       // the connected-accounts endpoint. It is settled by the checkout.session
       // handler above, so skip it here before touching the API (retrieving it
       // without the right account would error and put the event in a retry loop).
-      if (event.account) {
-        await claimEvent();
-        return jsonResponse({ received: true, ignored: "connected-account payment_intent" });
-      }
+      // Wire payments are now direct charges too, so a connected-account event
+      // can be a wire. Read it as that account, then ignore anything that is not
+      // a wire (card payments settle in the checkout.session handler above).
       const pi = await stripe.paymentIntents.retrieve(eventPiId, {
         expand: ["latest_charge.balance_transaction"],
-      });
+      }, acctOpts);
       const meta = (pi.metadata ?? {}) as Record<string, string>;
 
       if (meta.rail === "wire" && meta.listing_id) {
@@ -1020,6 +1019,9 @@ Deno.serve(async (req) => {
           rail: "wire",
           stripeFeeCents,
           chargedTotalCents: expected,
+          chargeMode: meta.charge_mode === "direct" && event.account ? "direct" : "platform",
+          chargeAccountId: event.account ?? null,
+          directNetCents: stripeNetCentsFrom(pi),
         });
 
         if (!settled.ok) {
@@ -1038,7 +1040,7 @@ Deno.serve(async (req) => {
         if (pi.customer) {
           try {
             const customerId = typeof pi.customer === "string" ? pi.customer : pi.customer.id;
-            const cashBalance = await stripe.customers.retrieveCashBalance(customerId);
+            const cashBalance = await stripe.customers.retrieveCashBalance(customerId, undefined, acctOpts);
             const leftoverCents = cashBalance.available?.usd ?? 0;
             if (leftoverCents > WIRE_AMOUNT_TOLERANCE_CENTS) {
               notifyAdmin({

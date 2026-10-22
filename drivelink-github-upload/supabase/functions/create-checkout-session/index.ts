@@ -314,11 +314,17 @@ Deno.serve(async (req) => {
     // asynchronously), this buyer pays by card and the next one gets ACH.
     const sellerCanAch = !direct ||
       sellerAcct?.capabilities?.us_bank_account_ach_payments === "active";
-    const achEligible = chargedTotal >= ACH_MIN_CENTS && buyerIdentityVerified && sellerCanAch;
-    if (direct && chargedTotal >= ACH_MIN_CENTS && !sellerCanAch && seller.stripe_account_id) {
-      await stripe.accounts.update(seller.stripe_account_id, {
-        capabilities: { us_bank_account_ach_payments: { requested: true } },
-      }).catch((e) => console.error("requesting ACH capability failed:", e));
+    // ACH debit is switched off for good (2026-10-22). An ACH debit can be
+    // returned as unauthorized for 60 days and the loss lands on the platform if
+    // the seller cannot cover it. Anything at or above the floor is paid by wire
+    // (create-wire-session), which cannot be reversed or charged back; below it,
+    // by card.
+    const achEligible = false;
+    if (chargedTotal >= ACH_MIN_CENTS) {
+      throw new Error(
+        `Purchases of $${(ACH_MIN_CENTS / 100).toLocaleString("en-US")} or more are paid by wire transfer. ` +
+        `Use "Pay by wire transfer" on the listing.`,
+      );
     }
 
     // ── Application fee (direct mode) ────────────────────────────────────────

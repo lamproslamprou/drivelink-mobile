@@ -21,16 +21,16 @@ export function faqItemsEn() {
       },
       {
         q: "Can I pay by bank transfer instead of card?",
-        a: "On purchases over $15,000, yes — bank transfer is offered at checkout alongside card, and it costs far less to process. Card payments clear in seconds; bank transfers take about 5 business days. Bank transfer is available to buyers who have completed identity verification.",
+        a: "On purchases of $15,000 or more, payment is by domestic wire transfer. You're given bank details and a reference on the listing, and send the wire from your bank. Under $15,000 you pay by card, which clears in seconds. Wires usually arrive within 1–2 business days, and cost less to process than a card.",
       },
       {
-        q: "I paid by bank transfer. Why don't I have a handover code?",
-        a: "Because the money hasn't arrived yet. We only issue the code once your payment has actually cleared — otherwise you could collect a car against a transfer that later fails, and the seller would be left with neither. We'll email your code the moment it clears. Until then, please don't arrange to collect the vehicle.",
+        q: "I paid by wire transfer. Why don't I have a handover code?",
+        a: "Because the wire hasn't arrived yet. We only issue the code once your payment has actually cleared — otherwise you could collect a car against a transfer that later fails, and the seller would be left with neither. We'll email your code the moment it clears. Until then, please don't arrange to collect the vehicle.",
         flag: true,
       },
       {
-        q: "What if a bank transfer doesn't go through?",
-        a: "Nothing is lost. You aren't charged, no money is held, and the listing goes back on sale automatically — we email both you and the seller to say so. Banks return transfers for ordinary reasons like available balance or account restrictions; yours can tell you which. You're free to try again by bank transfer or card.",
+        q: "What if a wire transfer doesn't arrive?",
+        a: "Nothing is lost. You aren't charged, no money is held, and the listing goes back on sale automatically — we email both you and the seller to say so. If the wire isn't received in time, the listing goes back on sale. Check the reference and amount with your bank. You're free to try again.",
       },
       {
         q: "Should I ever give out my handover code early?",

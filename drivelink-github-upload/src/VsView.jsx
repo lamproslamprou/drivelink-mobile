@@ -26,7 +26,7 @@ function pages() {
   const promo = promoActive();
   const dl = {
     fee: `${FEE} of the sale price, seller side, when the deal closes${promo ? " (half our usual 1%, through October 31)" : ""}`,
-    note: "Card processing is separate: paid to Stripe, about 2.9% + $0.30 on cards, much less by bank transfer on purchases over $15,000.",
+    note: "Card processing is separate: paid to Stripe, about 2.9% + $0.30 on cards, much less by wire transfer (required from $15,000).",
   };
   const prices = [10000, 30000, 60000];
   return {

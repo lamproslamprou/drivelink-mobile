@@ -6,7 +6,7 @@ import { useLang, LangToggle } from "./i18n.jsx";
   only; every claim here matches what the product and backend do today:
     - payment processed by Stripe straight to the seller's own Stripe account, with payouts to the seller's bank held until the 6-digit code
     - deals up to $250,000 (create-deal MAX_PRICE), arranged manually above
-    - bank transfer offered on purchases over $15,000 to ID-verified buyers
+    - wire transfer for purchases of $15,000 or more
     - disputes are opened by the buyer and the money stays held
   Same visual family as FAQView / Terms / Privacy.
 */
@@ -37,7 +37,7 @@ const COPY = {
         id: "id-verification",
         h: "ID verification",
         p: [
-          "Sellers connect their own Stripe account to receive payouts, and Stripe verifies who they are. Buyers who complete identity verification can pay by bank transfer on purchases over $15,000, which costs less to process than a card.",
+          "Sellers connect their own Stripe account to receive payouts, and Stripe verifies who they are. Purchases of $15,000 or more are paid by domestic wire transfer, which costs less to process than a card.",
         ],
       },
       {
@@ -85,7 +85,7 @@ const COPY = {
         id: "id-verification",
         h: "Verificación de identidad",
         p: [
-          "Los vendedores conectan su propia cuenta de Stripe para recibir el pago, y Stripe verifica quiénes son. Los compradores que completan la verificación de identidad pueden pagar por transferencia bancaria en compras de más de $15,000, que cuesta menos de procesar que una tarjeta.",
+          "Los vendedores conectan su propia cuenta de Stripe para recibir el pago, y Stripe verifica quiénes son. Las compras de $15,000 o más se pagan por transferencia bancaria nacional (wire), que cuesta menos de procesar que una tarjeta.",
         ],
       },
       {
