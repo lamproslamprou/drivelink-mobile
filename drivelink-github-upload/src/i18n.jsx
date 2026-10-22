@@ -336,6 +336,7 @@ const dict = {
     "action.reportProblem": "Report a Problem",
     "action.save": "Save Details",
     "action.signInToBuy": "Sign in to buy or share →",
+    "card.guestReassure": "Free account. Your payment is protected until you have the car and the title.",
   },
 
   es: {
@@ -616,6 +617,7 @@ const dict = {
     "action.reportProblem": "Reportar un problema",
     "action.save": "Guardar datos",
     "action.signInToBuy": "Inicia sesión para comprar o compartir →",
+    "card.guestReassure": "Cuenta gratis. Tu pago está protegido hasta que tengas el auto y el título.",
   },
 };
 

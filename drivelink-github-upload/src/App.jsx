@@ -2980,6 +2980,15 @@ function CarCard({ listing, seller, avgPrice, similarCount, onSeeSimilar, curren
             <button style={styles.buyBtn} onClick={onSignIn}>{t("action.signInToBuy")}</button>
           )}
         </div>
+        {!currentUser && onSignIn && (
+          <>
+            <button style={styles.offerBtn} onClick={onSignIn}>💰 {t("card.makeOffer")}</button>
+            <div style={styles.cardSecondaryActions}>
+              <button style={styles.messageLink} onClick={onSignIn}>💬 {t("card.messageSeller")}</button>
+            </div>
+            <div style={{ fontSize: 12, color: "#64748b", marginTop: 6, lineHeight: 1.4 }}>🔒 {t("card.guestReassure")}</div>
+          </>
+        )}
         {currentUser && !isOwnListing && onMakeOffer && (
           myOffer ? (
             <div style={styles.offerStatusRow}>
