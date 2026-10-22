@@ -159,6 +159,7 @@ const dict = {
     // ── Auth ─────────────────────────────────────────────────────────────
     "auth.signin": "Sign In",
     "auth.google": "Continue with Google",
+    "auth.continueWithCar": "Sign in or create a free account to continue with the {car}. It takes about a minute, and Google sign-in skips the email step.",
     "auth.or": "or use your email",
     "auth.createAccount": "Create Account",
     "auth.createAccountCta": "Create Account — It's Free",
@@ -181,7 +182,7 @@ const dict = {
 
     "auth.confirm.title": "Check your email",
     "auth.confirm.sentTo": "We sent a confirmation link to",
-    "auth.confirm.instruction": "Click the link in that email to confirm your account, then come back and sign in.",
+    "auth.confirm.instruction": "Click the link in that email to confirm your account. Then pick up where you left off.",
     "auth.confirm.resent": "Confirmation email resent!",
     "auth.confirm.resendError": "Couldn't resend — try again in a moment.",
     "auth.confirm.resend": "Resend confirmation email",
@@ -448,6 +449,7 @@ const dict = {
 
     "auth.signin": "Iniciar sesión",
     "auth.google": "Continuar con Google",
+    "auth.continueWithCar": "Inicia sesión o crea una cuenta gratis para continuar con el {car}. Toma un minuto, y con Google te saltas el paso del correo.",
     "auth.or": "o usa tu correo",
     "auth.createAccount": "Crear cuenta",
     "auth.createAccountCta": "Crear cuenta — es gratis",
@@ -470,7 +472,7 @@ const dict = {
 
     "auth.confirm.title": "Revisa tu correo",
     "auth.confirm.sentTo": "Enviamos un enlace de confirmación a",
-    "auth.confirm.instruction": "Haz clic en el enlace de ese correo para confirmar tu cuenta, y luego regresa para iniciar sesión.",
+    "auth.confirm.instruction": "Haz clic en el enlace de ese correo para confirmar tu cuenta. Luego continúa donde te quedaste.",
     "auth.confirm.resent": "¡Correo de confirmación reenviado!",
     "auth.confirm.resendError": "No se pudo reenviar — inténtalo de nuevo en un momento.",
     "auth.confirm.resend": "Reenviar correo de confirmación",

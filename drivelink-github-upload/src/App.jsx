@@ -116,6 +116,12 @@ const POST_AUTH_LISTING_KEY = "dl_post_auth_listing";
 const rememberPostAuthListing = (id) => {
   try { if (id) localStorage.setItem(POST_AUTH_LISTING_KEY, JSON.stringify({ id, t: Date.now() })); } catch { /* private mode */ }
 };
+const peekPostAuthListing = () => {
+  try {
+    const v = JSON.parse(localStorage.getItem(POST_AUTH_LISTING_KEY) || "null");
+    return v?.id && Date.now() - Number(v.t) < 2 * 60 * 60 * 1000 ? String(v.id) : null;
+  } catch { return null; }
+};
 const takePostAuthListing = () => {
   try {
     const raw = localStorage.getItem(POST_AUTH_LISTING_KEY);
@@ -2151,6 +2157,14 @@ const denyInspector = async (id) => {
   // bar above an empty page, with the two effects trading /signin and /browse
   // until one of them wins. Moving the URL in the same handler keeps path and
   // view agreeing, which is what stops it.
+  // Name of the car the visitor was looking at when they hit sign-in, so the
+  // sign-in screen can say what they are signing in to continue with.
+  const authCarLabel = () => {
+    const id = peekPostAuthListing();
+    const l = id ? listings.find(x => x.id === id) : null;
+    return l ? [l.year, l.make, l.model].filter(Boolean).join(" ") : null;
+  };
+
   const completeSignIn = (user) => {
     setCurrentUser(user);
     loadDbUser(user);
@@ -2187,12 +2201,12 @@ const denyInspector = async (id) => {
       </div>
     );
   }
-  if (!currentUser && view === "auth") return <Auth onAuth={completeSignIn} returnView={pendingView} />;
+  if (!currentUser && view === "auth") return <Auth onAuth={completeSignIn} returnView={pendingView} carLabel={authCarLabel()} />;
 
   if (!currentUser && !PUBLIC_VIEWS.has(view)) return (
     // Belt and braces: the effect above normally converts this case to the
     // sign-in screen before render. This catches the frame in between.
-    <Auth onAuth={completeSignIn} returnView={pendingView} />
+    <Auth onAuth={completeSignIn} returnView={pendingView} carLabel={authCarLabel()} />
   );
 
   return (

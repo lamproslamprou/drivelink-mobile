@@ -112,7 +112,7 @@ function useGoogleEnabled() {
 export const RETURN_VIEW_KEY = "dl_post_auth_view";
 const rememberReturnView = (v) => { try { if (v && v !== "auth") localStorage.setItem(RETURN_VIEW_KEY, v); } catch { /* private mode */ } };
 
-export default function Auth({ onAuth, returnView }) {
+export default function Auth({ onAuth, returnView, carLabel }) {
   const googleOn = useGoogleEnabled();
   const { t } = useLang();
   const [tab, setTab] = useState(() => (hasSeenAccount() ? "signin" : "signup"));
@@ -300,6 +300,12 @@ export default function Auth({ onAuth, returnView }) {
           <button style={{ ...styles.tab, ...(tab === "signin" ? styles.tabActive : {}) }} onClick={() => { setTab("signin"); setError(""); setSuccess(""); }}>{t("auth.signin")}</button>
           <button style={{ ...styles.tab, ...(tab === "signup" ? styles.tabActive : {}) }} onClick={() => { setTab("signup"); setError(""); setSuccess(""); }}>{t("auth.createAccount")}</button>
         </div>
+
+        {carLabel && (
+          <div style={{ background: "#f0f9ff", border: "1px solid #bae6fd", color: "#0c4a6e", borderRadius: 8, padding: "10px 12px", fontSize: 14, lineHeight: 1.45, marginBottom: 12 }}>
+            {t("auth.continueWithCar", { car: carLabel })}
+          </div>
+        )}
 
         {error && <div style={styles.error}>{error}</div>}
         {success && <div style={styles.success}>{success}</div>}
