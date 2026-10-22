@@ -1309,6 +1309,53 @@ Deno.serve(async (req) => {
         ? [listingRow.year, listingRow.make, listingRow.model].filter(Boolean).join(" ")
         : `PaymentIntent ${dispute.payment_intent ?? "unknown"}`;
 
+      // Draft the dispute evidence automatically (never submitted here: Stripe
+      // allows ONE submission, so a human reviews and presses submit).
+      let evidenceNote = "";
+      if (event.type === "charge.dispute.created" && listingRow) {
+        try {
+          const { data: full } = await supabase
+            .from("listings")
+            .select("id, make, model, year, vin, paid_at, confirmed_at, sold_at, handover_date, buyer_id, seller_id, funds_released")
+            .eq("id", listingRow.id)
+            .maybeSingle();
+          const { data: buyerU } = full?.buyer_id
+            ? await supabase.from("users").select("name, email").eq("id", full.buyer_id).maybeSingle()
+            : { data: null };
+          const when = (v: string | null | undefined) => (v ? new Date(v).toUTCString() : "not recorded");
+          const handedOver = !!(full?.confirmed_at || full?.sold_at || full?.funds_released);
+          const text = [
+            `DriveLink is a marketplace for private vehicle sales. The seller's payment is released only after the buyer and seller meet and complete the handover.`,
+            `Vehicle: ${label}${full?.vin ? `, VIN ${full.vin}` : ""}.`,
+            `Payment captured: ${when(full?.paid_at)}.`,
+            `Scheduled handover: ${when(full?.handover_date)}.`,
+            handedOver
+              ? `Handover completed: ${when(full?.confirmed_at ?? full?.sold_at)}. A one-time handover code is issued to the buyer at payment and is given to the seller only in person at the vehicle handover; the seller entered it in the platform to record that the buyer received the vehicle, or the buyer confirmed receipt in the platform. The seller was paid only after this step.`
+              : `The vehicle handover has not been recorded as completed; the seller has not been paid.`,
+            `All records are logged with timestamps in the DriveLink platform and are available on request.`,
+          ].join("\n");
+          const stripeForDispute = stripeClient();
+          await stripeForDispute.disputes.update(
+            dispute.id,
+            {
+              evidence: {
+                product_description: `Private-party used vehicle: ${label}`,
+                customer_name: buyerU?.name ?? undefined,
+                customer_email_address: buyerU?.email ?? undefined,
+                service_date: full?.handover_date ? String(full.handover_date).slice(0, 10) : undefined,
+                uncategorized_text: text.slice(0, 20000),
+              },
+              submit: false,
+            },
+            acctOpts,
+          );
+          evidenceNote = "Evidence has been DRAFTED on the dispute (not submitted). Open it in Stripe, attach any extra proof (messages, photos, bill of sale), and press Submit before the deadline.";
+        } catch (e) {
+          console.error("dispute evidence draft failed", e);
+          evidenceNote = "Automatic evidence drafting failed; prepare it by hand in Stripe.";
+        }
+      }
+
       await notifyAdminSync({
         subject: `🚨 Payment dispute ${event.type.replace("charge.dispute.", "")} — ${label}`,
         html: alertHtml("Chargeback activity", [
@@ -1320,6 +1367,7 @@ Deno.serve(async (req) => {
           ["Status", dispute.status ?? "—"],
           ["Seller account", event.account ?? "platform (legacy sale)"],
           ["Already paid out to seller", listingRow?.funds_released ? "YES" : "no"],
+          ...(evidenceNote ? [["Evidence", evidenceNote] as [string, string]] : []),
         ], listingRow?.funds_released
           ? "The seller has already been paid out. Stripe recovers the loss from the seller's balance and bank; DriveLink is the backstop only if that fails. Submit the handover-code record as evidence in Stripe."
           : "The seller has NOT been paid. The payout is blocked while the dispute is open. Submit the handover-code record and listing as evidence in Stripe before the deadline."),
