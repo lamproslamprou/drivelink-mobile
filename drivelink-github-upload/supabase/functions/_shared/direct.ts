@@ -210,6 +210,10 @@ export async function completeDirectRelease(
   // deno-lint-ignore no-explicit-any
   listing: any,
   releasedVia: "handover_code" | "buyer_confirm" | "admin" | "admin_force_confirm",
+  // quiet: suppress the "payout queued" admin email for pending retries (the
+  // 30-minute cron). Real failures still alert, and a failed payout leaves the
+  // retry queue, so those can't repeat either.
+  opts: { quiet?: boolean } = {},
 ): Promise<DirectReleaseResult> {
   const carLabel = [listing.year, listing.make, listing.model].filter(Boolean).join(" ") ||
     listing.id;
@@ -224,7 +228,9 @@ export async function completeDirectRelease(
       .from("listings")
       .update({ payout_status: attempt.status === "pending" ? "pending" : "failed" })
       .eq("id", listing.id);
-    await alertPayoutProblem(carLabel, listing.id, attempt);
+    if (!(opts.quiet && attempt.status === "pending")) {
+      await alertPayoutProblem(carLabel, listing.id, attempt);
+    }
     return {
       released: false,
       pending: attempt.status === "pending",

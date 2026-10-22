@@ -80,7 +80,9 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      const r = await completeDirectRelease(supabase, stripe, listing, "handover_code");
+      // quiet: the "payout queued" alert was already sent when the handover was
+      // confirmed; don't re-send it on every 30-minute retry.
+      const r = await completeDirectRelease(supabase, stripe, listing, "handover_code", { quiet: true });
       results.push({ id: listing.id, released: r.released, ...(r.released ? { payout: r.payoutId } : { reason: r.reason }) });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
