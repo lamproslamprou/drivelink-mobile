@@ -154,7 +154,7 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn, list
                     <button key={c.id} style={styles.carTile} onClick={() => onOpenCar?.(c.id)}>
                       {img && <img src={img} alt={`${c.year} ${c.make} ${c.model}`} style={styles.carTileImg} loading="lazy" />}
                       <span style={styles.carTileName}>{c.year} {c.make} {c.model}</span>
-                      <span style={styles.carTilePrice}>${Number(c.price).toLocaleString("en-US")}</span>
+                      <span style={styles.carTilePrice}>{(() => { const d = Number(c.price) / 100; return d.toLocaleString("en-US", { style: "currency", currency: "USD", minimumFractionDigits: d % 1 === 0 ? 0 : 2, maximumFractionDigits: d % 1 === 0 ? 0 : 2 }); })()}</span>
                       {c.location_text && <span style={styles.carTileMeta}>{c.location_text}</span>}
                     </button>
                   );
