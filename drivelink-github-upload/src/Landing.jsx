@@ -164,7 +164,17 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn, list
               {lang === "es" ? "Cómo se protege tu dinero →" : "How your money is protected →"}
             </button>
           </div>
-
+        </div>
+        <div style={styles.heroImageWrap} className="dl-hero-image">
+          {/* A real screenshot wins if one is set in siteProof.js; otherwise the
+              built deal-screen mock replaces the old stock photo (audit D1.5). */}
+          {HERO_SCREENSHOT.src ? (
+            <img src={HERO_SCREENSHOT.src} alt={HERO_SCREENSHOT.alt[lang] || HERO_SCREENSHOT.alt.en} style={styles.heroImage} fetchpriority="high" />
+          ) : (
+            <HeroDealMock />
+          )}
+        </div>
+        <div style={styles.heroBand} className="dl-hero-band">
           <TrustCallout onMore={() => onNavigate?.("faq")} />
 
           <div style={styles.heroStats} className="dl-hero-stats">
@@ -189,15 +199,6 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn, list
               {lang === "es" ? "¿Vendes tu carro? Publícalo gratis →" : "Selling a car? List it free →"}
             </button>
           </p>
-        </div>
-        <div style={styles.heroImageWrap} className="dl-hero-image">
-          {/* A real screenshot wins if one is set in siteProof.js; otherwise the
-              built deal-screen mock replaces the old stock photo (audit D1.5). */}
-          {HERO_SCREENSHOT.src ? (
-            <img src={HERO_SCREENSHOT.src} alt={HERO_SCREENSHOT.alt[lang] || HERO_SCREENSHOT.alt.en} style={styles.heroImage} fetchpriority="high" />
-          ) : (
-            <HeroDealMock />
-          )}
         </div>
       </section>
 
@@ -613,7 +614,7 @@ const styles = {
   hamburgerBtn: { background: "none", border: "1px solid #e5e7eb", borderRadius: 10, cursor: "pointer", color: "#374151", minWidth: 44, minHeight: 44, padding: 0, alignItems: "center", justifyContent: "center" },
   navMenu: { borderTop: "1px solid #e5e7eb", background: "#fff", padding: "12px 16px 16px", display: "flex", flexDirection: "column", alignItems: "stretch", gap: 4, boxShadow: "0 12px 24px rgba(15,23,42,.08)" },
   navMenuItem: { background: "none", border: "none", textAlign: "left", padding: "0 4px", minHeight: 48, display: "flex", alignItems: "center", fontSize: 16, fontWeight: 600, color: "#0f172a", cursor: "pointer", textDecoration: "none", fontFamily: "inherit" },
-  hero: { maxWidth: 1200, margin: "0 auto", padding: "80px 24px 36px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 48, alignItems: "start" },
+  hero: { maxWidth: 1200, margin: "0 auto", padding: "80px 24px 36px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 48, alignItems: "center" },
   heroInner: {},
   heroBannerWrap: { gridColumn: "1 / -1", display: "flex", justifyContent: "center", marginBottom: 12 },
   heroBanner: { position: "relative", overflow: "hidden", display: "inline-flex", alignItems: "center", gap: 10, background: "linear-gradient(90deg,#1d4ed8,#3b82f6,#1d4ed8)", backgroundSize: "200% 100%", color: "#fff", fontSize: 13, fontWeight: 700, letterSpacing: ".04em", padding: "10px 22px", borderRadius: 999, boxShadow: "0 8px 24px rgba(29,78,216,.35)" },
@@ -645,7 +646,8 @@ const styles = {
   // background shows while the remote Unsplash photo is still loading —
   // without it this box is flat white for a beat on first paint, which reads
   // as a broken image rather than a photo that's on its way in.
-  heroImageWrap: { marginTop: 36, borderRadius: 20, overflow: "hidden", boxShadow: "0 20px 60px rgba(0,0,0,.15)", background: "linear-gradient(135deg, #1e293b, #334155)" },
+  heroBand: { gridColumn: "1 / -1", borderTop: "1px solid #e2e8f0", paddingTop: 24 },
+  heroImageWrap: { alignSelf: "center", marginTop: 0, borderRadius: 20, overflow: "hidden", boxShadow: "0 20px 60px rgba(0,0,0,.15)", background: "linear-gradient(135deg, #1e293b, #334155)" },
   heroImage: { width: "100%", height: 400, objectFit: "cover", display: "block" },
   section: { padding: "80px 24px" },
   sectionInner: { maxWidth: 1200, margin: "0 auto" },
