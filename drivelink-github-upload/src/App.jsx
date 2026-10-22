@@ -2624,7 +2624,7 @@ function SuccessView({ onHome }) {
     <div style={{ textAlign: "center", padding: "80px 24px" }}>
       <div style={{ fontSize: 64, marginBottom: 24 }}>🎉</div>
       <h2 style={{ fontSize: 32, fontWeight: 800, color: "#0f172a", marginBottom: 12 }}>Payment Successful!</h2>
-      <p style={{ fontSize: 16, color: "#6b7280", marginBottom: 8 }}>Your payment is held safely by DriveLink — the seller has not been paid yet.</p>
+      <p style={{ fontSize: 16, color: "#6b7280", marginBottom: 8 }}>Your payment is protected — the seller can't withdraw it and has not been paid yet.</p>
       <p style={{ fontSize: 14, color: "#6b7280", marginBottom: 32, maxWidth: 520, marginLeft: "auto", marginRight: "auto", lineHeight: 1.6 }}>
         We've emailed you a <strong>6-digit handover code</strong>, and it's on your Purchases page. Give it to the seller only once the car and the signed title are in your hands — that's what releases the money.
       </p>
@@ -4050,7 +4050,7 @@ function MyPurchasesView({ listings, users, reviews, currentUser, handoverCodes,
                 {awaitingConfirmation && (
                   <div style={{ marginTop: 6 }}>
                     <div style={{ fontSize: 13, color: "#1d4ed8", fontWeight: 600 }}>
-                      Your money is held safely by DriveLink until you have the car. Had a problem instead? Report it rather than confirming.
+                      Your payment is protected — the seller can't withdraw it until you have the car. Had a problem instead? Report it rather than confirming.
                     </div>
                     {handoverCodes?.[l.id]?.code && (
                       <div style={{ marginTop: 10, padding: 12, background: "#FFF8E7", border: "1px solid #FFB020", borderRadius: 8 }}>
