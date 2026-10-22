@@ -163,7 +163,7 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn, list
             </div>
           )}
 
-          <p style={{ margin: "14px 0 0", textAlign: "center" }}>
+          <p style={{ margin: "0 0 18px", textAlign: "left" }}>
             <SpaLink href="/seller-toolkit" view="sellerToolkit" onNavigate={onNavigate} style={{ ...styles.trustLink, textDecoration: "underline" }}>
               {lang === "es" ? "¿Vendes tu auto? Kit gratuito para vendedores →" : "Selling a car? Free seller toolkit →"}
             </SpaLink>
@@ -611,18 +611,18 @@ const styles = {
   heroTitle: { fontSize: 52, fontWeight: 800, color: "#0f172a", lineHeight: 1.1, letterSpacing: "-0.03em", marginBottom: 20 },
   heroAccent: { color: "#3b82f6" },
   heroSub: { fontSize: 18, color: "#4b5563", lineHeight: 1.7, marginBottom: 28 },
-  heroActions: { display: "flex", gap: 12, rowGap: 12, marginBottom: 24, flexWrap: "wrap", alignItems: "flex-start" },
+  heroActions: { display: "flex", gap: 10, rowGap: 10, marginBottom: 22, flexWrap: "wrap", alignItems: "stretch" },
   carStrip: { margin: "0 0 20px" },
   carStripHead: { display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 10 },
   carStripTitle: { fontSize: 14, fontWeight: 700, color: "#0f172a" },
-  carStripRow: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 12 },
+  carStripRow: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 190px))", gap: 12, justifyContent: "start" },
   carTile: { display: "flex", flexDirection: "column", gap: 3, textAlign: "left", background: "#fff", border: "1px solid #e5e7eb", borderRadius: 12, padding: 8, cursor: "pointer", fontFamily: "inherit" },
   carTileImg: { width: "100%", aspectRatio: "4 / 3", objectFit: "cover", borderRadius: 8, marginBottom: 4, background: "#f1f5f9" },
   carTileName: { fontSize: 13.5, fontWeight: 700, color: "#0f172a" },
   carTilePrice: { fontSize: 14, fontWeight: 800, color: "#15803d" },
   carTileMeta: { fontSize: 12, color: "#6b7280" },
-  ctaPrimary: { background: "#0f172a", color: "#fff", border: "none", padding: "14px 28px", borderRadius: 12, cursor: "pointer", fontSize: 16, fontWeight: 700 },
-  ctaSecondary: { background: "none", border: "2px solid #e5e7eb", padding: "14px 28px", borderRadius: 12, cursor: "pointer", fontSize: 16, fontWeight: 700, color: "#374151" },
+  ctaPrimary: { background: "#0f172a", color: "#fff", border: "none", padding: "14px 22px", borderRadius: 12, cursor: "pointer", fontSize: 16, fontWeight: 700 },
+  ctaSecondary: { background: "none", border: "2px solid #e5e7eb", padding: "12px 22px", borderRadius: 12, cursor: "pointer", fontSize: 16, fontWeight: 700, color: "#374151" },
   trustStrip: { display: "flex", flexWrap: "wrap", gap: "8px 18px", marginBottom: 32, paddingTop: 20, borderTop: "1px solid #e5e7eb" },
   trustItem: { fontSize: 12.5, color: "#6b7280", fontWeight: 500, whiteSpace: "nowrap" },
   trustLink: { background: "none", border: "none", padding: 0, cursor: "pointer", fontSize: 12.5, fontWeight: 600, color: "#2563eb", whiteSpace: "nowrap", fontFamily: "inherit" },
@@ -676,7 +676,7 @@ const styles = {
 
   byodNavBtn: { background: "#fffbeb", border: "1px solid #fde68a", padding: "8px 16px", borderRadius: 10, cursor: "pointer", fontSize: 14, fontWeight: 700, color: "#92400e" },
   ctaByod: { background: "none", border: "2px dashed #FFB020", padding: "14px 24px", borderRadius: 12, cursor: "pointer", fontSize: 15, fontWeight: 700, color: "#92400e" },
-  ctaByodDark: { background: "#FFB020", border: "none", padding: "14px 28px", borderRadius: 12, cursor: "pointer", fontSize: 16, fontWeight: 700, color: "#0f172a" },
+  ctaByodDark: { background: "#FFB020", border: "none", padding: "14px 22px", borderRadius: 12, cursor: "pointer", fontSize: 16, fontWeight: 700, color: "#0f172a" },
   byodBand: { background: "#0f172a", padding: "76px 24px", borderTop: "1px dashed rgba(255,176,32,.4)", borderBottom: "1px dashed rgba(255,176,32,.4)" },
   byodInner: { maxWidth: 820, margin: "0 auto", textAlign: "center" },
   byodBadge: { display: "inline-block", background: "rgba(255,176,32,.15)", color: "#FFB020", fontSize: 12, fontWeight: 700, letterSpacing: ".04em", textTransform: "uppercase", padding: "5px 12px", borderRadius: 20, marginBottom: 18 },
