@@ -574,8 +574,9 @@ export async function sendCompletionEmails(
              </p>
              <p style="margin:0 0 12px;font-size:14px;color:#334155;line-height:1.5;">
                You now have a Promoter link. Anyone who opens it and completes a deal
-               through DriveLink earns you <b>1% of that sale price</b>. The 1% is added
-               to the deal — it doesn't come out of the buyer's or seller's pocket.
+               through DriveLink earns you <b>$10</b> once they verify their ID and
+               start a deal. DriveLink pays it — it doesn't come out of the buyer's
+               or seller's pocket.
                The link doesn't expire and isn't tied to any one car.
              </p>
              <p style="margin:0 0 4px;font-size:13px;color:#64748b;">Your link</p>

@@ -75,6 +75,11 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn, list
             <a href="/guides/" style={styles.guidesNavLink} className="dl-nav-desk dl-guides-nav">
               {lang === "es" ? "Guías" : "Guides"}
             </a>
+            <span className="dl-nav-desk dl-about-nav" style={{ display: "inline-flex" }}>
+              <SpaLink href="/about" view="about" onNavigate={onNavigate} style={styles.guidesNavLink}>
+                {lang === "es" ? "Acerca de" : "About"}
+              </SpaLink>
+            </span>
             <button style={styles.browseBtn} className="dl-nav-desk" onClick={onBrowse}>{t("lp.nav.browse")}</button>
             <button style={styles.signInBtn} onClick={signedIn ? onBrowse : onSignIn}>{signedIn ? t("lp.nav.app") : t("lp.nav.signin")}</button>
             <button
@@ -136,9 +141,8 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn, list
             <Rich text={t("lp.sub")} />
           </p>
           <div style={styles.heroActions} className="dl-hero-actions">
-            <button style={styles.ctaPrimary} onClick={onBrowse}>{t("lp.ctaBrowse")}</button>
             <button style={styles.ctaByodDark} onClick={handleStartDeal}>{t("lp.ctaByod")}</button>
-            <button style={styles.ctaSecondary} onClick={handleCta}>{t("lp.ctaList")}</button>
+            <button style={styles.ctaPrimary} onClick={onBrowse}>{t("lp.ctaBrowse")}</button>
           </div>
 
 
@@ -150,7 +154,7 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn, list
 
           <div style={styles.trustStrip} className="dl-trust-strip">
             <span style={styles.trustItem}>{t("lp.trustStripe")}</span>
-            <span style={styles.trustItem}>{t("lp.trustId")}</span>
+            <span style={{ ...styles.trustItem, whiteSpace: "normal" }}>{t("lp.trustId")}</span>
             <span style={styles.trustItem}>{t("lp.trustNoFee")}</span>
             {/* The trust strip states three claims and then leaves the visitor
                 to take them on faith. This is where "but who protects me from
@@ -180,6 +184,11 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn, list
             </div>
           </div>
           <UsageLine />
+          <p style={{ margin: "16px 0 0" }}>
+            <button style={{ ...styles.trustLink, fontSize: 14, textDecoration: "underline" }} onClick={handleCta}>
+              {lang === "es" ? "¿Vendes tu carro? Publícalo gratis →" : "Selling a car? List it free →"}
+            </button>
+          </p>
         </div>
         <div style={styles.heroImageWrap} className="dl-hero-image">
           {/* A real screenshot wins if one is set in siteProof.js; otherwise the
@@ -369,7 +378,7 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn, list
               <div style={styles.roleEmoji}>🔗</div>
               <h3 style={{ ...styles.roleTitle, color: "#fff" }}>Promoters</h3>
               <p style={{ fontSize: 13, fontWeight: 700, color: "#60a5fa", marginBottom: 10 }}>Know someone buying or selling a car?</p>
-              <p style={{ ...styles.roleDesc, color: "#94a3b8" }}>Share a listing from here, or send your own link to two people doing a deal on a car we've never seen. Either way you earn a flat $10 when someone you refer verifies their ID and starts a deal. DriveLink pays it, so it never comes out of anyone's pocket.</p>
+              <p style={{ ...styles.roleDesc, color: "#94a3b8" }}>Share a listing from here, or send your own link to two people doing a deal on a car we've never seen. Either way you earn $10 when someone you refer verifies their ID and starts a deal. DriveLink pays it, so it never comes out of anyone's pocket.</p>
               <ul style={{ ...styles.roleList, color: "#94a3b8" }}>
                 <li>✅ Works on any car, listed here or not</li>
                 <li>✅ One standing link, no expiry</li>
@@ -385,7 +394,7 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn, list
               <ul style={styles.roleList}>
                 <li>✅ Direct from owners</li>
                 <li>✅ Seller not paid until you have the keys</li>
-                <li>✅ Seller ID verification available</li>
+                <li>✅ Every seller is identity-checked by Stripe before they can be paid</li>
               </ul>
               <button style={styles.roleBtn} onClick={onBrowse}>Browse Cars →</button>
             </div>
@@ -415,7 +424,7 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn, list
             <div style={styles.step}>
               <div style={styles.stepNum}>3</div>
               <h4 style={styles.stepTitle}>Get paid</h4>
-              <p style={styles.stepDesc}>When someone you refer verifies their ID and starts a deal, $10 is credited to your account after a short review period.</p>
+              <p style={styles.stepDesc}>You earn $10 when someone you refer verifies their ID and starts a deal. It is credited to your account after a short review period.</p>
             </div>
           </div>
           <div style={styles.exampleBox}>

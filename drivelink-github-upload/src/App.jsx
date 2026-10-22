@@ -4566,6 +4566,10 @@ function PostListingView({ onPost }) {
   };
   const handleSubmit = async () => {
     if (!form.make || !form.model || !form.price || !form.year) return alert("Fill in at least make, model, year, and price.");
+    // Price sanity guard. Prices are cents; $100,000+ is far above the norm for a
+    // private sale, and a stray extra zero would otherwise go live on the
+    // homepage. Ask, don't block: real exotics exist.
+    if (toCents(form.price) >= 10_000_000 && !window.confirm(`This price looks much higher than similar listings - please double-check before publishing.\n\nYou entered ${fmt(toCents(form.price))}. Publish at this price?`)) return;
     setSubmitting(true);
     await onPost({
       ...form,
