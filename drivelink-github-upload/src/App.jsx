@@ -4821,7 +4821,7 @@ function AboutView({ onBack, onBrowse, onSafety, onPricing }) {
           {onPricing && <p><button style={styles.legalInlineLink} onClick={onPricing}>See the full fee schedule with a worked example →</button></p>}
 
           <h2>Where the money sits</h2>
-          <p>Payments are processed by Stripe, and funds are held on DriveLink's Stripe balance between payment and release. DriveLink never handles card details directly — those go straight to Stripe. Sellers connect their own account to receive payouts.</p>
+          <p>Payments are processed by Stripe straight to the seller's own Stripe account, and the seller can't withdraw them until release. DriveLink never handles card details directly — those go straight to Stripe. Sellers connect their own account to receive payouts.</p>
 
           <h2>Who runs it</h2>
           <p>DriveLink LLC is a company registered in New Jersey, United States. It's a small operation, which is deliberate — you can reach a person who can actually fix your problem rather than a support queue.</p>

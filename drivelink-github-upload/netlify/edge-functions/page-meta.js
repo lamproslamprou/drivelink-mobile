@@ -44,7 +44,7 @@ function jsonLdFor(path) {
       "@context": "https://schema.org",
       "@type": "Service",
       name: "DriveLink payment protection for private car sales",
-      serviceType: "Escrow-style payment holding for U.S. private-party vehicle sales",
+      serviceType: "Protected payment for U.S. private-party vehicle sales",
       provider: { "@type": "Organization", name: "DriveLink", url: SITE_URL },
       areaServed: { "@type": "Country", name: "United States" },
       offers: [

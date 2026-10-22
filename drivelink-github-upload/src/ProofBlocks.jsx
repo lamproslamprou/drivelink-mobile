@@ -127,8 +127,8 @@ export function TrustCallout({ onMore }) {
       </strong>
       <span>
         {es
-          ? " Stripe procesa tu pago y queda en el saldo de Stripe de DriveLink, y solo el código de 6 dígitos del comprador lo libera. DriveLink LLC está registrada en Nueva Jersey."
-          : " Stripe processes your payment and it stays on DriveLink's Stripe balance, and only the buyer's 6-digit code releases it. DriveLink LLC is registered in New Jersey."}
+          ? " Stripe procesa tu pago directamente a la cuenta de Stripe del vendedor, y el vendedor no puede retirarlo hasta que se ingrese el código de 6 dígitos del comprador. DriveLink LLC está registrada en Nueva Jersey."
+          : " Stripe processes your payment straight to the seller's own Stripe account, and the seller can't withdraw it until the buyer's 6-digit code is entered. DriveLink LLC is registered in New Jersey."}
       </span>{" "}
       <button style={S.calloutLink} onClick={onMore}>{es ? "Lee las respuestas completas →" : "Read the full answers →"}</button>
     </div>

@@ -4,7 +4,7 @@ import { useLang, LangToggle } from "./i18n.jsx";
   FeaturesView — /features (site audit D5.1). One section per feature, each with
   its own heading so each can be searched for and linked to. Plain statements
   only; every claim here matches what the product and backend do today:
-    - payment processed by Stripe and held on DriveLink's Stripe balance, released by the 6-digit code
+    - payment processed by Stripe straight to the seller's own Stripe account, with payouts to the seller's bank held until the 6-digit code
     - deals up to $250,000 (create-deal MAX_PRICE), arranged manually above
     - bank transfer offered on purchases over $15,000 to ID-verified buyers
     - disputes are opened by the buyer and the money stays held
@@ -21,7 +21,7 @@ const COPY = {
         id: "escrow",
         h: "Protected payment",
         p: [
-          "The buyer pays through DriveLink. Stripe processes the payment, and the money is held on DriveLink's Stripe balance until the handover is confirmed. The seller is not paid yet.",
+          "The buyer pays through DriveLink. Stripe processes the payment into the seller's own Stripe account, not DriveLink's. The seller can't withdraw it until the handover is confirmed, so they are not paid yet.",
           "Deals can be up to $250,000. Above that, the deal is arranged manually.",
         ],
       },
@@ -69,7 +69,7 @@ const COPY = {
         id: "escrow",
         h: "Pago protegido",
         p: [
-          "El comprador paga a través de DriveLink. Stripe procesa el pago y el dinero queda en el saldo de Stripe de DriveLink hasta que se confirma la entrega. Al vendedor todavía no se le paga.",
+          "El comprador paga a través de DriveLink. Stripe procesa el pago directamente a la cuenta de Stripe del vendedor, no a la de DriveLink, y el vendedor no puede retirarlo hasta que se confirma la entrega. Al vendedor todavía no se le paga.",
           "Los tratos pueden ser de hasta $250,000. Por encima de eso, el trato se arregla manualmente.",
         ],
       },

@@ -1,6 +1,6 @@
 # DriveLink
 
-> DriveLink is a U.S. escrow service for private car sales. The buyer's payment is held on a Stripe balance until the buyer has the keys and the signed title and gives the seller a 6-digit handover code. DriveLink LLC is registered in New Jersey. U.S. transactions only.
+> DriveLink is a U.S. marketplace and payment-protection service for private car sales. The buyer pays the seller's own Stripe account directly, and DriveLink never holds the money. The seller can't withdraw it to their bank until the buyer has the keys and the signed title and gives the seller a 6-digit handover code. DriveLink LLC is registered in New Jersey. U.S. transactions only.
 
 ## How it works
 - The buyer pays through DriveLink. The money is held by Stripe, not released to the seller yet.

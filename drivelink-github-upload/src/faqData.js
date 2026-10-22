@@ -9,11 +9,11 @@ export function faqItemsEn() {
   return [
       {
         q: "Who actually holds my money?",
-        a: "DriveLink does, on its Stripe account. Stripe processes the payment, and the money stays on DriveLink's Stripe balance until the buyer's handover code is entered. The seller isn't paid before then, and neither party can withdraw the money while the deal is open.",
+        a: "Stripe does. The buyer pays into the seller's own Stripe account, not DriveLink's, and DriveLink never receives or holds the money. DriveLink controls when that account can pay out to the seller's bank, and it does not do so until the buyer's handover code is entered, the buyer confirms, or an admin releases it. The seller isn't paid before then, and the money can be refunded to the buyer if the sale goes wrong.",
       },
       {
         q: "What stops DriveLink from just taking my payment?",
-        a: `The sale price is paid out to the seller's own Stripe-connected account, and only once the buyer's handover code is entered or the buyer confirms receipt. Our only revenue is the ${FEE} fee, taken when the deal closes.`,
+        a: `The sale price never comes to us: the buyer pays the seller's own Stripe account directly, and the seller can't withdraw it until the buyer's handover code is entered or the buyer confirms receipt. Our only revenue is the ${FEE} fee, taken when the deal closes.`,
       },
       {
         q: "When does the seller get paid?",

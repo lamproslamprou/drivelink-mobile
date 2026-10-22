@@ -129,7 +129,7 @@ Deno.serve(async (req) => {
       price: invite.price, // CENTS — create-deal converted once at the door
       // Shown on the preview screen on purpose. Agreeing to a handover three
       // weeks out is a term of the deal, not a detail — whoever did not set it
-      // needs to see it before they join, not after they have funded escrow.
+      // needs to see it before they join, not after they have paid.
       handover_date: invite.handover_date ?? null,
     };
     const carLabel = `${invite.year} ${invite.make} ${invite.model}`;
@@ -290,8 +290,8 @@ Deno.serve(async (req) => {
               ["Agreed price", dollars(car.price / 100)],
               ...(car.handover_date ? [["Handover", String(car.handover_date)]] : []),
             ], takingRole === "buyer"
-              ? "Nothing is charged yet. We'll email you as soon as the seller joins, and you'll be able to pay into escrow then."
-              : "We'll email you as soon as the buyer joins. They fund escrow first — you don't hand over anything until the money is held."),
+              ? "Nothing is charged yet. We'll email you as soon as the seller joins, and you'll be able to pay securely through DriveLink then."
+              : "We'll email you as soon as the buyer joins. They pay first — you don't hand over anything until the payment is protected."),
           });
         }
 
@@ -301,7 +301,7 @@ Deno.serve(async (req) => {
           car,
           message: takingRole === "buyer"
             ? "You're in. Nothing is charged until the seller joins."
-            : "You're in. The buyer can fund escrow once they join.",
+            : "You're in. The buyer can pay once they join.",
         });
       }
 
@@ -366,8 +366,8 @@ Deno.serve(async (req) => {
             ["Agreed price", dollars(car.price / 100)],
             ...(car.handover_date ? [["Handover", String(car.handover_date)]] : []),
           ], waitingRole === "buyer"
-            ? "You can now pay into escrow. Sign in to DriveLink and open My Purchases."
-            : "The buyer can now fund escrow. You'll be notified when the money is held — don't hand over the car or title until then."),
+            ? "You can now pay securely. Sign in to DriveLink and open My Purchases."
+            : "The buyer can now pay. You'll be notified when the payment is protected — don't hand over the car or title until then."),
         });
       }
 
@@ -378,7 +378,7 @@ Deno.serve(async (req) => {
           ["Price", dollars(car.price / 100)],
           ["Joined last", `${joiner?.name ?? "—"} (${joiner?.email ?? "—"}) as ${takingRole}`],
           ["Listing ID", listingId],
-        ], "The buyer can now fund escrow. The arranging promoter earns a flat bounty if the referred user is ID-verified."),
+        ], "The buyer can now pay. The arranging promoter earns a flat bounty if the referred user is ID-verified."),
       });
 
       await awardPromoterBounty(supabase, invite, token, userId, listingId);
@@ -424,7 +424,7 @@ Deno.serve(async (req) => {
           ["Price", dollars(car.price / 100)],
           ["Buyer", `${joiner?.name ?? "—"} (${joiner?.email ?? "—"})`],
           ["Listing ID", invite.listing_id],
-        ], "Both parties are attached. The buyer can now fund escrow."),
+        ], "Both parties are attached. The buyer can now pay."),
       });
 
       await awardPromoterBounty(supabase, invite, token, userId, String(invite.listing_id));
@@ -502,7 +502,7 @@ Deno.serve(async (req) => {
         ["Price", dollars(car.price / 100)],
         ["Seller", `${joiner?.name ?? "—"} (${joiner?.email ?? "—"})`],
         ["Listing ID", listingId],
-      ], "Both parties are attached. The buyer can now fund escrow."),
+      ], "Both parties are attached. The buyer can now pay."),
     });
 
     await awardPromoterBounty(supabase, invite, token, userId, listingId);

@@ -36,7 +36,7 @@ function pages() {
       intro: "Both help two private parties close a car sale without a cashier's check. They are built differently, and they charge differently.",
       short: [
         "PrivateAuto charges the seller $29 to list plus $150 when the car sells. DriveLink charges nothing to list and " + FEE + " of the sale price when a deal closes.",
-        "DriveLink holds the buyer's payment until the buyer gives the seller a 6-digit code at the handover. Nothing is released on a timer.",
+        "The buyer's payment is protected until the buyer gives the seller a 6-digit code at the handover: the seller can't withdraw it before then. Nothing is released on a timer.",
         "DriveLink works on a car you found anywhere (Facebook Marketplace, Craigslist, a friend). You don't have to list it with us.",
       ],
       tableHead: ["Sale price", "DriveLink fee", "PrivateAuto ($29 + $150)"],
@@ -52,7 +52,7 @@ function pages() {
         "Bring Your Own Deal: start a protected payment on a car listed anywhere else.",
         "Buyers pay nothing beyond the price of the car.",
       ],
-      closing: "PrivateAuto says it does not handle funds itself; its page says funds are held in custody by US Alliance Financial. With DriveLink, the payment is processed by Stripe, held on DriveLink's Stripe balance, and released only when the buyer's code is entered.",
+      closing: "PrivateAuto says it does not handle funds itself; its page says funds are held in custody by US Alliance Financial. With DriveLink, the payment is processed by Stripe into the seller's own Stripe account, and the seller can't withdraw it until the buyer's code is entered.",
     },
     vsKeySavvy: {
       name: "KeySavvy",

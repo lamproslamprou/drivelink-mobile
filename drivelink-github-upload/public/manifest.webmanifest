@@ -1,7 +1,7 @@
 {
   "name": "DriveLink — Buy, Sell & Earn",
   "short_name": "DriveLink",
-  "description": "Peer-to-peer car marketplace with escrow protection. Buy and sell cars directly, with the buyer's money held safely until the keys and title change hands.",
+  "description": "Peer-to-peer car marketplace with protected payment. Buy and sell cars directly, with the seller unable to withdraw the buyer's payment until the keys and title change hands.",
   "id": "/",
   "start_url": "/browse",
   "scope": "/",

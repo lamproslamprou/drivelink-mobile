@@ -48,7 +48,7 @@ export default async (request, context) => {
     const priceStr = `$${(Number(listing.price) / 100).toLocaleString("en-US")}`;
     const title = `${listing.year} ${listing.make} ${listing.model} — ${priceStr} | DriveLink`;
     const description = (listing.description ? String(listing.description).slice(0, 155) : "") ||
-      `${listing.year} ${listing.make} ${listing.model} for sale on DriveLink, ${priceStr}. Escrow-protected private car sale.`;
+      `${listing.year} ${listing.make} ${listing.model} for sale on DriveLink, ${priceStr}. Protected-payment private car sale.`;
     const images = listing.images && listing.images.length ? listing.images : [listing.image].filter(Boolean);
     const image = images[0] || FALLBACK_IMAGE;
     const canonical = `https://drivelink.deals/listing/${listing.id}`;

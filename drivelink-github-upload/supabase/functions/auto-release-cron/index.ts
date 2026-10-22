@@ -182,7 +182,7 @@ Deno.serve(async (req) => {
         // things: "the car never arrived" is a refund, "I got it and forgot to
         // confirm" is a release. Nothing here should guess which.
         const askBody = `
-          <p>The escrow on your <strong>${carLabel}</strong> sale has been open for a while
+          <p>Your <strong>${carLabel}</strong> sale has been open for a while
           with no confirmation, so we've paused it for review. <strong>The money is safe and
           has not moved.</strong></p>
           <p style="background:#FFF8E7;border-left:3px solid #FFB020;padding:12px 14px;margin:18px 0">
@@ -204,7 +204,7 @@ Deno.serve(async (req) => {
         );
 
         await notifyAdminSync({
-          subject: `🔍 Escrow escalated to review — ${carLabel} (${money(Number(listing.sale_price))})`,
+          subject: `🔍 Sale escalated to review — ${carLabel} (${money(Number(listing.sale_price))})`,
           html: alertHtml("Sale passed its deadline with no confirmation", [
             ["Vehicle", carLabel],
             ["Sale price", money(Number(listing.sale_price))],
@@ -235,8 +235,8 @@ Deno.serve(async (req) => {
           and enter it to get paid.</p>
           <p><a href="${SITE}" style="display:inline-block;background:#FFB020;color:#111;padding:10px 18px;border-radius:6px;text-decoration:none;font-weight:600">Open DriveLink</a></p>`;
 
-        await sendUserEmail(buyer?.email ?? "", `Tomorrow: your ${carLabel} escrow gets paused`, shell("One more day", body));
-        await sendUserEmail(seller?.email ?? "", `Tomorrow: your ${carLabel} escrow gets paused`, shell("One more day", body));
+        await sendUserEmail(buyer?.email ?? "", `Tomorrow: your ${carLabel} sale gets paused`, shell("One more day", body));
+        await sendUserEmail(seller?.email ?? "", `Tomorrow: your ${carLabel} sale gets paused`, shell("One more day", body));
 
         await supabase
           .from("listings")
@@ -251,15 +251,15 @@ Deno.serve(async (req) => {
       if (hoursLeft <= 48 && !listing.handover_warned_48h_at) {
         const body = `
           <p>Your <strong>${carLabel}</strong> transaction is still open. If nothing changes
-          in the next two days we'll pause it and ask you both what happened. The money stays
-          in escrow either way.</p>
+          in the next two days we'll pause it and ask you both what happened. The payment stays
+          protected either way.</p>
           <p style="font-size:14px;color:#444"><strong>Buyer:</strong> confirm receipt once the
           car and signed title are in your hands.<br>
           <strong>Seller:</strong> enter the buyer's 6-digit handover code after they take the car.</p>
           <p><a href="${SITE}" style="display:inline-block;background:#FFB020;color:#111;padding:10px 18px;border-radius:6px;text-decoration:none;font-weight:600">Open DriveLink</a></p>`;
 
-        await sendUserEmail(buyer?.email ?? "", `Your ${carLabel} escrow is still open`, shell("Two days left", body));
-        await sendUserEmail(seller?.email ?? "", `Your ${carLabel} escrow is still open`, shell("Two days left", body));
+        await sendUserEmail(buyer?.email ?? "", `Your ${carLabel} sale is still open`, shell("Two days left", body));
+        await sendUserEmail(seller?.email ?? "", `Your ${carLabel} sale is still open`, shell("Two days left", body));
 
         await supabase
           .from("listings")
@@ -283,7 +283,7 @@ Deno.serve(async (req) => {
     // between 2026-07-22 and 2026-07-27 with a stale column reference.
     await notifyAdminSync({
       subject: "⚠️ auto-release-cron failed",
-      html: alertHtml("Escrow monitoring job errored", [
+      html: alertHtml("Sale monitoring job errored", [
         ["Error", msg],
         ["Time", new Date().toISOString()],
       ], "No warnings sent and no sales escalated on this run. No money was at risk — this job no longer moves funds — but stalled sales are going unnoticed."),

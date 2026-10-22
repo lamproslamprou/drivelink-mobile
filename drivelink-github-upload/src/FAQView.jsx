@@ -52,11 +52,11 @@ const COPY = {
     items: [
       {
         q: "¿Quién retiene mi dinero?",
-        a: "DriveLink, en su cuenta de Stripe. Stripe procesa el pago y el dinero permanece en el saldo de Stripe de DriveLink hasta que se ingresa el código de entrega del comprador. Al vendedor no se le paga antes, y ninguna de las partes puede retirar el dinero mientras el trato esté abierto.",
+        a: "El dinero lo tiene Stripe. El comprador paga a la cuenta de Stripe del propio vendedor, no a la de DriveLink, y DriveLink nunca recibe ni retiene el dinero. DriveLink controla cuándo esa cuenta puede pagar al banco del vendedor, y no lo hace hasta que se ingresa el código de entrega del comprador, el comprador confirma, o un administrador lo libera. Al vendedor no se le paga antes, y el dinero puede devolverse al comprador si la venta sale mal.",
       },
       {
         q: "¿Qué impide que DriveLink se quede con mi pago?",
-        a: `El precio de venta se paga a la cuenta de Stripe del propio vendedor, y solo cuando se ingresa el código de entrega del comprador o el comprador confirma la recepción. Nuestro único ingreso es la comisión del ${FEE}, que se cobra cuando se cierra la transacción.`,
+        a: `El precio de venta nunca llega a nosotros: el comprador paga a la cuenta de Stripe del propio vendedor, y el vendedor no puede retirarlo hasta que se ingresa el código de entrega del comprador o el comprador confirma la recepción. Nuestro único ingreso es la comisión del ${FEE}, que se cobra cuando se cierra la transacción.`,
       },
       {
         q: "¿Cuándo recibe el pago el vendedor?",
