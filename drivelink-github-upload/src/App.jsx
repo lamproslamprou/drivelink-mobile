@@ -1006,6 +1006,8 @@ export default function App() {
       showToast("Handover confirmed. This sale is under a short review before funds are released.", "info");
     } else if (data?.referral === "flagged_ambiguous" || data?.referral === "flagged_self_referral") {
       showToast("Handover confirmed — funds released to your Stripe account. Expect them in your bank within a few business days.");
+    } else if (data?.heldForSettlement) {
+      showToast("Handover confirmed. Your payout is queued — it will be sent to your bank as soon as Stripe makes the funds available (about 2 business days).");
     } else {
       showToast("Handover confirmed — funds released to your Stripe account. Expect them in your bank within a few business days.");
     }
@@ -3837,7 +3839,17 @@ function MyListingsView({ listings, referrals, users, offers, stats, onMarkSold,
                       </div>
                     </>
                   )}
-                  {l.status === "pending_confirmation" && (
+                  {l.status === "pending_confirmation" && (l.payout_status === "pending" || l.payout_status === "failed") && (
+                    <>
+                      <div style={{ ...styles.awaitingBadge, background: "#dcfce7", color: "#15803d" }}>✅ Handover confirmed — your {fmt(l.seller_net)} payout is queued</div>
+                      <div style={{ fontSize: 12, color: "#6b7280", marginTop: 4, lineHeight: 1.5 }}>
+                        {l.payout_status === "failed"
+                          ? "The handover is recorded. Your payout needs a quick manual check and our team has been notified."
+                          : "Stripe is still making the buyer's payment available (about 2 business days for card payments). We'll send it to your bank automatically as soon as it is, and email you when it's on its way."}
+                      </div>
+                    </>
+                  )}
+                  {l.status === "pending_confirmation" && l.payout_status !== "pending" && l.payout_status !== "failed" && (
                     <>
                       <div style={styles.awaitingBadge}>💳 Payment received for {fmt(l.sale_price)} — enter the buyer's handover code to get paid</div>
                       {/* Set only on bank-funded sales. Without this the seller
