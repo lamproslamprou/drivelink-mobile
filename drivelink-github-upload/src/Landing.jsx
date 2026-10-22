@@ -28,7 +28,7 @@ function SpaLink({ href, view, onNavigate, style, children }) {
   );
 }
 
-export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn }) {
+export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn, listings = [], onOpenCar }) {
   const { t, lang } = useLang();
   const [menuOpen, setMenuOpen] = useState(false);
   const handleCta = signedIn ? onBrowse : onSignIn;
@@ -136,10 +136,32 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn }) {
             <Rich text={t("lp.sub")} />
           </p>
           <div style={styles.heroActions} className="dl-hero-actions">
-            <button style={styles.ctaByodDark} onClick={handleStartDeal}>{t("lp.ctaByod")}</button>
             <button style={styles.ctaPrimary} onClick={onBrowse}>{t("lp.ctaBrowse")}</button>
+            <button style={styles.ctaByodDark} onClick={handleStartDeal}>{t("lp.ctaByod")}</button>
             <button style={styles.ctaSecondary} onClick={handleCta}>{t("lp.ctaList")}</button>
           </div>
+
+          {listings.length > 0 && (
+            <div style={styles.carStrip}>
+              <div style={styles.carStripHead}>
+                <span style={styles.carStripTitle}>{t("lp.carsNow")}</span>
+                <button style={styles.trustLink} onClick={onBrowse}>{t("lp.carsAll")}</button>
+              </div>
+              <div style={styles.carStripRow}>
+                {listings.slice(0, 4).map((c) => {
+                  const img = (c.images && c.images[0]) || c.image;
+                  return (
+                    <button key={c.id} style={styles.carTile} onClick={() => onOpenCar?.(c.id)}>
+                      {img && <img src={img} alt={`${c.year} ${c.make} ${c.model}`} style={styles.carTileImg} loading="lazy" />}
+                      <span style={styles.carTileName}>{c.year} {c.make} {c.model}</span>
+                      <span style={styles.carTilePrice}>${Number(c.price).toLocaleString("en-US")}</span>
+                      {c.location_text && <span style={styles.carTileMeta}>{c.location_text}</span>}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           <p style={{ margin: "14px 0 0", textAlign: "center" }}>
             <SpaLink href="/seller-toolkit" view="sellerToolkit" onNavigate={onNavigate} style={{ ...styles.trustLink, textDecoration: "underline" }}>
@@ -590,6 +612,15 @@ const styles = {
   heroAccent: { color: "#3b82f6" },
   heroSub: { fontSize: 18, color: "#4b5563", lineHeight: 1.7, marginBottom: 28 },
   heroActions: { display: "flex", gap: 12, rowGap: 12, marginBottom: 24, flexWrap: "wrap", alignItems: "flex-start" },
+  carStrip: { margin: "0 0 20px" },
+  carStripHead: { display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 10 },
+  carStripTitle: { fontSize: 14, fontWeight: 700, color: "#0f172a" },
+  carStripRow: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 12 },
+  carTile: { display: "flex", flexDirection: "column", gap: 3, textAlign: "left", background: "#fff", border: "1px solid #e5e7eb", borderRadius: 12, padding: 8, cursor: "pointer", fontFamily: "inherit" },
+  carTileImg: { width: "100%", aspectRatio: "4 / 3", objectFit: "cover", borderRadius: 8, marginBottom: 4, background: "#f1f5f9" },
+  carTileName: { fontSize: 13.5, fontWeight: 700, color: "#0f172a" },
+  carTilePrice: { fontSize: 14, fontWeight: 800, color: "#15803d" },
+  carTileMeta: { fontSize: 12, color: "#6b7280" },
   ctaPrimary: { background: "#0f172a", color: "#fff", border: "none", padding: "14px 28px", borderRadius: 12, cursor: "pointer", fontSize: 16, fontWeight: 700 },
   ctaSecondary: { background: "none", border: "2px solid #e5e7eb", padding: "14px 28px", borderRadius: 12, cursor: "pointer", fontSize: 16, fontWeight: 700, color: "#374151" },
   trustStrip: { display: "flex", flexWrap: "wrap", gap: "8px 18px", marginBottom: 32, paddingTop: 20, borderTop: "1px solid #e5e7eb" },

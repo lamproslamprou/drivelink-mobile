@@ -2143,6 +2143,8 @@ const denyInspector = async (id) => {
         onBrowse={() => setView("home")}
         onNavigate={setView}
         signedIn={!!currentUser}
+        listings={[...activeListings].sort((x, y) => String(y.created_at || "").localeCompare(String(x.created_at || "")))}
+        onOpenCar={(id) => navigate(`/listing/${id}`)}
       />
       <InstallPrompt />
     </>
