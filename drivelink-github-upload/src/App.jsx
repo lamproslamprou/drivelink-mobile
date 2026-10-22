@@ -2483,8 +2483,11 @@ function LegalPageView({ type, onBack }) {
             <h2>4. Fees</h2>
             <p>Listing a car is free. When a listing sells, DriveLink charges a 1% platform fee on the final sale price (reduced to 0.5% for payments made from October 1 through October 31, 2026). Card processing is charged separately by our payment provider at approximately 2.9% + $0.30 per transaction and is also deducted from the seller's proceeds. Promoters, if any, are paid separately by DriveLink and nothing extra is charged to you for it. The exact amount you'll receive is shown before you publish a listing.</p>
 
-            <h2>5. Payments</h2>
-            <p>Checkout is processed through Stripe. DriveLink does not store your payment card details. Once a buyer completes checkout, the transaction between buyer and seller — including vehicle handoff, title transfer, and any related paperwork — is the responsibility of the two parties.</p>
+            <h2>5. Payments and Protected Payment</h2>
+            <p>Checkout is processed through Stripe. DriveLink does not store your payment card details. When a buyer pays, the payment is made to the seller's own Stripe account, not to DriveLink. DriveLink never receives or holds the buyer's money; the only amount paid to DriveLink at checkout is DriveLink's fee.</p>
+            <p>By listing a car and connecting a Stripe account, a seller agrees to Stripe's Connected Account Agreement and authorizes DriveLink to control when payouts from that Stripe account to the seller's bank are released, including keeping the account on manual payouts. This is what makes a payment protected: the money stays in the seller's Stripe balance, and is not paid out to the seller's bank until the buyer's 6-digit handover code is entered, the buyer confirms receipt, or DriveLink releases it after a review.</p>
+            <p>If a sale is cancelled, or a problem is resolved in the buyer's favor, the payment is refunded to the buyer from the seller's Stripe account, and the seller authorizes that refund. Bank-debit payments can be returned by the buyer's bank for up to 60 days. If a payment is reversed, refunded, or charged back, including after a payout, the amount may be deducted from the seller's Stripe balance or recovered from the seller's bank account, and the seller is responsible for it.</p>
+            <p>Once a payout is released, the transaction between buyer and seller — including vehicle handoff, title transfer, and any related paperwork — is the responsibility of the two parties.</p>
 
             <h2>6. Buyer &amp; Seller Responsibilities</h2>
             <p>Buyers are strongly encouraged to inspect a vehicle (and its VIN history) before completing a purchase. Sellers are responsible for complying with their state's title transfer and sales tax requirements. DriveLink is not responsible for verifying vehicle condition, ownership, or title status.</p>
@@ -2572,7 +2575,7 @@ function SafetyTipsView({ onBack }) {
           <p>Bring a friend or family member if you can. If you're going alone, tell someone where you're headed, who you're meeting, and when you expect to be back.</p>
 
           <h2>Before you hand over the car or the money</h2>
-          <p>Buyers: verify the VIN on the dashboard or door frame matches the listing, and confirm the seller's ID matches the name on the title. Sellers: your payment is already held by DriveLink before you meet — you don't need to accept a check, a screenshot, or a promise.</p>
+          <p>Buyers: verify the VIN on the dashboard or door frame matches the listing, and confirm the seller's ID matches the name on the title. Sellers: the buyer's payment is already made and protected before you meet — it sits in your own Stripe balance and can't be paid out until the handover code is entered — so you don't need to accept a check, a screenshot, or a promise.</p>
 
           <h2>Your handover code</h2>
           <p>When a buyer pays, DriveLink gives them a 6-digit handover code. That code is the key to the money: the moment the seller enters it, the funds are released and the sale is final.</p>
