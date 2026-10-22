@@ -350,6 +350,17 @@ function initialViewFromPath() {
   return PATH_TO_VIEW[p] || "landing";
 }
 
+// supabase-js hides the JSON body of non-2xx function responses behind a generic
+// message; read it so users see the real reason (e.g. "That code is incorrect.").
+async function fnErrorMessage(data, error) {
+  if (data?.error) return data.error;
+  try {
+    const body = await error?.context?.json?.();
+    if (body?.error) return body.error;
+  } catch { /* body wasn't JSON */ }
+  return error?.message || "";
+}
+
 export default function App() {
   const { t, lang } = useLang();
   const [currentUser, setCurrentUser] = useState(null);
@@ -815,7 +826,7 @@ export default function App() {
       body: { listing_id: listing.id, share_code: getAttribution(listing.id)?.code || null },
     });
     if (error || !data?.url) {
-      showToast(data?.error || error?.message || "Couldn't start checkout — try again.", "error");
+      showToast((await fnErrorMessage(data, error)) || "Couldn't start checkout — try again.", "error");
       return;
     }
     window.location.href = data.url;
@@ -833,7 +844,7 @@ export default function App() {
     });
     setWireLoading(false);
     if (error || data?.error) {
-      showToast(data?.error || error?.message || "Couldn't start a wire transfer — try again.", "error");
+      showToast((await fnErrorMessage(data, error)) || "Couldn't start a wire transfer — try again.", "error");
       return;
     }
     setWireInstructions({ ...data, carLabel: `${listing.year} ${listing.make} ${listing.model}` });
@@ -844,7 +855,7 @@ export default function App() {
   const setupPayouts = async () => {
     const { data, error } = await supabase.functions.invoke("create-connect-account");
     if (error || !data?.url) {
-      showToast(data?.error || error?.message || "Couldn't start payout setup — try again.", "error");
+      showToast((await fnErrorMessage(data, error)) || "Couldn't start payout setup — try again.", "error");
       return;
     }
     window.location.href = data.url;
@@ -962,7 +973,7 @@ export default function App() {
     const fn = listing.stripe_payment_intent_id ? "release-funds" : "confirm-manual-sale";
     const { data, error } = await supabase.functions.invoke(fn, { body: { listing_id: listingId } });
     if (error || data?.error) {
-      showToast(data?.error || error?.message || "Couldn't confirm this sale — try again.", "error");
+      showToast((await fnErrorMessage(data, error)) || "Couldn't confirm this sale — try again.", "error");
       return;
     }
     await loadData();
@@ -987,7 +998,7 @@ export default function App() {
       body: { listing_id: listingId, code },
     });
     if (error || data?.error) {
-      showToast(data?.error || error?.message || "Couldn't verify that code — try again.", "error");
+      showToast((await fnErrorMessage(data, error)) || "Couldn't verify that code — try again.", "error");
       return false;
     }
     await loadData();
@@ -1028,7 +1039,7 @@ export default function App() {
         body: { dispute_id: disputeId, resolution_note: resolutionNote },
       });
       if (error || data?.error) {
-        showToast(data?.error || error?.message || "Couldn't issue refund — try again.", "error");
+        showToast((await fnErrorMessage(data, error)) || "Couldn't issue refund — try again.", "error");
         return;
       }
       await loadData();
@@ -1493,7 +1504,7 @@ const denyInspector = async (id) => {
   const payoutPromoterViaStripe = async (userId, amount, note) => {
     const { data, error } = await supabase.functions.invoke("payout-promoter", { body: { user_id: userId, amount, note } });
     if (error || data?.error) {
-      showToast(data?.error || error?.message || "Couldn't send payout — try again.", "error");
+      showToast((await fnErrorMessage(data, error)) || "Couldn't send payout — try again.", "error");
       return;
     }
     await loadData();
@@ -1507,7 +1518,7 @@ const denyInspector = async (id) => {
   const checkDealAssessment = async (listingId) => {
     const { data, error } = await supabase.functions.invoke("assess-deal", { body: { listing_id: listingId } });
     if (error || data?.error) {
-      showToast(data?.error || error?.message || "Couldn't run the price check — try again.", "error");
+      showToast((await fnErrorMessage(data, error)) || "Couldn't run the price check — try again.", "error");
       return null;
     }
     setListings(prev => prev.map(l => l.id === listingId ? { ...l, deal_assessment: data.assessment, deal_assessment_at: new Date().toISOString() } : l));
@@ -1524,7 +1535,7 @@ const denyInspector = async (id) => {
       body: { listing_id: listingId, lang },
     });
     if (error || data?.error) {
-      showToast(data?.error || error?.message || "Couldn't translate this listing.", "error");
+      showToast((await fnErrorMessage(data, error)) || "Couldn't translate this listing.", "error");
       return null;
     }
     return data;
@@ -1552,7 +1563,7 @@ const denyInspector = async (id) => {
           detail = body?.error || null;
         }
       } catch { /* body wasn't JSON — fall through to the generic message */ }
-      showToast(detail || data?.error || error?.message || "Couldn't start verification — try again.", "error");
+      showToast(detail || (await fnErrorMessage(data, error)) || "Couldn't start verification — try again.", "error");
       return;
     }
     window.location.href = data.url;
@@ -1603,7 +1614,7 @@ const denyInspector = async (id) => {
       body: { plan, business_name, contact_email, image_url, link_url },
     });
     if (error || !data?.url) {
-      showToast(data?.error || error?.message || "Couldn't start checkout — try again.", "error");
+      showToast((await fnErrorMessage(data, error)) || "Couldn't start checkout — try again.", "error");
       return;
     }
     window.location.href = data.url;
@@ -3837,7 +3848,7 @@ function MyListingsView({ listings, referrals, users, offers, stats, onMarkSold,
                         </div>
                       )}
                       <div style={{ fontSize: 12, color: "#6b7280", marginTop: 4, lineHeight: 1.5 }}>
-                        The buyer's payment is held safely. Once they have the car and the signed title, ask them for their 6-digit handover code and enter it below — {fmt(l.seller_net)} is released to you immediately. They can also release it themselves from their purchases page. Bank arrival typically takes a few business days after that.
+                        The buyer's payment is protected — you can't withdraw it until the handover is confirmed. Once they have the car and the signed title, ask them for their 6-digit handover code and enter it below — {fmt(l.seller_net)} is released to you immediately. They can also release it themselves from their purchases page. Bank arrival typically takes a few business days after that.
                       </div>
                       <HandoverCodeEntry listingId={l.id} onSubmit={onConfirmHandover} />
                     </>
