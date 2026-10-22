@@ -85,7 +85,7 @@ const COPY = {
         id: "id-verification",
         h: "Verificación de identidad",
         p: [
-          "Los vendedores conectan su propia cuenta de Stripe para recibir el pago, y Stripe verifica quiénes son. Las compras de $15,000 o más se pagan por transferencia bancaria nacional (wire), que cuesta menos de procesar que una tarjeta.",
+          "Los vendedores conectan su propia cuenta de Stripe para recibir el pago, y Stripe verifica quiénes son. En compras de $15,000 o más se puede pagar con tarjeta o por transferencia bancaria nacional (wire), que cuesta menos de procesar.",
         ],
       },
       {

@@ -34,7 +34,6 @@
 //
 // See 20260812_01_ach_settlement.sql for the rest of the design.
 import {
-  ACH_MIN_CENTS,
   corsHeaders,
   findPendingReferrals,
   jsonResponse,
@@ -320,12 +319,6 @@ Deno.serve(async (req) => {
     // (create-wire-session), which cannot be reversed or charged back; below it,
     // by card.
     const achEligible = false;
-    if (chargedTotal >= ACH_MIN_CENTS) {
-      throw new Error(
-        `Purchases of $${(ACH_MIN_CENTS / 100).toLocaleString("en-US")} or more are paid by wire transfer. ` +
-        `Use "Pay by wire transfer" on the listing.`,
-      );
-    }
 
     // ── Application fee (direct mode) ────────────────────────────────────────
     // What Stripe splits off to DriveLink the moment the buyer pays:
@@ -349,9 +342,6 @@ Deno.serve(async (req) => {
 
     // Logged rather than silent: "why didn't ACH show up" is otherwise an
     // unanswerable support question.
-    if (chargedTotal >= ACH_MIN_CENTS && !buyerIdentityVerified) {
-      console.log("ACH withheld — buyer not identity verified:", buyerId, listing.id);
-    }
 
     // Rendered on Stripe's own payment screen, not just ours. A buyer agreeing
     // to escrow terms on the seller's website is weaker consent than one who

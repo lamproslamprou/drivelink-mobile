@@ -2499,7 +2499,7 @@ function LegalPageView({ type, onBack }) {
             <h2>5. Payments and Protected Payment</h2>
             <p>Checkout is processed through Stripe. DriveLink does not store your payment card details. When a buyer pays, the payment is made to the seller's own Stripe account, not to DriveLink. DriveLink never receives or holds the buyer's money; the only amount paid to DriveLink at checkout is DriveLink's fee.</p>
             <p>By listing a car and connecting a Stripe account, a seller agrees to Stripe's Connected Account Agreement and authorizes DriveLink to control when payouts from that Stripe account to the seller's bank are released, including keeping the account on manual payouts. This is what makes a payment protected: the money stays in the seller's Stripe balance, and is not paid out to the seller's bank until the buyer's 6-digit handover code is entered, the buyer confirms receipt, or DriveLink releases it after a review.</p>
-            <p>If a sale is cancelled, or a problem is resolved in the buyer's favor, the payment is refunded to the buyer from the seller's Stripe account, and the seller authorizes that refund. Purchases of $15,000 or more are paid by wire transfer rather than card, which cannot be reversed by the buyer's bank after it settles. Card payments can be disputed by the cardholder with their bank for a period set by the card networks. If a payment is reversed, refunded, or charged back, including after a payout, the amount may be deducted from the seller's Stripe balance or recovered from the seller's bank account, and the seller is responsible for it.</p>
+            <p>If a sale is cancelled, or a problem is resolved in the buyer's favor, the payment is refunded to the buyer from the seller's Stripe account, and the seller authorizes that refund. Card payments can be disputed by the cardholder with their bank for a period set by the card networks; wire transfers, offered on purchases of $15,000 or more, cannot be reversed by the buyer's bank once they settle. If a payment is reversed, refunded, or charged back, including after a payout, the amount may be deducted from the seller's Stripe balance or recovered from the seller's bank account, and the seller is responsible for it.</p>
             <p>Once a payout is released, the transaction between buyer and seller — including vehicle handoff, title transfer, and any related paperwork — is the responsibility of the two parties.</p>
 
             <h2>6. Buyer &amp; Seller Responsibilities</h2>
@@ -3275,6 +3275,19 @@ function ListingDetailModal({ data, currentUser, isFavorited, isBlocked, onClose
             </div>
           )}
 
+          {currentUser && !isOwnListing && payoutsReady && onBuyWire && listing.price >= WIRE_MIN_CENTS && (() => {
+            const usd = (c) => (c / 100).toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
+            const cardFee = Math.ceil(listing.price * 0.029) + 30;
+            const wireFee = Math.min(Math.ceil(listing.price * 0.008), 500);
+            return (
+              <div style={{ fontSize: 13, color: "#334155", background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 8, padding: "10px 12px", marginBottom: 10, lineHeight: 1.6 }}>
+                <strong>Choose how to pay.</strong> The payment processor's fee comes out of the seller's proceeds, not on top of your price.
+                <div>💳 Card: instant. Processing fee about {usd(cardFee)}.</div>
+                <div>🏦 Wire transfer: usually 1–2 business days. Processing fee about {usd(wireFee)}.</div>
+              </div>
+            );
+          })()}
+
           <div style={styles.cardActions}>
             {currentUser && !isOwnListing && payoutsReady && <button style={styles.buyBtn} onClick={() => onBuy(listing)}>💳 {t("action.buyNow")}</button>}
             {currentUser && !isOwnListing && payoutsReady && onBuyWire && listing.price >= WIRE_MIN_CENTS && (
@@ -3282,7 +3295,7 @@ function ListingDetailModal({ data, currentUser, isFavorited, isBlocked, onClose
                 style={{ ...styles.buyBtn, background: "#0f172a" }}
                 disabled={wireLoading}
                 onClick={() => onBuyWire(listing)}
-                title="Pay via domestic wire transfer instead of card — available on purchases of $15,000 or more"
+                title="Pay via domestic wire transfer instead of card — offered on purchases of $15,000 or more"
               >
                 🏦 {wireLoading ? "Starting…" : "Pay by wire transfer"}
               </button>

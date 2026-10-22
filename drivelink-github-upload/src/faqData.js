@@ -21,7 +21,7 @@ export function faqItemsEn() {
       },
       {
         q: "Can I pay by bank transfer instead of card?",
-        a: "On purchases of $15,000 or more, payment is by domestic wire transfer. You're given bank details and a reference on the listing, and send the wire from your bank. Under $15,000 you pay by card, which clears in seconds. Wires usually arrive within 1–2 business days, and cost less to process than a card.",
+        a: "On purchases of $15,000 or more you can choose a domestic wire transfer: you're given bank details and a reference, and send the wire from your bank. Card is always available too and clears in seconds; we show you the processing cost of each before you pick. Wires usually arrive within 1–2 business days, and cost less to process than a card.",
       },
       {
         q: "I paid by wire transfer. Why don't I have a handover code?",

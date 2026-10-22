@@ -108,19 +108,25 @@ export async function payoutSellerShare(
     ? pi.latest_charge
     : null;
   const methodType = charge?.payment_method_details?.type;
-  const sourceType = methodType === "us_bank_account" ? "bank_account" : "card";
+  // Wire (customer_balance) funds are not in the card bucket, so name no source and
+  // let Stripe draw from whatever is available; cards and bank debits name theirs.
+  const sourceType: "card" | "bank_account" | undefined = methodType === "us_bank_account"
+    ? "bank_account"
+    : methodType === "card"
+    ? "card"
+    : undefined;
 
   const balance = await stripe.balance.retrieve({ stripeAccount: accountId });
   const bucket = (balance.available ?? []).find((b) => b.currency === "usd");
   const availableTotal = bucket?.amount ?? 0;
-  const availableForSource = bucket?.source_types?.[sourceType] ?? availableTotal;
+  const availableForSource = sourceType ? (bucket?.source_types?.[sourceType] ?? availableTotal) : availableTotal;
 
   if (Math.min(availableTotal, availableForSource) < amount) {
     return {
       status: "pending",
       reason:
         `Seller balance has ${money(Math.min(availableTotal, availableForSource))} available ` +
-        `(${sourceType}); needs ${money(amount)}. Funds are still settling.`,
+        `(${sourceType ?? "balance"}); needs ${money(amount)}. Funds are still settling.`,
       availableCents: Math.min(availableTotal, availableForSource),
     };
   }
@@ -130,7 +136,7 @@ export async function payoutSellerShare(
       {
         amount,
         currency: "usd",
-        source_type: sourceType,
+        ...(sourceType ? { source_type: sourceType } : {}),
         metadata: { listing_id: listing.id },
         description: `DriveLink sale ${listing.id}`,
       },
