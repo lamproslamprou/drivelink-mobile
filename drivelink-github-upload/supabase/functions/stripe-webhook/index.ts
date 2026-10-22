@@ -537,8 +537,8 @@ async function settleSale(
         to: buyerRow.email,
         subject: `Your handover code for the ${carLabel}`,
         html: `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;color:#0f172a;max-width:520px;">
-          <h2 style="font-size:18px;margin:0 0 14px;">Payment received — your money is held safely</h2>
-          <p style="font-size:15px;line-height:1.55;">We're holding your ${money(salePrice)} for the <b>${carLabel}</b>. The seller has not been paid.</p>
+          <h2 style="font-size:18px;margin:0 0 14px;">Payment received — your payment is protected</h2>
+          <p style="font-size:15px;line-height:1.55;">Your ${money(salePrice)} payment for the <b>${carLabel}</b> is protected. The seller can't withdraw it, and has not been paid.</p>
           <div style="background:#FFF8E7;border:1px solid #FFB020;border-radius:8px;padding:16px;margin:20px 0;">
             <div style="font-size:12px;font-weight:700;color:#7c5000;letter-spacing:0.5px;">YOUR HANDOVER CODE</div>
             <div style="font-size:32px;font-family:monospace;letter-spacing:8px;font-weight:700;margin:8px 0;">${handover.code}</div>
@@ -559,8 +559,8 @@ async function settleSale(
         to: sellerRow.email,
         subject: `Payment received for your ${carLabel}`,
         html: `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;color:#0f172a;max-width:520px;">
-          <h2 style="font-size:18px;margin:0 0 14px;">The buyer has paid — ${money(salePrice)} is in escrow</h2>
-          <p style="font-size:15px;line-height:1.55;">Your net proceeds of <b>${money(sellerNet)}</b> are held by DriveLink and released when the handover is confirmed.</p>
+          <h2 style="font-size:18px;margin:0 0 14px;">The buyer has paid — ${money(salePrice)} is protected until handover</h2>
+          <p style="font-size:15px;line-height:1.55;">Your net proceeds of <b>${money(sellerNet)}</b> ${isDirect ? "are in your own Stripe balance, with payouts to your bank locked" : "are held by DriveLink"} until the handover is confirmed, then released to you.</p>
           <p style="font-size:15px;line-height:1.55;">The buyer has a <b>6-digit handover code</b>. Once they have the car and the signed title, ask them for it and enter it on your listing — that releases your funds straight away. They can also confirm receipt themselves in the app.</p>
           <p style="font-size:14px;line-height:1.55;color:#374151;">Nothing releases automatically. If neither happens, we'll check in with both of you.</p>
           ${releaseNotBefore

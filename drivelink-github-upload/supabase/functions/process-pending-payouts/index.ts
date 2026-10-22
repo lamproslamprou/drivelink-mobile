@@ -12,7 +12,7 @@
 // whose per-listing idempotency key makes a double run harmless.
 //
 // Schedule it every 30 minutes (pg_cron or a Supabase scheduled function), with
-// the header  x-cron-secret: <CRON_SECRET>.
+// the header  Authorization: Bearer <CRON_SHARED_SECRET>.
 import {
   alertHtml,
   corsHeaders,
@@ -26,8 +26,12 @@ import { completeDirectRelease } from "../_shared/direct.ts";
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
-  const secret = Deno.env.get("CRON_SECRET");
-  if (!secret || req.headers.get("x-cron-secret") !== secret) {
+  // Same scheme as the other cron jobs: Bearer CRON_SHARED_SECRET, held in
+  // Vault for pg_cron. The `!expected` arm refuses a bare "Bearer " if the
+  // secret is ever unset.
+  const secret = Deno.env.get("CRON_SHARED_SECRET");
+  const expected = secret ? `Bearer ${secret}` : null;
+  if (!expected || req.headers.get("Authorization") !== expected) {
     return jsonResponse({ error: "Unauthorized" }, 401);
   }
 
