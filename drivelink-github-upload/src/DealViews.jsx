@@ -468,6 +468,17 @@ export function StartDealView({ currentUser, promoterCode, onBack, onNavigate, s
 // JoinDealView
 // ============================================================================
 
+// supabase.functions.invoke hides the JSON body of a non-2xx reply behind a
+// generic error. The invite function puts the real reason there ("This deal was
+// cancelled.", "You cannot join your own deal..."), so read it back out.
+async function inviteErrorMessage(fnErr, fallback) {
+  try {
+    const body = await fnErr?.context?.json?.();
+    if (body && typeof body.error === "string" && body.error) return body.error;
+  } catch { /* body was not JSON */ }
+  return fallback;
+}
+
 export function JoinDealView({ token, currentUser, onNavigate, onAuth, onJoined, showToast }) {
   const [loading, setLoading] = useState(true);
   const [preview, setPreview] = useState(null);
@@ -491,7 +502,7 @@ export function JoinDealView({ token, currentUser, onNavigate, onAuth, onJoined,
         body: { token, action: "preview" },
       });
       if (cancelled) return;
-      if (fnErr) setError("Could not load this deal.");
+      if (fnErr) setError(await inviteErrorMessage(fnErr, "Could not load this deal."));
       else if (data?.error) setError(data.error);
       else setPreview(data);
       setLoading(false);
@@ -508,7 +519,7 @@ export function JoinDealView({ token, currentUser, onNavigate, onAuth, onJoined,
         // sides are still free.
         body: { token, action: "accept", role: pickedRole },
       });
-      if (fnErr) { setError("Could not join this deal."); return; }
+      if (fnErr) { setError(await inviteErrorMessage(fnErr, "Could not join this deal.")); return; }
       if (data?.error) { setError(data.error); return; }
 
       if (data.state === "needs_onboarding") { setNeedsOnboarding(true); return; }
