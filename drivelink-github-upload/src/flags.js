@@ -7,8 +7,8 @@
 // same change that reopens checkout.
 export const PAYMENTS_OPEN = true;
 
-// WIRE_OPEN: wire transfer is switched off while DIRECT_CHARGES=on (create-wire-
-// session returns "not available"). It stays off until bank transfers have been
-// re-tested as direct charges in Stripe test mode. Hides the wire button and
-// keeps site copy from advertising it. Flip to true together with the backend.
-export const WIRE_OPEN = false;
+// WIRE_OPEN: wire transfer (bank transfer for purchases of $15,000 or more) as a
+// direct charge on the seller's own Stripe account. Turned on for the Stripe test-
+// mode run 2026-10-23; flip back to false if that run fails. Shows the wire button
+// and lets site copy mention it.
+export const WIRE_OPEN = true;
