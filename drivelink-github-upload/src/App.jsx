@@ -3419,6 +3419,17 @@ function ListingDetailModal({ data, currentUser, isFavorited, isBlocked, onClose
               </button>
             )}
           </div>
+          {/* Stripe's official badge, unaltered, linked to stripe.com as their
+              marks guidelines ask. Shown only where a buyer could pay: it says
+              the payment runs through Stripe, nothing more. */}
+          {!isOwnListing && (
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 10, flexWrap: "wrap" }}>
+              <a href="https://stripe.com" target="_blank" rel="noopener noreferrer" style={{ lineHeight: 0 }}>
+                <img src="/powered-by-stripe.svg" alt="Powered by Stripe" width="150" height="34" style={{ display: "block" }} />
+              </a>
+              <span style={{ fontSize: 12, color: "#6b7280", lineHeight: 1.4 }}>Payment goes to the seller's own Stripe account.</span>
+            </div>
+          )}
 
           {currentUser && !isOwnListing && onMakeOffer && (
             myOffer ? (
