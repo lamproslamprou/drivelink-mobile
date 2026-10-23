@@ -112,10 +112,13 @@ function useGoogleEnabled() {
 export const RETURN_VIEW_KEY = "dl_post_auth_view";
 const rememberReturnView = (v) => { try { if (v && v !== "auth") localStorage.setItem(RETURN_VIEW_KEY, v); } catch { /* private mode */ } };
 
-export default function Auth({ onAuth, returnView, carLabel }) {
+export default function Auth({ onAuth, returnView, carLabel, initialTab }) {
   const googleOn = useGoogleEnabled();
   const { t } = useLang();
-  const [tab, setTab] = useState(() => (hasSeenAccount() ? "signin" : "signup"));
+  // initialTab lets a caller that already knows which one the visitor wants
+  // (the invite page has separate "create account" and "sign in" buttons) open
+  // the right tab; otherwise returning browsers get sign-in, new ones sign-up.
+  const [tab, setTab] = useState(() => initialTab || (hasSeenAccount() ? "signin" : "signup"));
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

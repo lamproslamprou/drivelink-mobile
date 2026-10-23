@@ -132,6 +132,19 @@ const takePostAuthListing = () => {
     return v?.id && Date.now() - Number(v.t) < 2 * 60 * 60 * 1000 ? String(v.id) : null;
   } catch { return null; }
 };
+// Same idea for invite links (/d/:token). JoinDealView writes this when it
+// loads; without something reading it, a visitor who signed in to join a deal
+// landed on the grid and the private deal was gone from view.
+const POST_AUTH_DEAL_KEY = "dl_post_auth_deal";
+const takePostAuthDeal = () => {
+  try {
+    const raw = localStorage.getItem(POST_AUTH_DEAL_KEY);
+    if (!raw) return null;
+    localStorage.removeItem(POST_AUTH_DEAL_KEY);
+    const v = JSON.parse(raw);
+    return v?.id && Date.now() - Number(v.t) < 2 * 60 * 60 * 1000 ? String(v.id) : null;
+  } catch { return null; }
+};
 const promoterUrl = (code) => `${SITE_ORIGIN}/s/${code}`;
 // Standing Promoter link. Unlike promoterUrl() this points at no particular car:
 // /p/:code stores the code and drops the visitor straight into Start a Deal,
@@ -424,6 +437,8 @@ export default function App() {
   // Generalises returnToAdvertise, which only ever remembered one destination
   // (the advertise page). Any gated view can be resumed now.
   const [pendingView, setPendingView] = useState(null);
+  // Which tab the sign-in screen opens on, when the caller knows ("signin" or "signup").
+  const [authTab, setAuthTab] = useState(null);
   // Live ads for the sidebar rail (public view), and the full placement rows
   // for the admin tab (empty for non-admins under RLS).
   const [publicAds, setPublicAds] = useState([]);
@@ -802,6 +817,9 @@ export default function App() {
         } catch { /* private mode */ }
         const retListing = takePostAuthListing();
         if (retListing) navigate(`/listing/${retListing}`, { replace: true });
+        // An invite link outranks the others: they came here to join that deal.
+        const retDeal = takePostAuthDeal();
+        if (retDeal) navigate(`/d/${encodeURIComponent(retDeal)}`, { replace: true });
       }
     });
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
@@ -2015,6 +2033,7 @@ const denyInspector = async (id) => {
       currentUser={currentUser}
       showToast={showToast}
       onNavigate={(v) => { navigate("/"); setView(v); }}
+      onAuth={(tab) => { setAuthTab(tab); setView("auth"); navigate(VIEW_PATHS.auth); }}
       onJoined={async (listingId) => {
         // loadData() first, or the /listing/:id route resolver will not find
         // the new row in state and will bounce to home.
@@ -2178,7 +2197,15 @@ const denyInspector = async (id) => {
     setCurrentUser(user);
     loadDbUser(user);
     loadData();
-    // Continue to whatever they were trying to reach, else the grid.
+    // Continue to whatever they were trying to reach, else the grid. An invite
+    // link comes first: they signed in to join that deal.
+    const retDeal = takePostAuthDeal();
+    if (retDeal) {
+      setView("home");
+      setPendingView(null);
+      navigate(`/d/${encodeURIComponent(retDeal)}`, { replace: true });
+      return;
+    }
     const retListing = takePostAuthListing();
     if (retListing) {
       // The /listing/:id route effect reopens the car once listings have loaded.
@@ -2210,7 +2237,7 @@ const denyInspector = async (id) => {
       </div>
     );
   }
-  if (!currentUser && view === "auth") return <Auth onAuth={completeSignIn} returnView={pendingView} carLabel={authCarLabel()} />;
+  if (!currentUser && view === "auth") return <Auth onAuth={completeSignIn} returnView={pendingView} carLabel={authCarLabel()} initialTab={authTab} />;
 
   if (!currentUser && !PUBLIC_VIEWS.has(view)) return (
     // Belt and braces: the effect above normally converts this case to the

@@ -468,7 +468,7 @@ export function StartDealView({ currentUser, promoterCode, onBack, onNavigate, s
 // JoinDealView
 // ============================================================================
 
-export function JoinDealView({ token, currentUser, onNavigate, onJoined, showToast }) {
+export function JoinDealView({ token, currentUser, onNavigate, onAuth, onJoined, showToast }) {
   const [loading, setLoading] = useState(true);
   const [preview, setPreview] = useState(null);
   const [error, setError] = useState(null);
@@ -479,8 +479,11 @@ export function JoinDealView({ token, currentUser, onNavigate, onJoined, showToa
   const [waiting, setWaiting] = useState(null);
 
   useEffect(() => {
-    // Survive the sign-up round trip.
-    try { localStorage.setItem("dl_pending_deal", token); } catch { /* private mode */ }
+    // Survive the sign-up / sign-in round trip. App.jsx reads this after auth
+    // (completeSignIn and the Google / email-confirmation return) and sends the
+    // visitor back to /d/:token. Timestamped so an abandoned attempt cannot
+    // redirect a much later sign-in. Same shape as dl_post_auth_listing.
+    try { localStorage.setItem("dl_post_auth_deal", JSON.stringify({ id: token, t: Date.now() })); } catch { /* private mode */ }
 
     let cancelled = false;
     (async () => {
@@ -512,13 +515,13 @@ export function JoinDealView({ token, currentUser, onNavigate, onJoined, showToa
 
       // Promoter deal, first party in. There is no listing to pay for yet.
       if (data.state === "waiting_for_other_party") {
-        try { localStorage.removeItem("dl_pending_deal"); } catch { /* noop */ }
+        try { localStorage.removeItem("dl_post_auth_deal"); } catch { /* noop */ }
         setWaiting({ role: data.your_role, message: data.message });
         return;
       }
 
       if (data.state === "ready_for_payment") {
-        try { localStorage.removeItem("dl_pending_deal"); } catch { /* noop */ }
+        try { localStorage.removeItem("dl_post_auth_deal"); } catch { /* noop */ }
         showToast?.("You're in. Review the car and continue.");
         onJoined?.(data.listing_id);
       }
@@ -672,9 +675,14 @@ export function JoinDealView({ token, currentUser, onNavigate, onJoined, showToa
             {joining ? "Joining…" : chooseRole && !pickedRole ? "Pick your side first" : "Join this deal"}
           </button>
         ) : (
-          <button style={dealStyles.primaryBtn} onClick={() => onNavigate?.("auth")}>
-            Create an account to continue
-          </button>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <button style={dealStyles.primaryBtn} onClick={() => (onAuth ? onAuth("signup") : onNavigate?.("auth"))}>
+              Create an account to continue
+            </button>
+            <button style={dealStyles.secondaryBtn} onClick={() => (onAuth ? onAuth("signin") : onNavigate?.("auth"))}>
+              I already have an account. Sign in
+            </button>
+          </div>
         )}
 
         <div style={dealStyles.finePrint}>
