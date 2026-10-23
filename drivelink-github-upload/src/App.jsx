@@ -4939,7 +4939,8 @@ function AboutView({ onBack, onBrowse, onSafety, onPricing }) {
           <p>Payments are processed by Stripe straight to the seller's own Stripe account, and the seller can't withdraw them until release. DriveLink never handles card details directly — those go straight to Stripe. Sellers connect their own account to receive payouts.</p>
 
           <h2>Who runs it</h2>
-          <p>DriveLink LLC is a company registered in New Jersey, United States. It's a small operation, which is deliberate — you can reach a person who can actually fix your problem rather than a support queue.</p>
+          <p>DriveLink LLC is a New Jersey limited liability company (state entity ID 0451487511), registered on June 29, 2026. The State of New Jersey certified it as an active business in good standing on October 23, 2026 (certificate no. 6182729526, which anyone can <a href="https://www1.state.nj.us/TYTR_StandingCert/JSP/Verify_Cert.jsp" target="_blank" rel="noopener noreferrer">verify on the State's website</a>).</p>
+          <p>It's a small operation, which is deliberate — you can reach a person who can actually fix your problem rather than a support queue.</p>
           {/* Named founder with photo and profile link. Renders nothing until
               FOUNDER in siteProof.js is filled in with real details. */}
           <FounderBlock />
