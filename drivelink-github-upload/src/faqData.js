@@ -21,7 +21,7 @@ export function faqItemsEn() {
       },
       {
         q: "Can I pay by bank transfer instead of card?",
-        a: "On purchases of $15,000 or more you can choose a domestic wire transfer: you're given bank details and a reference, and send the wire from your bank. Card is always available too and clears in seconds; we show you the processing cost of each before you pick. Wires usually arrive within 1–2 business days, and cost less to process than a card.",
+        a: "Not right now. Purchases are paid by card through Stripe, and the payment clears in seconds. Wire transfer for larger purchases is not available at the moment.",
       },
       {
         q: "I paid by wire transfer. Why don't I have a handover code?",

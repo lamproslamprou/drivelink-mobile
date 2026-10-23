@@ -37,7 +37,7 @@ const COPY = {
         id: "id-verification",
         h: "ID verification",
         p: [
-          "Every seller is identity-checked by Stripe before they can be paid: they connect their own Stripe account to receive payouts, and Stripe verifies who they are. Buyers can verify their ID too. Purchases of $15,000 or more are paid by domestic wire transfer, which costs less to process than a card.",
+          "Every seller is identity-checked by Stripe before they can be paid: they connect their own Stripe account to receive payouts, and Stripe verifies who they are. Buyers can verify their ID too.",
         ],
       },
       {
@@ -85,7 +85,7 @@ const COPY = {
         id: "id-verification",
         h: "Verificación de identidad",
         p: [
-          "Stripe verifica la identidad de cada vendedor antes de pagarle: conectan su propia cuenta de Stripe para recibir el pago, y Stripe verifica quiénes son. Los compradores también pueden verificar su identidad. En compras de $15,000 o más se puede pagar con tarjeta o por transferencia bancaria nacional (wire), que cuesta menos de procesar.",
+          "Stripe verifica la identidad de cada vendedor antes de pagarle: conectan su propia cuenta de Stripe para recibir el pago, y Stripe verifica quiénes son. Los compradores también pueden verificar su identidad.",
         ],
       },
       {

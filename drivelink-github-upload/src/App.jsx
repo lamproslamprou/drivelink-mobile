@@ -25,6 +25,7 @@ import LienPayoffNJ from "./guides/LienPayoffNJ.jsx";
 import LienPayoffPA from "./guides/LienPayoffPA.jsx";
 import LienPayoffNY from "./guides/LienPayoffNY.jsx";
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
+import { WIRE_OPEN } from "./flags.js"; // wire is off while direct charges are on
 
 // ── MONEY IS CENTS ──────────────────────────────────────────────────────────
 // Every money column in the database is CENTS as of migration
@@ -923,6 +924,12 @@ export default function App() {
 
   // ── Post listing
   const postListing = async (data) => {
+    // Same ceiling create-deal enforces for Start a Deal ($250,000), so the
+    // "deals up to $250,000" claim on the site holds for listed cars too.
+    if (Number(data.price) > 25_000_000) {
+      showToast("DriveLink handles deals up to $250,000. For a higher price, email support@drivelink.deals.", "error");
+      return;
+    }
     const coords = await geocode(data.location_text);
     const newListing = {
       id: "l" + Date.now(),
@@ -3336,7 +3343,7 @@ function ListingDetailModal({ data, currentUser, isFavorited, isBlocked, onClose
             </div>
           )}
 
-          {currentUser && !isOwnListing && payoutsReady && onBuyWire && listing.price >= WIRE_MIN_CENTS && (() => {
+          {WIRE_OPEN && currentUser && !isOwnListing && payoutsReady && onBuyWire && listing.price >= WIRE_MIN_CENTS && (() => {
             const usd = (c) => (c / 100).toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
             const cardFee = Math.ceil(listing.price * 0.029) + 30;
             const wireFee = Math.min(Math.ceil(listing.price * 0.008), 500);
@@ -3351,7 +3358,7 @@ function ListingDetailModal({ data, currentUser, isFavorited, isBlocked, onClose
 
           <div style={styles.cardActions}>
             {currentUser && !isOwnListing && payoutsReady && <button style={styles.buyBtn} onClick={() => onBuy(listing)}>💳 {t("action.buyNow")}</button>}
-            {currentUser && !isOwnListing && payoutsReady && onBuyWire && listing.price >= WIRE_MIN_CENTS && (
+            {WIRE_OPEN && currentUser && !isOwnListing && payoutsReady && onBuyWire && listing.price >= WIRE_MIN_CENTS && (
               <button
                 style={{ ...styles.buyBtn, background: "#0f172a" }}
                 disabled={wireLoading}

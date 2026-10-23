@@ -64,7 +64,7 @@ const COPY = {
       },
       {
         q: "¿Puedo pagar por transferencia bancaria en vez de tarjeta?",
-        a: "En compras de $15,000 o más puedes elegir una transferencia wire nacional: recibes los datos bancarios y una referencia y envías la transferencia desde tu banco. La tarjeta siempre está disponible y se acredita en segundos; te mostramos el costo de procesamiento de cada una antes de elegir. Las transferencias wire suelen llegar en 1–2 días hábiles y cuestan menos que una tarjeta.",
+        a: "Por ahora no. Las compras se pagan con tarjeta a través de Stripe, y el pago se acredita en segundos. La transferencia wire para compras grandes no está disponible por el momento.",
       },
       {
         q: "Pagué por transferencia wire. ¿Por qué no tengo código de entrega?",
