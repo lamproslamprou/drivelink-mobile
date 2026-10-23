@@ -24,6 +24,10 @@ export function faqItemsEn() {
         a: "Yes. On any purchase of $500 or more you can pay by wire transfer instead of card. Choose \"Pay by wire transfer\" on the listing and we'll show you the bank details to send it to. The money goes to the seller's own Stripe account and is locked there until the handover is confirmed. Card is the default and clears in seconds; a wire usually takes 1-2 business days to arrive.",
       },
       {
+        q: "Can I finance my purchase or pay in installments?",
+        a: "DriveLink doesn't offer financing or installment plans, and buy-now-pay-later services such as Affirm generally don't cover whole vehicles. If you need a loan, you can arrange one yourself: banks and credit unions commonly offer private-party auto loans, and many will pre-approve you before you've picked a car. Once you're approved and the funds are in your account, pay by wire transfer (available on purchases of $500 or more). Terms, rates and approval are between you and your lender; DriveLink isn't a party to the loan. Give your lender the purchase details they ask for, and allow extra time, since lenders can have their own paperwork before they release funds.",
+      },
+      {
         q: "I paid by wire transfer. Why don't I have a handover code?",
         a: "Because the wire hasn't arrived yet. We only issue the code once your payment has actually cleared — otherwise you could collect a car against a transfer that later fails, and the seller would be left with neither. We'll email your code the moment it clears. Until then, please don't arrange to collect the vehicle.",
         flag: true,
