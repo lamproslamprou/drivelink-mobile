@@ -653,7 +653,7 @@ export function JoinDealView({ token, currentUser, onNavigate, onAuth, onJoined,
               <>
                 <li style={dealStyles.step}>Confirm the car and price, and set up payouts.</li>
                 <li style={dealStyles.step}>The buyer pays through DriveLink. You never wait on a cheque to clear.</li>
-                <li style={dealStyles.step}>Hand over the car and title. The funds are released to your bank.</li>
+                <li style={dealStyles.step}>Hand over the car and title. Your payout is released to your bank once Stripe has cleared the card payment, usually within 2 business days of it being made.</li>
               </>
             ) : (
               <>

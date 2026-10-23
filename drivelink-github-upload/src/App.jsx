@@ -2677,9 +2677,9 @@ function SafetyTipsView({ onBack }) {
           <p>Buyers: verify the VIN on the dashboard or door frame matches the listing, and confirm the seller's ID matches the name on the title. Sellers: the buyer's payment is already made and protected before you meet — it sits in your own Stripe balance and can't be paid out until the handover code is entered — so you don't need to accept a check, a screenshot, or a promise.</p>
 
           <h2>Your handover code</h2>
-          <p>When a buyer pays, DriveLink gives them a 6-digit handover code. That code is the key to the money: the moment the seller enters it, the funds are released and the sale is final.</p>
+          <p>When a buyer pays, DriveLink gives them a 6-digit handover code. That code is the key to the money: the moment the seller enters it, the funds are released and the sale is final. Stripe holds card payments for about 2 business days (often longer on a seller's first payouts), so the payout reaches the seller's bank after that, not instantly.</p>
           <p><strong>Buyers — do not give out your code until the car and the signed title are physically in your hands.</strong> Not when you arrive, not while you're inspecting, not as a gesture of good faith. A seller who asks for it early is asking to be paid before you have anything. Read it out in person rather than texting it.</p>
-          <p>Sellers — ask for the code once the buyer has taken the car and the signed title. Entering it pays you immediately.</p>
+          <p>Sellers — ask for the code once the buyer has taken the car and the signed title. Entering it releases your payout right away; Stripe holds card payments for about 2 business days (longer on a first payout), so if the handover is within hours of payment it is sent automatically once Stripe clears it.</p>
           <p>If something isn't right, don't hand over the code. Report a problem in DriveLink instead and we'll keep the seller's payout on hold while we look into it. Nothing is released automatically, so there's no clock forcing you to decide on the spot.</p>
 
           <h2>Trust your instincts</h2>
@@ -3823,7 +3823,7 @@ function HandoverCodeEntry({ listingId, onSubmit }) {
         Buyer's handover code
       </div>
       <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 8, lineHeight: 1.5 }}>
-        Ask for this <strong>after</strong> the buyer has the car and the signed title. Entering it releases your funds immediately.
+        Ask for this <strong>after</strong> the buyer has the car and the signed title. Entering it releases your payout. Stripe holds card payments for about 2 business days, so it is sent automatically once they clear.
       </div>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
         <input
@@ -3968,7 +3968,7 @@ function MyListingsView({ listings, referrals, users, offers, stats, onMarkSold,
                         </div>
                       )}
                       <div style={{ fontSize: 12, color: "#6b7280", marginTop: 4, lineHeight: 1.5 }}>
-                        The buyer's payment is protected — you can't withdraw it until the handover is confirmed. Once they have the car and the signed title, ask them for their 6-digit handover code and enter it below — {fmt(l.seller_net)} is released to you immediately. They can also release it themselves from their purchases page. Bank arrival typically takes a few business days after that.
+                        The buyer's payment is protected — you can't withdraw it until the handover is confirmed. Once they have the car and the signed title, ask them for their 6-digit handover code and enter it below — {fmt(l.seller_net)} is released to you when the code is entered, and sent to your bank as soon as Stripe has cleared the card payment (about 2 business days after it was made, longer on a first payout). They can also release it themselves from their purchases page. Bank arrival typically takes another 1-2 business days after that.
                       </div>
                       <HandoverCodeEntry listingId={l.id} onSubmit={onConfirmHandover} />
                     </>
@@ -4926,7 +4926,7 @@ function AboutView({ onBack, onBrowse, onSafety, onPricing }) {
 
           <h2>How a sale works</h2>
           <p>A seller lists their car. A buyer pays through the platform, and that payment is held — it does not reach the seller yet. The two arrange the handover themselves, in person, like any private sale.</p>
-          <p>Nothing is released on a timer. When the buyer pays, they get a 6-digit handover code. At the handover — once the car and the signed title are in their hands — they give that code to the seller, who enters it, and the funds are released. The buyer can also confirm receipt in the app if they'd rather. If a sale goes quiet with no confirmation either way, we pause it and ask both people what happened, rather than paying anyone out and hoping. If something goes wrong, the buyer can open a dispute at any point.</p>
+          <p>Nothing is released on a timer. When the buyer pays, they get a 6-digit handover code. At the handover — once the car and the signed title are in their hands — they give that code to the seller, who enters it, and the funds are released. Stripe holds card payments for about 2 business days (longer on a seller's first payouts), so the seller's payout is sent as soon as the payment has cleared. The buyer can also confirm receipt in the app if they'd rather. If a sale goes quiet with no confirmation either way, we pause it and ask both people what happened, rather than paying anyone out and hoping. If something goes wrong, the buyer can open a dispute at any point.</p>
 
           <h2>What it costs</h2>
           <p>DriveLink charges sellers {platformFeeLabel()} of the sale price{promoActive() ? " (half our usual 1%, through October 31)" : ""}. Buyers pay nothing beyond the price of the car. The fee is shown upfront when a car is listed, alongside what the seller will actually receive after card processing costs — no discovering the real number at payout time.</p>

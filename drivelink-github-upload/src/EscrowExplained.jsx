@@ -65,7 +65,7 @@ const COPY = {
       },
       {
         q: "When do I actually get paid?",
-        a: "The moment you enter the buyer's 6-digit code. That's the release trigger. If the buyer goes quiet after you've handed over the car, we check in with both of you and review the sale ourselves, so a buyer can't strand your payout by ghosting you.",
+        a: "The moment you enter the buyer's 6-digit code, we release the funds on our side. That's the release trigger. Stripe holds card payments for about 2 business days (often longer on a seller's first payouts) before they can go to your bank, so if the handover happens within hours of payment your payout is sent automatically as soon as Stripe clears it. Once sent, banks typically take another 1-2 business days. If the buyer goes quiet after you've handed over the car, we check in with both of you and review the sale ourselves, so a buyer can't strand your payout by ghosting you.",
       },
       {
         q: "What if the buyer pays and then wants their money back?",
@@ -138,7 +138,7 @@ const COPY = {
       },
       {
         q: "¿Cuándo me pagan realmente?",
-        a: "En el momento en que ingresas el código de 6 dígitos del comprador. Ese es el disparador. Si el comprador desaparece después de la entrega, revisamos la venta con ambas partes, para que nadie pueda dejar tu pago atrapado ignorándote.",
+        a: "En el momento en que ingresas el código de 6 dígitos del comprador, liberamos los fondos de nuestro lado. Ese es el disparador. Stripe retiene los pagos con tarjeta unos 2 días hábiles (a menudo más en los primeros depósitos de un vendedor) antes de que puedan ir a tu banco; si la entrega ocurre a las pocas horas del pago, tu depósito se envía automáticamente en cuanto Stripe lo libera. Después, el banco suele tardar 1-2 días hábiles más. Si el comprador desaparece después de la entrega, revisamos la venta con ambas partes, para que nadie pueda dejar tu pago atrapado ignorándote.",
       },
       {
         q: "¿Y si el comprador paga y luego quiere su dinero de vuelta?",

@@ -17,7 +17,7 @@ export function faqItemsEn() {
       },
       {
         q: "When does the seller get paid?",
-        a: "When the buyer releases the funds. The buyer gets a 6-digit handover code once their payment has cleared. Once they've inspected the car and have the keys and title in hand — and only then — they give the code to the seller, which triggers the payout.",
+        a: "When the buyer releases the funds. The buyer gets a 6-digit handover code once their payment has cleared. Once they've inspected the car and have the keys and title in hand — and only then — they give the code to the seller, which triggers the payout. Release is immediate on our side, but Stripe holds card payments for about 2 business days after they are made (often longer on a seller's first payouts) before the money can leave their Stripe balance for their bank. If the handover happens days after payment, the payout goes out right away; if it happens within hours, it follows automatically once Stripe clears the payment. A bank deposit then typically takes another 1-2 business days.",
       },
       {
         q: "Can I pay by bank transfer instead of card?",
