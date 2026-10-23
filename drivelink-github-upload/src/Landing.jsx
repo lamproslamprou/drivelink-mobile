@@ -495,7 +495,6 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn, list
                 {lang === "es" ? "🔍 Encuentra un inspector" : "🔍 Find an Inspector"}
               </button>
               <button style={styles.footerLinkBtn} onClick={() => onNavigate?.("safety")}>{t("lp.foot.safety")}</button>
-              <a href="https://www.trustpilot.com/review/drivelink.deals" target="_blank" rel="noopener noreferrer" style={styles.footerAnchor}>{lang === "es" ? "Opiniones en Trustpilot" : "Reviews on Trustpilot"}</a>
             </div>
 
             <div style={styles.footerCol} className="dl-footer-col">
@@ -506,6 +505,7 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn, list
               <SpaLink href="/about" view="about" onNavigate={onNavigate} style={styles.footerAnchor}>{lang === "es" ? "Acerca de" : "About"}</SpaLink>
               <button style={styles.footerLinkBtn} onClick={() => onNavigate?.("terms")}>{t("lp.foot.terms")}</button>
               <button style={styles.footerLinkBtn} onClick={() => onNavigate?.("privacy")}>{t("lp.foot.privacy")}</button>
+              <a href="https://www.trustpilot.com/review/drivelink.deals" target="_blank" rel="noopener noreferrer" style={styles.footerAnchor}>{lang === "es" ? "Opiniones en Trustpilot" : "Reviews on Trustpilot"}</a>
             </div>
 
             {/* Comparison pages, as real links so crawlers can follow them from the
