@@ -202,7 +202,7 @@ const COPY = {
     ],
     cta: {
       title: "La forma segura de ordenar esto",
-      body: "DriveLink retiene el dinero del comprador hasta que el auto y el título realmente cambian de manos. En Pensilvania eso significa que los fondos quedan resguardados mientras se libera el gravamen y se agenda la cita con el notario — el vendedor puede ver que el dinero es real, y tú no le estás pagando a nadie por una promesa.",
+      body: "Con DriveLink, al vendedor no se le paga hasta que el auto y el título realmente cambian de manos. En Pensilvania eso significa que el pago queda protegido mientras se libera el gravamen y se agenda la cita con el notario — el vendedor puede ver que el dinero es real, y tú no le estás pagando a nadie por una promesa.",
       button: "Ver cómo funciona",
     },
     related: [

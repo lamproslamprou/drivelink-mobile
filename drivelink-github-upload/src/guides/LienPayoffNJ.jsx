@@ -198,7 +198,7 @@ const COPY = {
     ],
     cta: {
       title: "La forma segura de ordenar esto",
-      body: "DriveLink retiene el dinero del comprador hasta que el auto y el título realmente cambian de manos. En un trato con gravamen, eso elimina exactamente el punto donde las cosas suelen salir mal — el vendedor puede ver que los fondos son reales, y nadie tiene que confiar en que alguien le pagará al prestamista después.",
+      body: "Con DriveLink, al vendedor no se le paga hasta que el auto y el título realmente cambian de manos. En un trato con gravamen, eso elimina exactamente el punto donde las cosas suelen salir mal — el vendedor puede ver que los fondos son reales, y nadie tiene que confiar en que alguien le pagará al prestamista después.",
       button: "Ver cómo funciona",
     },
     related: [

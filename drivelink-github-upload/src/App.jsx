@@ -2680,7 +2680,7 @@ function SafetyTipsView({ onBack }) {
           <p>When a buyer pays, DriveLink gives them a 6-digit handover code. That code is the key to the money: the moment the seller enters it, the funds are released and the sale is final.</p>
           <p><strong>Buyers — do not give out your code until the car and the signed title are physically in your hands.</strong> Not when you arrive, not while you're inspecting, not as a gesture of good faith. A seller who asks for it early is asking to be paid before you have anything. Read it out in person rather than texting it.</p>
           <p>Sellers — ask for the code once the buyer has taken the car and the signed title. Entering it pays you immediately.</p>
-          <p>If something isn't right, don't hand over the code. Report a problem in DriveLink instead and we'll hold the funds while we look into it. Nothing is released automatically, so there's no clock forcing you to decide on the spot.</p>
+          <p>If something isn't right, don't hand over the code. Report a problem in DriveLink instead and we'll keep the seller's payout on hold while we look into it. Nothing is released automatically, so there's no clock forcing you to decide on the spot.</p>
 
           <h2>Trust your instincts</h2>
           <p>If something feels off — pressure to rush, reluctance to meet in public, requests for unusual payment methods — it's okay to walk away. You can always report a listing or a user directly from DriveLink if something seems wrong.</p>

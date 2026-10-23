@@ -209,7 +209,7 @@ const COPY = {
     ],
     cta: {
       title: "La forma segura de ordenar esto",
-      body: "DriveLink retiene el dinero del comprador hasta que el auto y el título realmente cambian de manos. En Nueva York eso significa que no tienes que elegir entre pagar confiando ciegamente o perder el trato — los fondos quedan resguardados mientras se produce la liberación, y el vendedor puede ver que son reales.",
+      body: "Con DriveLink, al vendedor no se le paga hasta que el auto y el título realmente cambian de manos. En Nueva York eso significa que no tienes que elegir entre pagar confiando ciegamente o perder el trato — el pago queda protegido mientras se produce la liberación, y el vendedor puede ver que son reales.",
       button: "Ver cómo funciona",
     },
     related: [
