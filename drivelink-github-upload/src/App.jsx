@@ -4497,6 +4497,9 @@ function EditListingModal({ listing, onCancel, onSave }) {
 
   const handleSave = async () => {
     if (!form.make || !form.model || !form.price || !form.year) return alert("Fill in at least make, model, year, and price.");
+    // Same price sanity guard as the post form: an edit is where a stray extra
+    // zero is easiest to add, and it would show on the homepage immediately.
+    if (toCents(form.price) >= 10_000_000 && !window.confirm(`This price looks much higher than similar listings - please double-check before saving.\n\nYou entered ${fmt(toCents(form.price))}. Save at this price?`)) return;
     setSaving(true);
     await onSave({
       ...form,
