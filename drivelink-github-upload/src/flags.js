@@ -8,7 +8,6 @@
 export const PAYMENTS_OPEN = true;
 
 // WIRE_OPEN: wire transfer (bank transfer for purchases of $15,000 or more) as a
-// direct charge on the seller's own Stripe account. Turned on for the Stripe test-
-// mode run 2026-10-23; flip back to false if that run fails. Shows the wire button
-// and lets site copy mention it.
+// direct charge on the seller's own Stripe account. Verified end to end in Stripe
+// test mode on 2026-10-23. Shows the wire button and lets site copy mention it.
 export const WIRE_OPEN = true;

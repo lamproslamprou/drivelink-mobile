@@ -25,7 +25,7 @@ import LienPayoffNJ from "./guides/LienPayoffNJ.jsx";
 import LienPayoffPA from "./guides/LienPayoffPA.jsx";
 import LienPayoffNY from "./guides/LienPayoffNY.jsx";
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
-import { WIRE_OPEN } from "./flags.js"; // wire is off while direct charges are on
+import { WIRE_OPEN } from "./flags.js";
 
 // ── MONEY IS CENTS ──────────────────────────────────────────────────────────
 // Every money column in the database is CENTS as of migration

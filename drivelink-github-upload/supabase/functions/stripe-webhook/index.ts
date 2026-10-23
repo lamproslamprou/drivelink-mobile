@@ -177,7 +177,12 @@ const FALLBACK_ACH_FEE_CAP_CENTS = 500;
 // misestimate a wire's processing cost against a rate card that doesn't
 // apply to it. A wrong value here still shows up in the admin alert, since
 // feeWasEstimated flags it the same way an estimated card/ACH fee does.
-const FALLBACK_WIRE_FEE_CENTS = 0;
+// CORRECTED after the 2026-10-23 test-mode wire run: on a direct charge the bank
+// transfer is received by the SELLER's account and Stripe bills that account
+// 0.8% of the transfer, capped at $5. The old value (0) made seller_net $5 higher
+// than the balance that actually exists, so the payout could never be created.
+const FALLBACK_WIRE_FEE_PERCENT = 0.008;
+const FALLBACK_WIRE_FEE_CAP_CENTS = 500;
 
 // $5, in cents — the underpayment/overpayment tolerance for wires (§5.4).
 // Cards and ACH debit always charge exactly the agreed total because Stripe
@@ -225,7 +230,7 @@ function handoverDateFromMeta(meta: Record<string, string> | null): string | nul
 // FALLBACK_WIRE_FEE_CENTS above.
 function stripeFallbackFor(chargedTotalCents: number, rail: "card" | "ach_debit" | "wire"): number {
   if (rail === "wire") {
-    return FALLBACK_WIRE_FEE_CENTS;
+    return Math.min(Math.ceil(chargedTotalCents * FALLBACK_WIRE_FEE_PERCENT), FALLBACK_WIRE_FEE_CAP_CENTS);
   }
   if (rail === "ach_debit") {
     return Math.min(
