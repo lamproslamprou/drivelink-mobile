@@ -68,6 +68,7 @@ import {
   alertHtml,
   money,
   addBusinessDays,
+  stripeClient,
   WIRE_ABANDONMENT_TIMEOUT_BUSINESS_DAYS,
 } from "../_shared/helpers.ts";
 
@@ -104,7 +105,7 @@ Deno.serve(async (req) => {
     const { data: candidates, error: readErr } = await supabase
       .from("listings")
       .select(
-        "id, make, model, year, seller_id, buyer_id, payment_started_at, wire_reminder_sent_at, sale_price",
+        "id, make, model, year, seller_id, buyer_id, payment_started_at, wire_reminder_sent_at, sale_price, stripe_payment_intent_id, charge_account_id",
       )
       .eq("status", "awaiting_payment")
       .eq("funding_type", "wire")
@@ -136,6 +137,37 @@ Deno.serve(async (req) => {
           if (dryRun) {
             results.expired++;
             continue;
+          }
+
+          // Direct-charge wires live on the SELLER's connected account. Cancel the
+          // PaymentIntent there first so the buyer's virtual account stops accepting
+          // money for a car we are about to relist. If Stripe says it can no longer
+          // be cancelled (the wire landed just now), leave the listing alone: the
+          // webhook is settling it, and reopening would sell the car twice.
+          if (listing.stripe_payment_intent_id && listing.charge_account_id) {
+            try {
+              await stripeClient().paymentIntents.cancel(
+                String(listing.stripe_payment_intent_id),
+                undefined,
+                { stripeAccount: String(listing.charge_account_id) },
+              );
+            } catch (cancelErr) {
+              const msg = cancelErr instanceof Error ? cancelErr.message : String(cancelErr);
+              if (!/already (been )?canceled|canceled/i.test(msg)) {
+                results.expireFailed++;
+                results.errors.push(`${listing.id}: could not cancel wire PaymentIntent — ${msg}`);
+                notifyAdmin({
+                  subject: `⚠️ Wire timeout skipped — ${carLabel}`,
+                  html: alertHtml("Could not cancel the wire PaymentIntent, so the listing was NOT reopened", [
+                    ["Vehicle", carLabel],
+                    ["Listing ID", listing.id],
+                    ["PaymentIntent", String(listing.stripe_payment_intent_id)],
+                    ["Stripe said", msg],
+                  ], "It may have just been paid. Check the seller's connected account in Stripe before doing anything."),
+                });
+                continue;
+              }
+            }
           }
 
           // Guard on the same status this query selected for — a redelivered
