@@ -219,7 +219,10 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn, list
             <span style={styles.carStripTitle}>{t("lp.carsNow")}</span>
             <button style={styles.trustLink} onClick={onBrowse}>{t("lp.carsAll")}</button>
           </div>
-          <div style={styles.carStripRow}>
+          {/* 3+ cars: a swipe row on phones (see .dl-car-strip-many in the CSS)
+              so the strip stays one tile tall however many listings exist.
+              Under 3 it stays a plain grid, where a narrow lone tile looks odd. */}
+          <div style={styles.carStripRow} className={listings.length >= 3 ? "dl-car-strip-many" : undefined}>
             {listings.slice(0, 6).map((c) => {
               const img = (c.images && c.images[0]) || c.image;
               const d = Number(c.price) / 100;
@@ -833,6 +836,24 @@ const css = `
 
   @media (max-width: 900px) and (min-width: 481px) {
     .dl-hero-stats { justify-content: center !important; }
+  }
+
+  @media (max-width: 600px) {
+    .dl-car-strip-many {
+      display: flex !important;
+      overflow-x: auto;
+      gap: 12px !important;
+      margin: 0 -24px;
+      padding: 0 24px 6px;
+      scroll-snap-type: x mandatory;
+      scroll-padding-left: 24px;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+    }
+    .dl-car-strip-many::-webkit-scrollbar { display: none; }
+    .dl-car-strip-many > button { flex: 0 0 72%; scroll-snap-align: start; min-width: 0; }
+    /* Teaser only: four on a phone, the rest live behind "See all cars". */
+    .dl-car-strip-many > button:nth-child(n+5) { display: none !important; }
   }
 
   @media (max-width: 480px) {
