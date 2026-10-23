@@ -2412,6 +2412,7 @@ const denyInspector = async (id) => {
         <span style={{ color: "#d1d5db" }}>·</span>
         <button style={styles.appFooterLink} className="app-footer-link" onClick={() => setView("safety")}>🛡️ Safety Tips</button>
         <button style={styles.appFooterLink} className="app-footer-link" onClick={() => setView("inspectors")}>🔍 Find an Inspector</button>
+        <a href="https://www.trustpilot.com/review/drivelink.deals" target="_blank" rel="noopener noreferrer" style={{ ...styles.appFooterLink, textDecoration: "none" }} className="app-footer-link">⭐ Reviews on Trustpilot</a>
         <span style={{ color: "#d1d5db" }}>·</span>
         <button style={styles.appFooterLink} className="app-footer-link" onClick={() => setView("faq")}>How your money is protected</button>
         <span style={{ color: "#d1d5db" }}>·</span>

@@ -495,6 +495,7 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn, list
                 {lang === "es" ? "🔍 Encuentra un inspector" : "🔍 Find an Inspector"}
               </button>
               <button style={styles.footerLinkBtn} onClick={() => onNavigate?.("safety")}>{t("lp.foot.safety")}</button>
+              <a href="https://www.trustpilot.com/review/drivelink.deals" target="_blank" rel="noopener noreferrer" style={styles.footerAnchor}>{lang === "es" ? "Opiniones en Trustpilot" : "Reviews on Trustpilot"}</a>
             </div>
 
             <div style={styles.footerCol} className="dl-footer-col">
