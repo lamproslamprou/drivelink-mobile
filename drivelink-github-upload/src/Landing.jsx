@@ -8,6 +8,20 @@ import { HERO_SCREENSHOT } from "./siteProof.js";
 import { UsageLine, TestimonialWall, ThirdPartyStrip, TrustCallout, FounderFooterLine } from "./ProofBlocks.jsx";
 import HeroDealMock from "./HeroDealMock.jsx";
 
+const TRUST_ICON_PATHS = {
+  lock: <><rect x="4" y="11" width="16" height="10" rx="2" /><path d="M8 11V7a4 4 0 0 1 8 0v4" /></>,
+  id: <><circle cx="12" cy="8" r="4" /><path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1" /></>,
+  check: <><circle cx="12" cy="12" r="9" /><path d="M8 12.5l2.7 2.7L16 9.5" /></>,
+};
+
+function TrustIcon({ kind }) {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flex: "0 0 auto", marginTop: 1 }}>
+      {TRUST_ICON_PATHS[kind]}
+    </svg>
+  );
+}
+
 // A real <a href> that still navigates inside the app on a plain click. The
 // comparison pages used to be reachable only through buttons, which a crawler
 // can't follow; with an href they are crawlable from the homepage (audit D5.3).
@@ -146,11 +160,14 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn, list
           </div>
 
 
-          <p style={{ margin: "0 0 18px", textAlign: "left" }}>
-            <SpaLink href="/seller-toolkit" view="sellerToolkit" onNavigate={onNavigate} style={{ ...styles.trustLink, textDecoration: "underline" }}>
-              {lang === "es" ? "¿Vendes tu auto? Kit gratuito para vendedores →" : "Selling a car? Free seller toolkit →"}
+          <div style={styles.sellerLinks} className="dl-seller-links">
+            <SpaLink href="/seller-toolkit" view="sellerToolkit" onNavigate={onNavigate} style={styles.sellerLink}>
+              {lang === "es" ? "Kit gratuito para vendedores →" : "Free seller toolkit →"}
             </SpaLink>
-          </p>
+            <button style={styles.sellerLink} onClick={handleCta}>
+              {lang === "es" ? "Publica tu carro gratis →" : "List your car free →"}
+            </button>
+          </div>
         </div>
         <div style={styles.heroImageWrap} className="dl-hero-image">
           {/* A real screenshot wins if one is set in siteProof.js; otherwise the
@@ -162,42 +179,37 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn, list
           )}
         </div>
         <div style={styles.heroBand} className="dl-hero-band">
-          <div style={{ ...styles.trustStrip, justifyContent: "center", marginBottom: 0, paddingTop: 0, borderTop: "none" }} className="dl-trust-strip">
-            <span style={styles.trustItem}>{t("lp.trustStripe")}</span>
-            <span style={{ ...styles.trustItem, whiteSpace: "normal" }}>{t("lp.trustId")}</span>
-            <span style={styles.trustItem}>{t("lp.trustNoFee")}</span>
-            {/* The trust strip states three claims and then leaves the visitor
-                to take them on faith. This is where "but who protects me from
-                YOU" gets answered. Literal strings: i18n.jsx has no lp.faq key
-                yet — move to t() when one is added. */}
-            <button style={styles.trustLink} onClick={() => onNavigate?.("faq")}>
-              {lang === "es" ? "Cómo se protege tu dinero →" : "How your money is protected →"}
-            </button>
+          {/* One card: three facts, then the answer to "but who protects me
+              from YOU", then the single link to the full FAQ. Icons are inline
+              SVG so every platform renders them the same (the emoji did not). */}
+          <div style={styles.trustCard} className="dl-trust-card">
+            <ul style={styles.trustList}>
+              {[["lock", "lp.trustStripe"], ["id", "lp.trustId"], ["check", "lp.trustNoFee"]].map(([kind, key]) => (
+                <li key={key} style={styles.trustRow}>
+                  <TrustIcon kind={kind} />
+                  <span>{t(key)}</span>
+                </li>
+              ))}
+            </ul>
+            <div style={styles.trustDivider} />
+            <TrustCallout onMore={() => onNavigate?.("faq")} />
           </div>
-          <div style={{ maxWidth: 760 }}><TrustCallout onMore={() => onNavigate?.("faq")} /></div>
 
-          <div style={{ ...styles.heroStats, justifyContent: "center" }} className="dl-hero-stats">
+          <div style={styles.statsGrid} className="dl-hero-stats">
             <div style={styles.heroStat}>
               <span style={styles.heroStatNum}>{platformFeeLabel()}</span>
               <span style={styles.heroStatLabel}>{t("lp.statFee")}</span>
             </div>
-            <div style={styles.heroStatDiv} />
             <div style={styles.heroStat}>
               <span style={styles.heroStatNum}>$0</span>
               <span style={styles.heroStatLabel}>{t("lp.statList")}</span>
             </div>
-            <div style={styles.heroStatDiv} />
             <div style={styles.heroStat}>
               <span style={styles.heroStatNum}>$0</span>
               <span style={styles.heroStatLabel}>{t("lp.statPromoter")}</span>
             </div>
           </div>
           <UsageLine />
-          <p style={{ margin: "16px 0 0" }}>
-            <button style={{ ...styles.trustLink, fontSize: 14, textDecoration: "underline" }} onClick={handleCta}>
-              {lang === "es" ? "¿Vendes tu carro? Publícalo gratis →" : "Selling a car? List it free →"}
-            </button>
-          </p>
         </div>
       </section>
 
@@ -637,6 +649,13 @@ const styles = {
   trustStrip: { display: "flex", flexWrap: "wrap", gap: "8px 18px", marginBottom: 32, paddingTop: 20, borderTop: "1px solid #e5e7eb" },
   trustItem: { fontSize: 12.5, color: "#6b7280", fontWeight: 500, whiteSpace: "nowrap" },
   trustLink: { background: "none", border: "none", padding: 0, cursor: "pointer", fontSize: 12.5, fontWeight: 600, color: "#2563eb", whiteSpace: "nowrap", fontFamily: "inherit" },
+  sellerLinks: { display: "flex", flexWrap: "wrap", gap: "4px 20px", margin: "0 0 18px" },
+  sellerLink: { background: "none", border: "none", padding: 0, cursor: "pointer", fontSize: 14.5, fontWeight: 700, color: "#2563eb", textDecoration: "none", fontFamily: "inherit" },
+  trustCard: { width: "100%", maxWidth: 560, boxSizing: "border-box", textAlign: "left", background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 16, padding: "18px 18px 16px" },
+  trustList: { listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 12 },
+  trustRow: { display: "flex", alignItems: "flex-start", gap: 12, fontSize: 14.5, lineHeight: 1.45, color: "#334155" },
+  trustDivider: { height: 1, background: "#e2e8f0", margin: "16px 0" },
+  statsGrid: { width: "100%", maxWidth: 560, display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 },
   heroStats: { display: "flex", gap: 32, alignItems: "center" },
   heroStat: { display: "flex", flexDirection: "column", gap: 2 },
   heroStatNum: { fontSize: 28, fontWeight: 800, color: "#0f172a" },
@@ -755,6 +774,8 @@ const css = `
      live behind the hamburger. The old rules that hid "Secure a Deal" below
      560px are gone — it is the primary action. */
   .dl-hamburger { display: none; }
+  .dl-hero-stats > div { align-items: center; text-align: center; }
+  .dl-hero-stats > div + div { border-left: 1px solid #e5e7eb; }
   @media (max-width: 768px) {
     .dl-nav-desk { display: none !important; }
     .dl-hamburger { display: inline-flex !important; }
@@ -803,6 +824,9 @@ const css = `
     .dl-section-title { font-size: 26px !important; margin-bottom: 28px !important; }
     .dl-hero-title { font-size: 38px !important; }
     .dl-hero-actions { justify-content: center !important; }
+    .dl-seller-links { justify-content: center !important; margin-bottom: 0 !important; }
+    .dl-hero-band { margin-top: 0 !important; padding: 24px 0 28px !important; }
+    .dl-seller-links a, .dl-seller-links button { min-height: 44px; display: inline-flex; align-items: center; }
     .dl-trust-strip { justify-content: center !important; }
     .dl-assure-title { font-size: 26px !important; }
   }
@@ -823,7 +847,8 @@ const css = `
     .dl-hero-sub { font-size: 15px !important; }
     .dl-hero-actions { flex-direction: column !important; }
     .dl-hero-actions button { width: 100% !important; }
-    .dl-hero-stats { gap: 16px !important; flex-wrap: wrap !important; justify-content: center !important; }
+    .dl-hero-stats { gap: 8px !important; }
+    .dl-hero-stats > div > span:first-child { font-size: 24px !important; }
     .dl-escrow-steps { grid-template-columns: 1fr !important; }
     .dl-trust-strip { flex-direction: column !important; align-items: center !important; gap: 6px !important; }
     .dl-cta-title { font-size: 28px !important; }

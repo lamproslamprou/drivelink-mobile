@@ -122,15 +122,15 @@ export function TrustCallout({ onMore }) {
   const es = lang === "es";
   return (
     <div style={S.callout} className="dl-trust-callout">
-      <strong style={{ color: "#0f172a" }}>
-        {es ? "¿Por qué confiar en una empresa que no conoces? No tienes que hacerlo." : "Why trust a company you've never heard of? You don't have to."}
-      </strong>
-      <span>
+      <p style={S.calloutHead}>
+        {es ? "¿Por qué confiar en una empresa que no conoces?" : "Why trust a company you've never heard of?"}
+      </p>
+      <p style={S.calloutBody}>
         {es
-          ? " Stripe procesa tu pago directamente a la cuenta de Stripe del vendedor, y el vendedor no puede retirarlo hasta que se ingrese el código de 6 dígitos del comprador. DriveLink LLC está registrada en Nueva Jersey."
-          : " Stripe processes your payment straight to the seller's own Stripe account, and the seller can't withdraw it until the buyer's 6-digit code is entered. DriveLink LLC is registered in New Jersey."}
-      </span>{" "}
-      <button style={S.calloutLink} onClick={onMore}>{es ? "Lee las respuestas completas →" : "Read the full answers →"}</button>
+          ? "No tienes que hacerlo. Stripe envía tu pago directo a la cuenta de Stripe del vendedor, y el vendedor no puede retirarlo hasta que se ingrese tu código de 6 dígitos. DriveLink LLC está registrada en Nueva Jersey."
+          : "You don't have to. Stripe sends your payment straight to the seller's own Stripe account, and the seller can't withdraw it until your 6-digit code is entered. DriveLink LLC is registered in New Jersey."}
+      </p>
+      <button style={S.calloutLink} onClick={onMore}>{es ? "Cómo se protege tu dinero →" : "How your money is protected →"}</button>
     </div>
   );
 }
@@ -154,6 +154,8 @@ const S = {
   whoPhoto: { width: 36, height: 36, borderRadius: "50%", objectFit: "cover" },
   tp: { display: "flex", flexWrap: "wrap", justifyContent: "center", gap: 10, padding: "14px 20px", background: "#f8fafc", borderBottom: "1px solid #e5e7eb" },
   tpItem: { fontSize: 13, color: "#334155", textDecoration: "none", padding: "6px 12px", border: "1px solid #e2e8f0", borderRadius: 999, background: "#fff" },
-  callout: { marginTop: 14, fontSize: 14, lineHeight: 1.6, color: "#475569", maxWidth: "62ch" },
-  calloutLink: { background: "none", border: "none", padding: 0, color: "#2563eb", fontWeight: 600, fontSize: 14, cursor: "pointer", fontFamily: "inherit" },
+  callout: { textAlign: "left" },
+  calloutHead: { margin: "0 0 6px", fontSize: 16, fontWeight: 800, color: "#0f172a", lineHeight: 1.35 },
+  calloutBody: { margin: "0 0 10px", fontSize: 14.5, lineHeight: 1.6, color: "#475569" },
+  calloutLink: { background: "none", border: "none", padding: 0, color: "#2563eb", fontWeight: 700, fontSize: 14.5, cursor: "pointer", fontFamily: "inherit", textAlign: "left" },
 };
