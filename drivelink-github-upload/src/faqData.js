@@ -21,7 +21,7 @@ export function faqItemsEn() {
       },
       {
         q: "Can I pay by bank transfer instead of card?",
-        a: "Yes, on purchases of $15,000 or more. Choose \"Pay by wire transfer\" on the listing and we'll show you the bank details to send it to. The money goes to the seller's own Stripe account and is locked there until the handover is confirmed. Everything else is paid by card through Stripe, and the payment clears in seconds.",
+        a: "Yes. On any purchase of $500 or more you can pay by wire transfer instead of card. Choose \"Pay by wire transfer\" on the listing and we'll show you the bank details to send it to. The money goes to the seller's own Stripe account and is locked there until the handover is confirmed. Card is the default and clears in seconds; a wire usually takes 1-2 business days to arrive.",
       },
       {
         q: "I paid by wire transfer. Why don't I have a handover code?",

@@ -6,7 +6,7 @@ import { useLang, LangToggle } from "./i18n.jsx";
   only; every claim here matches what the product and backend do today:
     - payment processed by Stripe straight to the seller's own Stripe account, with payouts to the seller's bank held until the 6-digit code
     - deals up to $250,000 (create-deal MAX_PRICE), arranged manually above
-    - wire transfer for purchases of $15,000 or more
+    - wire transfer available on any purchase of $500 or more, alongside card
     - disputes are opened by the buyer and the money stays held
   Same visual family as FAQView / Terms / Privacy.
 */

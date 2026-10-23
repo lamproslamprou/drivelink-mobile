@@ -405,6 +405,14 @@ export const AUTO_RELEASE_DAYS = 7;
 // than being buried in one edge function.
 export const ACH_MIN_CENTS = 1_500_000;
 
+// $500. Wire transfer is offered on any purchase at or above this (decided
+// 2026-10-23: buyers choose how they pay regardless of amount). The floor is
+// not a product limit, it keeps the $5 underpayment tolerance (WIRE_AMOUNT_
+// TOLERANCE_CENTS in stripe-webhook) at 1% of the price or less. Deliberately
+// separate from ACH_MIN_CENTS, which also gates ACH *debit* and its 60-day
+// return window and must stay at $15,000.
+export const WIRE_MIN_CENTS = 50_000;
+
 // Business days before an unclaimed wire (Customer Balance / us_bank_transfer)
 // abandons: expire-stale-wires reopens the listing and alerts admin at this
 // point. Ship at 10 (not the 5 first proposed) — a too-long timeout only

@@ -6,7 +6,7 @@
 - The buyer pays through DriveLink. The money is held by Stripe, not released to the seller yet.
 - At the handover, the buyer gives the seller a 6-digit code. The seller enters it and the funds are released.
 - Works on a car listed on DriveLink or one found elsewhere (Facebook Marketplace, Craigslist, a friend).
-- Deals up to $250,000. Buyers can pay by bank transfer above $15,000.
+- Deals up to $250,000. Buyers can pay by card, or by wire transfer on any purchase of $500 or more.
 - If something goes wrong, the buyer can open a dispute and the money stays held until it is resolved.
 
 ## Fees

@@ -64,7 +64,7 @@ const COPY = {
       },
       {
         q: "¿Puedo pagar por transferencia bancaria en vez de tarjeta?",
-        a: "Sí, en compras de $15,000 o más. Elige la opción de transferencia wire (\"Pay by wire transfer\") en el anuncio y te mostraremos los datos bancarios para enviarla. El dinero va a la cuenta de Stripe del vendedor y queda bloqueado allí hasta que se confirme la entrega. Todo lo demás se paga con tarjeta a través de Stripe, y el pago se acredita en segundos.",
+        a: "Sí. En cualquier compra de $500 o más puedes pagar por transferencia wire en lugar de tarjeta. Elige la opción de transferencia wire (\"Pay by wire transfer\") en el anuncio y te mostraremos los datos bancarios para enviarla. El dinero va a la cuenta de Stripe del vendedor y queda bloqueado allí hasta que se confirme la entrega. La tarjeta es la opción predeterminada y se acredita en segundos; una transferencia wire suele tardar 1-2 días hábiles en llegar.",
       },
       {
         q: "Pagué por transferencia wire. ¿Por qué no tengo código de entrega?",

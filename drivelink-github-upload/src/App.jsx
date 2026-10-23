@@ -88,12 +88,12 @@ function todayET() {
 // the October 2026 promo, 1% otherwise (reverts automatically Nov 1 ET). The
 // Promoter's cut below is never part of the promo.
 const PROMOTER_FEE = 0; // Promoters get a flat bounty, never a % of the sale
-// $15,000 (cents). Mirrors ACH_MIN_CENTS in supabase/functions/_shared/helpers.ts —
+// $500 (cents). Mirrors WIRE_MIN_CENTS in supabase/functions/_shared/helpers.ts —
 // the backend re-enforces this gate itself (create-wire-session throws if the
 // charged total is below it), so this constant only controls whether the
 // "pay by wire transfer" button is even shown. Keep the two in sync if the
-// threshold ever changes.
-const WIRE_MIN_CENTS = 1_500_000;
+// threshold ever changes. Wire is open to any realistic price; this is only a floor.
+const WIRE_MIN_CENTS = 50_000;
 const HIGH_VALUE_LISTING_THRESHOLD = 20000; // above this price, nudge buyers if the seller isn't ID-verified
 const STALE_WARN_DAYS_MS = 30 * 24 * 60 * 60 * 1000; // show "seller inactive" badge after 30 days
 const ACCEPTANCE_WINDOW_MS = 48 * 60 * 60 * 1000;    // buyer has 48h to close before an acceptance expires
@@ -878,7 +878,7 @@ export default function App() {
     window.location.href = data.url;
   };
 
-  // ── Pay by wire transfer — high-value listings ($15k+) only. Unlike
+  // ── Pay by wire transfer — listings of $500+. Unlike
   // handleBuyNow, there's no Stripe-hosted page to redirect to: Customer
   // Balance PaymentIntents return routing/account/reference details directly,
   // which create-wire-session hands back as JSON. This just opens
@@ -2592,7 +2592,7 @@ function LegalPageView({ type, onBack }) {
             <h2>5. Payments and Protected Payment</h2>
             <p>Checkout is processed through Stripe. DriveLink does not store your payment card details. When a buyer pays, the payment is made to the seller's own Stripe account, not to DriveLink. DriveLink never receives or holds the buyer's money; the only amount paid to DriveLink at checkout is DriveLink's fee.</p>
             <p>By listing a car and connecting a Stripe account, a seller agrees to Stripe's Connected Account Agreement and authorizes DriveLink to control when payouts from that Stripe account to the seller's bank are released, including keeping the account on manual payouts. This is what makes a payment protected: the money stays in the seller's Stripe balance, and is not paid out to the seller's bank until the buyer's 6-digit handover code is entered, the buyer confirms receipt, or DriveLink releases it after a review.</p>
-            <p>If a sale is cancelled, or a problem is resolved in the buyer's favor, the payment is refunded to the buyer from the seller's Stripe account, and the seller authorizes that refund. Card payments can be disputed by the cardholder with their bank for a period set by the card networks; wire transfers, offered on purchases of $15,000 or more, cannot be reversed by the buyer's bank once they settle. If a payment is reversed, refunded, or charged back, including after a payout, the amount may be deducted from the seller's Stripe balance or recovered from the seller's bank account, and the seller is responsible for it. The seller authorizes DriveLink and Stripe to debit the seller's connected Stripe account and linked bank account for any such amount, agrees to reimburse DriveLink for any amount DriveLink pays or loses as a result of a dispute, chargeback or reversal on the seller's sale, and agrees to provide records and evidence that DriveLink reasonably requests to contest a dispute.</p>
+            <p>If a sale is cancelled, or a problem is resolved in the buyer's favor, the payment is refunded to the buyer from the seller's Stripe account, and the seller authorizes that refund. Card payments can be disputed by the cardholder with their bank for a period set by the card networks; wire transfers, offered on purchases of $500 or more, are generally not reversible by the buyer's bank once they settle. If a payment is reversed, refunded, or charged back, including after a payout, the amount may be deducted from the seller's Stripe balance or recovered from the seller's bank account, and the seller is responsible for it. The seller authorizes DriveLink and Stripe to debit the seller's connected Stripe account and linked bank account for any such amount, agrees to reimburse DriveLink for any amount DriveLink pays or loses as a result of a dispute, chargeback or reversal on the seller's sale, and agrees to provide records and evidence that DriveLink reasonably requests to contest a dispute.</p>
             <p>Once a payout is released, the transaction between buyer and seller — including vehicle handoff, title transfer, and any related paperwork — is the responsibility of the two parties.</p>
 
             <h2>6. Buyer &amp; Seller Responsibilities</h2>
@@ -3397,7 +3397,7 @@ function ListingDetailModal({ data, currentUser, isFavorited, isBlocked, onClose
                 style={{ ...styles.buyBtn, background: "#0f172a" }}
                 disabled={wireLoading}
                 onClick={() => onBuyWire(listing)}
-                title="Pay via domestic wire transfer instead of card — offered on purchases of $15,000 or more"
+                title="Pay via domestic wire transfer instead of card — takes 1–2 business days"
               >
                 🏦 {wireLoading ? "Starting…" : "Pay by wire transfer"}
               </button>

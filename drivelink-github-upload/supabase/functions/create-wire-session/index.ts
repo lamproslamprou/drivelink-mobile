@@ -1,7 +1,7 @@
 // POST /create-wire-session
 // Companion to create-checkout-session for the domestic wire rail
 // (PHASE2_WIRE_RAIL_SPEC.md §4). Called when a buyer on a high-value listing
-// ($15k+, ACH_MIN_CENTS) chooses "pay by wire transfer" instead of
+// ($500+, WIRE_MIN_CENTS) chooses "pay by wire transfer" instead of
 // card/ACH-debit checkout.
 //
 // Why this is a separate function rather than a branch inside
@@ -42,7 +42,7 @@
 // consistent with the rest of the codebase rather than introducing new dedup
 // behavior nothing else here has.
 import {
-  ACH_MIN_CENTS,
+  WIRE_MIN_CENTS,
   findPendingReferrals,
   platformFeeRate,
   alertHtml,
@@ -242,19 +242,16 @@ Deno.serve(async (req) => {
       }
     }
 
-    // ── High-value gate (§4) ───────────────────────────────────
-    // Shares ACH_MIN_CENTS with the ACH-debit gate in create-checkout-session
-    // rather than a separate WIRE_MIN_CENTS — confirmed with Lampros
-    // 2026-08-28 (see PHASE2_WIRE_RAIL_SPEC.md §4): arranging a wire is, if
-    // anything, more friction for the buyer than linking a bank account for
-    // ACH debit through Checkout, so there's no case for offering wires
-    // below the point ACH debit already covers. Gated on chargedTotal (price
-    // + any buyer-paid referral surcharge), same figure create-checkout-session
-    // uses for achEligible, for consistency.
+    // ── Minimum (§4, revised 2026-10-23) ───────────────────────
+    // Wire is open to any purchase, whatever the amount. WIRE_MIN_CENTS is
+    // only a small floor that keeps the $5 underpayment tolerance in
+    // stripe-webhook at 1% of the price or less. It is NOT ACH_MIN_CENTS,
+    // which still gates ACH debit at $15,000. Gated on chargedTotal (price +
+    // any buyer-paid referral surcharge).
     const chargedTotal = priceCents + promoterSurcharge;
-    if (chargedTotal < ACH_MIN_CENTS) {
+    if (chargedTotal < WIRE_MIN_CENTS) {
       throw new Error(
-        `Wire transfer is only available for purchases of ${money(ACH_MIN_CENTS)} or more.`,
+        `Wire transfer is available for purchases of ${money(WIRE_MIN_CENTS)} or more. Please pay by card.`,
       );
     }
 
