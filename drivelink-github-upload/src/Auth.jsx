@@ -112,7 +112,7 @@ function useGoogleEnabled() {
 export const RETURN_VIEW_KEY = "dl_post_auth_view";
 const rememberReturnView = (v) => { try { if (v && v !== "auth") localStorage.setItem(RETURN_VIEW_KEY, v); } catch { /* private mode */ } };
 
-export default function Auth({ onAuth, returnView, carLabel, initialTab }) {
+export default function Auth({ onAuth, returnView, carLabel, initialTab, onBack }) {
   const googleOn = useGoogleEnabled();
   const { t } = useLang();
   // initialTab lets a caller that already knows which one the visitor wants
@@ -291,7 +291,16 @@ export default function Auth({ onAuth, returnView, carLabel, initialTab }) {
   return (
     <div style={styles.overlay}>
       <div style={styles.card}>
-        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
+        <div style={{ display: "flex", justifyContent: onBack ? "space-between" : "flex-end", alignItems: "center", marginBottom: 8 }}>
+          {onBack && (
+            <button
+              type="button"
+              onClick={onBack}
+              style={{ background: "none", border: "none", padding: "8px 4px", fontSize: 15, fontWeight: 600, color: "#475569", cursor: "pointer", minHeight: 44 }}
+            >
+              {t("auth.back")}
+            </button>
+          )}
           <LangToggle />
         </div>
 

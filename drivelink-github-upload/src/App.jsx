@@ -2237,12 +2237,18 @@ const denyInspector = async (id) => {
       </div>
     );
   }
-  if (!currentUser && view === "auth") return <Auth onAuth={completeSignIn} returnView={pendingView} carLabel={authCarLabel()} initialTab={authTab} />;
+  // The sign-in screen is a full-page takeover, so it needs its own way out:
+  // back to wherever the visitor came from, or the landing page if they landed here directly.
+  const leaveAuth = () => {
+    if (window.history.length > 1) { window.history.back(); return; }
+    setView("landing"); navigate(VIEW_PATHS.landing);
+  };
+  if (!currentUser && view === "auth") return <Auth onAuth={completeSignIn} returnView={pendingView} carLabel={authCarLabel()} initialTab={authTab} onBack={leaveAuth} />;
 
   if (!currentUser && !PUBLIC_VIEWS.has(view)) return (
     // Belt and braces: the effect above normally converts this case to the
     // sign-in screen before render. This catches the frame in between.
-    <Auth onAuth={completeSignIn} returnView={pendingView} carLabel={authCarLabel()} />
+    <Auth onAuth={completeSignIn} returnView={pendingView} carLabel={authCarLabel()} onBack={leaveAuth} />
   );
 
   return (
