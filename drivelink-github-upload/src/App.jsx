@@ -471,6 +471,11 @@ export default function App() {
   // straight back to where the user just navigated away from. That fight is
   // what the flash on back-from-/start-deal was.
   const syncingFromUrl = useRef(false);
+  // Most recent public page the visitor was on, so the sign-in screen's Back
+  // button can return there. history.back() is not safe for that: after sign out
+  // the previous history entry is usually a signed-in-only page, which the auth
+  // gate immediately turns back into the sign-in screen.
+  const lastPublicPath = useRef(null);
   // Bring-your-own-deal invite links: /d/:token. Kept separate from the main
   // route-resolution effect below because that one waits on `loading`, and the
   // join page fetches its own data through the accept-deal-invite function —
@@ -855,10 +860,18 @@ export default function App() {
   }, [view]);
 
   const logout = async () => {
+    // Move to a public view BEFORE the session goes away. signOut() fires
+    // onAuthStateChange(null) first; if the visitor is still on a signed-in-only
+    // page at that moment, the auth gate effect bounces them to the sign-in
+    // screen and records that private page in pendingView and in history. The
+    // sign-in screen's Back button then walked straight back into it, got
+    // bounced to sign-in again, and looked dead.
+    setPendingView(null);
+    setView("home");
+    navigate(VIEW_PATHS.home, { replace: true });
     await supabase.auth.signOut();
     setCurrentUser(null);
     setDbUser(null);
-    setView("home");
   };
 
   // ── Buy Now — creates a real Stripe Checkout session at the listing's price
@@ -1942,6 +1955,13 @@ const denyInspector = async (id) => {
     // loads — without it here, that early return would strand the view.
   }, [path, loading, listings, referrals, users, reviews, offers, currentUser, dbUser]);
 
+  // Remember the last public page (never the sign-in screen itself) for leaveAuth.
+  useEffect(() => {
+    if (PUBLIC_VIEWS.has(view) && view !== "auth" && view !== "resetPassword" && VIEW_PATHS[view]) {
+      lastPublicPath.current = VIEW_PATHS[view];
+    }
+  }, [view]);
+
   // ── view → URL ──────────────────────────────────────────────────────────────
   // The other half of the sync. 39 setView() call sites throughout the app stay
   // exactly as they are; this effect gives each of them a URL as a side effect,
@@ -2243,8 +2263,11 @@ const denyInspector = async (id) => {
   // The sign-in screen is a full-page takeover, so it needs its own way out:
   // back to wherever the visitor came from, or the landing page if they landed here directly.
   const leaveAuth = () => {
-    if (window.history.length > 1) { window.history.back(); return; }
-    setView("landing"); navigate(VIEW_PATHS.landing);
+    const dest = lastPublicPath.current || VIEW_PATHS.landing;
+    const v = PATH_TO_VIEW[normalizePath(dest)] || "landing";
+    setPendingView(null);
+    setView(v);
+    navigate(dest);
   };
   if (!currentUser && view === "auth") return <Auth onAuth={completeSignIn} returnView={pendingView} carLabel={authCarLabel()} initialTab={authTab} onBack={leaveAuth} />;
 
