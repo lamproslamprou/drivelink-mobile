@@ -418,36 +418,6 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn, list
         </div>
       </section>
 
-      {/* HOW REFERRALS WORK */}
-      <section style={{ ...styles.section, background: "#f1f5f9" }} className="dl-section">
-        <div style={styles.sectionInner}>
-          <div style={styles.sectionBadge}>Referral system</div>
-          <h2 style={styles.sectionTitle} className="dl-section-title">Earn on any car — listed here or not</h2>
-          <div style={styles.steps} className="dl-steps">
-            <div style={styles.step}>
-              <div style={styles.stepNum}>1</div>
-              <h4 style={styles.stepTitle}>Browse listings</h4>
-              <p style={styles.stepDesc}>Find any car listing on DriveLink that you think your network would love.</p>
-            </div>
-            <div style={styles.stepArrow} className="dl-step-arrow">→</div>
-            <div style={styles.step}>
-              <div style={styles.stepNum}>2</div>
-              <h4 style={styles.stepTitle}>Share your link</h4>
-              <p style={styles.stepDesc}>Click "Share &amp; Earn $10" on any listing — or use your standing link, which works on a car we've never seen.</p>
-            </div>
-            <div style={styles.stepArrow} className="dl-step-arrow">→</div>
-            <div style={styles.step}>
-              <div style={styles.stepNum}>3</div>
-              <h4 style={styles.stepTitle}>Get paid</h4>
-              <p style={styles.stepDesc}>You earn $10 when someone you refer verifies their ID and starts a deal. It is credited to your account after a short review period.</p>
-            </div>
-          </div>
-          <div style={styles.exampleBox}>
-            <b>Example:</b> You send your link to a friend selling a Honda CR-V. They verify their ID and start a deal → You earn <span style={{ color: "#16a34a", fontWeight: 800 }}>$10</span>, whether or not the sale closes.
-          </div>
-        </div>
-      </section>
-
       {/* EVERY LISTING */}
       <section style={styles.assureBand} className="dl-section">
         <div style={styles.assureInner}>
