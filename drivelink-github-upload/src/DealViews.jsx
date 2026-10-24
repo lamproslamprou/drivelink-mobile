@@ -92,6 +92,7 @@ export function StartDealView({ currentUser, promoterCode, onBack, onNavigate, s
     if (startedTracked.current) return;
     startedTracked.current = true;
     try { analytics.trackEvent("deal_started", { role }); } catch { /* ignore */ }
+    try { if (typeof window.gtag === "function") window.gtag("event", "deal_started", { role }); } catch { /* ignore */ }
   };
 
   const set = (k) => (e) => { trackStarted(); setForm((f) => ({ ...f, [k]: e.target.value })); };

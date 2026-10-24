@@ -868,6 +868,7 @@ export default function App() {
   // code. Nothing releases on a timer.
   const handleBuyNow = async (listing) => {
     showToast("Redirecting to secure checkout…", "info");
+    ga("begin_checkout", { currency: "USD", method: "card" });
     const { data, error } = await supabase.functions.invoke("create-checkout-session", {
       body: { listing_id: listing.id, share_code: getAttribution(listing.id)?.code || null },
     });
@@ -893,6 +894,7 @@ export default function App() {
       showToast((await fnErrorMessage(data, error)) || "Couldn't start a wire transfer — try again.", "error");
       return;
     }
+    ga("begin_checkout", { currency: "USD", method: "wire" });
     setWireInstructions({ ...data, carLabel: `${listing.year} ${listing.make} ${listing.model}` });
   };
 
@@ -968,6 +970,7 @@ export default function App() {
     const { error } = await supabase.from("listings").insert(newListing);
     if (error) { showToast("Error posting listing", "error"); return; }
     try { analytics.trackEvent("listing_created"); } catch { /* ignore */ }
+    ga("listing_created");
 
     // VIN verification runs server-side against NHTSA and cross-checks the
     // decode against the make/model/year on the listing. Failure is non-fatal:
@@ -2725,7 +2728,26 @@ function ConfirmedView({ result, onContinue }) {
   );
 }
 
+// GA4 event helper. The @heycatch/sdk analytics calls elsewhere do not reach
+// GA4, so the events that matter for judging ad spend are sent here. Guarded
+// because ad blockers strip gtag; no personal data is ever sent.
+function ga(event, params) {
+  try {
+    if (typeof window !== "undefined" && typeof window.gtag === "function") {
+      window.gtag("event", event, params);
+    }
+  } catch { /* analytics is never worth throwing over */ }
+}
+
 function SuccessView({ onHome }) {
+  // Once per browser session, so a refresh doesn't count the purchase twice.
+  useEffect(() => {
+    try {
+      if (sessionStorage.getItem("dl_purchase_sent")) return;
+      sessionStorage.setItem("dl_purchase_sent", "1");
+    } catch { /* storage blocked: fall through and send once */ }
+    ga("purchase", { currency: "USD", method: "card" });
+  }, []);
   return (
     <div style={{ textAlign: "center", padding: "80px 24px" }}>
       <div style={{ fontSize: 64, marginBottom: 24 }}>🎉</div>
