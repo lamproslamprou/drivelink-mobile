@@ -1070,6 +1070,9 @@ export default function App() {
       return false;
     }
     await loadData();
+    // Funnel step: the deal closed (code verified). Fires once per confirmation.
+    try { analytics.trackEvent("handover_confirmed"); } catch { /* ignore */ }
+    ga("handover_confirmed");
     if (data?.heldForReview) {
       showToast("Handover confirmed. This sale is under a short review before funds are released.", "info");
     } else if (data?.referral === "flagged_ambiguous" || data?.referral === "flagged_self_referral") {

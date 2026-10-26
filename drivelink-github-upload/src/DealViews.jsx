@@ -161,6 +161,9 @@ export function StartDealView({ currentUser, promoterCode, onBack, onNavigate, s
 
       setResult(data);
       try { analytics.trackEvent("deal_created"); } catch { /* ignore */ }
+      // GA4 copy of deal_created: the SDK call above does not reach GA4, and
+      // this is the event Google Ads conversions import from.
+      try { if (typeof window.gtag === "function") window.gtag("event", "deal_created", { role }); } catch { /* ignore */ }
       showToast?.("Deal created — send the link to the other party.");
     } finally {
       setSubmitting(false);
@@ -524,6 +527,11 @@ export function JoinDealView({ token, currentUser, onNavigate, onAuth, onJoined,
       if (data?.error) { setError(data.error); return; }
 
       if (data.state === "needs_onboarding") { setNeedsOnboarding(true); return; }
+
+      // Funnel step: the other party accepted the invite (state is one of
+      // waiting_for_other_party / ready_for_payment past this point).
+      try { analytics.trackEvent("invite_accepted", { state: data.state }); } catch { /* ignore */ }
+      try { if (typeof window.gtag === "function") window.gtag("event", "invite_accepted", { state: data.state }); } catch { /* ignore */ }
 
       // Promoter deal, first party in. There is no listing to pay for yet.
       if (data.state === "waiting_for_other_party") {
