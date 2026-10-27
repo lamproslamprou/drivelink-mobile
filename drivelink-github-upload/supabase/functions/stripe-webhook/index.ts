@@ -438,6 +438,59 @@ async function settleSale(
     releaseAt.setDate(releaseAt.getDate() + AUTO_RELEASE_DAYS);
   }
 
+  // ── DOUBLE-PAYMENT GUARD ──────────────────────────────────────────────
+  // Two buyers can each hold an open Checkout for the same car, and both can
+  // pay. The first settles normally. This is the second: the listing already
+  // carries a DIFFERENT PaymentIntent and is no longer open for sale, so
+  // writing it again would overwrite the first buyer's record (buyer, price,
+  // handover code) and strand their money. Refund the late payment instead
+  // and tell the admin. A redelivery of the SAME payment has the same
+  // PaymentIntent id and falls straight through.
+  try {
+    const { data: cur } = await supabase
+      .from("listings")
+      .select("status, stripe_payment_intent_id")
+      .eq("id", listingId)
+      .maybeSingle();
+    const alreadyTaken = !!cur && !!piId && !!cur.stripe_payment_intent_id &&
+      cur.stripe_payment_intent_id !== piId &&
+      !["active", "awaiting_payment"].includes(String(cur.status));
+    if (alreadyTaken) {
+      let refundNote = "";
+      try {
+        const stripeLate = stripeClient();
+        const refund = isDirect
+          ? await stripeLate.refunds.create(
+            { payment_intent: piId!, refund_application_fee: true },
+            { stripeAccount: input.chargeAccountId!, idempotencyKey: `late-pay-refund-${piId}` },
+          )
+          : await stripeLate.refunds.create(
+            { payment_intent: piId! },
+            { idempotencyKey: `late-pay-refund-${piId}` },
+          );
+        refundNote = `Refunded automatically (${refund.id}).`;
+      } catch (refundErr) {
+        refundNote = `AUTOMATIC REFUND FAILED (${refundErr instanceof Error ? refundErr.message : String(refundErr)}). Refund this payment by hand in Stripe NOW.`;
+      }
+      console.error("double payment on listing:", listingId, "late pi:", piId, "kept pi:", cur?.stripe_payment_intent_id);
+      notifyAdmin({
+        subject: `⚠️ Second payment for an already-sold car — ${listingId}`,
+        html: alertHtml("Two buyers paid for one car", [
+          ["Listing ID", listingId],
+          ["Late buyer", buyerId],
+          ["Late PaymentIntent", piId],
+          ["Kept PaymentIntent", cur?.stripe_payment_intent_id],
+          ["Listing status", cur?.status],
+        ], `${refundNote} The first buyer's sale was left untouched. Tell the second buyer their payment was returned because the car sold first.`),
+      });
+      return { ok: true, carLabel: listingId, sellerNet: 0 };
+    }
+  } catch (guardErr) {
+    // The guard must never block a normal sale: if the lookup itself fails,
+    // fall through to the original behavior.
+    console.error("double-payment guard check failed:", guardErr);
+  }
+
   const { data: soldListing, error: listingErr } = await supabase
     .from("listings")
     .update({
