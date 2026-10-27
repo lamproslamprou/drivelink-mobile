@@ -300,54 +300,63 @@ export function StartDealView({ currentUser, promoterCode, onBack, onNavigate, s
   // ---- link created --------------------------------------------------------
   if (result) {
     const them = role === "promoter" ? "both parties" : role === "seller" ? "the buyer" : "the seller";
+    const themEs = role === "promoter" ? "las dos partes" : role === "seller" ? "el comprador" : "el vendedor";
     return (
       <div style={dealStyles.page}>
         <div style={dealStyles.inner}>
-          {onBack && <button style={dealStyles.backBtn} onClick={onBack}>← Back</button>}
-          <h1 style={dealStyles.title}>Your deal is ready</h1>
+          {onBack && <button style={dealStyles.backBtn} onClick={onBack}>{es ? "← Volver" : "← Back"}</button>}
+          <h1 style={dealStyles.title}>{es ? "Tu trato está listo" : "Your deal is ready"}</h1>
           <p style={dealStyles.sub}>
-            {role === "promoter"
-              ? "Send this link to both parties. Whoever opens it first picks their side. No money moves until they both join."
-              : `Send this link to ${them}. No money moves until you both agree.`}
+            {es
+              ? (role === "promoter"
+                ? "Envía este enlace a las dos partes. Quien lo abra primero elige su lado. No se mueve dinero hasta que ambos se unan."
+                : `Envía este enlace a ${themEs}. No se mueve dinero hasta que ambos estén de acuerdo.`)
+              : (role === "promoter"
+                ? "Send this link to both parties. Whoever opens it first picks their side. No money moves until they both join."
+                : `Send this link to ${them}. No money moves until you both agree.`)}
           </p>
 
           <div style={dealStyles.linkBox}>
-            <div style={dealStyles.eyebrow}>Deal link</div>
+            <div style={dealStyles.eyebrow}>{es ? "Enlace del trato" : "Deal link"}</div>
             <div style={dealStyles.linkText}>{result.url}</div>
           </div>
 
           <button style={dealStyles.primaryBtn} onClick={copyLink}>
-            {copied ? "Copied" : "Copy link"}
+            {copied ? (es ? "Copiado" : "Copied") : (es ? "Copiar enlace" : "Copy link")}
           </button>
 
           <div style={dealStyles.explainerRow}>
             <div style={dealStyles.explainerText}>
-              Never heard of DriveLink? Most people haven't. Send them this
-              alongside the deal link and it explains how the payment is protected and
-              when it's released.
+              {es
+                ? "¿No conocen DriveLink? La mayoría no. Envíales esto junto con el enlace del trato y les explica cómo se protege el pago y cuándo se libera."
+                : "Never heard of DriveLink? Most people haven't. Send them this alongside the deal link and it explains how the payment is protected and when it's released."}
             </div>
             <button
               style={{ ...dealStyles.secondaryBtn, width: "100%", marginTop: 12 }}
               onClick={shareExplainer}
             >
-              {explainerCopied ? "Copied" : "Send them the explainer"}
+              {explainerCopied ? (es ? "Copiado" : "Copied") : (es ? "Enviarles la explicación" : "Send them the explainer")}
             </button>
           </div>
 
           <div style={dealStyles.stepsWrap}>
-            <div style={dealStyles.eyebrow}>What happens next</div>
+            <div style={dealStyles.eyebrow}>{es ? "Qué pasa después" : "What happens next"}</div>
             <ol style={dealStyles.steps}>
               <li style={dealStyles.step}>
-                {role === "promoter"
-                  ? "Both parties open the link, pick their side, and confirm the car and price."
-                  : `${cap(them)} opens the link and confirms the car and price.`}
+                {es
+                  ? (role === "promoter"
+                    ? "Las dos partes abren el enlace, eligen su lado y confirman el auto y el precio."
+                    : `${themEs.charAt(0).toUpperCase() + themEs.slice(1)} abre el enlace y confirma el auto y el precio.`)
+                  : (role === "promoter"
+                    ? "Both parties open the link, pick their side, and confirm the car and price."
+                    : `${cap(them)} opens the link and confirms the car and price.`)}
               </li>
-              <li style={dealStyles.step}>The buyer pays through DriveLink. The seller isn't paid out until handover is confirmed.</li>
+              <li style={dealStyles.step}>{es ? "El comprador paga a través de DriveLink. Al vendedor no se le paga hasta que se confirma la entrega." : "The buyer pays through DriveLink. The seller isn't paid out until handover is confirmed."}</li>
               <li style={dealStyles.step}>
-                The car and title change hands, the buyer confirms, and the seller is paid out.
+                {es ? "El auto y el título cambian de manos, el comprador confirma y se le paga al vendedor." : "The car and title change hands, the buyer confirms, and the seller is paid out."}
               </li>
               {role === "promoter" && (
-                <li style={dealStyles.step}>Your $10 bounty is credited after a short review period, once a verified user you referred starts the deal.</li>
+                <li style={dealStyles.step}>{es ? "Tu bono de $10 se acredita tras un breve período de revisión, una vez que un usuario verificado que referiste inicie el trato." : "Your $10 bounty is credited after a short review period, once a verified user you referred starts the deal."}</li>
               )}
             </ol>
           </div>
@@ -368,13 +377,13 @@ export function StartDealView({ currentUser, promoterCode, onBack, onNavigate, s
   return (
     <div style={dealStyles.page}>
       <div style={dealStyles.inner}>
-        {onBack && <button style={dealStyles.backBtn} onClick={onBack}>← Back</button>}
-        <h1 style={dealStyles.title}>Start a secure deal</h1>
+        {onBack && <button style={dealStyles.backBtn} onClick={onBack}>{es ? "← Volver" : "← Back"}</button>}
+        <h1 style={dealStyles.title}>{es ? "Inicia un trato seguro" : "Start a secure deal"}</h1>
         <p style={dealStyles.sub}>
-          Already found the car somewhere else? Use DriveLink to handle the money.
+          {es ? "¿Ya encontraste el auto en otro lado? Usa DriveLink para manejar el dinero." : "Already found the car somewhere else? Use DriveLink to handle the money."}
         </p>
 
-        <div style={dealStyles.eyebrow}>In this deal, you are the</div>
+        <div style={dealStyles.eyebrow}>{es ? "En este trato, tú eres el" : "In this deal, you are the"}</div>
         {/* The third option only appears for someone holding an active Promoter
             code — create-deal rejects role:"promoter" without one, so offering
             it to everyone would produce a button that always errors. */}
@@ -385,22 +394,20 @@ export function StartDealView({ currentUser, promoterCode, onBack, onNavigate, s
               onClick={() => setRole(r)}
               style={{ ...dealStyles.roleBtn, ...(role === r ? dealStyles.roleBtnActive : null), ...(r === "promoter" ? { fontSize: 14 } : null) }}
             >
-              {r === "promoter" ? "Neither — I'm arranging it" : cap(r)}
+              {r === "promoter" ? (es ? "Ninguno: lo estoy organizando" : "Neither — I'm arranging it") : es ? (r === "seller" ? "Vendedor" : "Comprador") : cap(r)}
             </button>
           ))}
         </div>
 
         {role === "promoter" && (
           <div style={{ ...dealStyles.infoBox, marginTop: -20, marginBottom: 28 }}>
-            You're setting this up for two other people. Enter the car and the
-            price they agreed on, then send them one link — whoever opens it
-            first says whether they're the buyer or the seller. You earn a flat $10
-            bounty once a verified user you referred starts the deal — it doesn't
-            depend on the sale closing.
+            {es
+              ? "Estás organizando esto para otras dos personas. Ingresa el auto y el precio que acordaron, y envíales un solo enlace: quien lo abra primero indica si es el comprador o el vendedor. Ganas un bono fijo de $10 cuando un usuario verificado que referiste inicia el trato; no depende de que la venta se cierre."
+              : "You're setting this up for two other people. Enter the car and the price they agreed on, then send them one link — whoever opens it first says whether they're the buyer or the seller. You earn a flat $10 bounty once a verified user you referred starts the deal — it doesn't depend on the sale closing."}
           </div>
         )}
 
-        <div style={dealStyles.fieldLabel}>VIN (optional — fills in the rest)</div>
+        <div style={dealStyles.fieldLabel}>{es ? "VIN (opcional: completa el resto)" : "VIN (optional — fills in the rest)"}</div>
         <div style={dealStyles.vinRow}>
           <input
             value={form.vin}
@@ -410,24 +417,24 @@ export function StartDealView({ currentUser, promoterCode, onBack, onNavigate, s
             style={{ ...dealStyles.input, textTransform: "uppercase", fontFamily: "ui-monospace, monospace" }}
           />
           <button onClick={decodeVin} disabled={decoding} style={dealStyles.secondaryBtn}>
-            {decoding ? "…" : "Look up"}
+            {decoding ? "…" : (es ? "Buscar" : "Look up")}
           </button>
         </div>
 
         <div style={dealStyles.grid2}>
-          <Field label="Year" value={form.year} onChange={set("year")} placeholder={String(currentYear - 6)} />
-          <Field label="Make" value={form.make} onChange={set("make")} placeholder="Toyota" />
+          <Field label={es ? "Año" : "Year"} value={form.year} onChange={set("year")} placeholder={String(currentYear - 6)} />
+          <Field label={es ? "Marca" : "Make"} value={form.make} onChange={set("make")} placeholder="Toyota" />
         </div>
         <div style={dealStyles.grid2}>
-          <Field label="Model" value={form.model} onChange={set("model")} placeholder="Tacoma" />
-          <Field label="Mileage" value={form.mileage} onChange={set("mileage")} placeholder="84000" />
+          <Field label={es ? "Modelo" : "Model"} value={form.model} onChange={set("model")} placeholder="Tacoma" />
+          <Field label={es ? "Millaje" : "Mileage"} value={form.mileage} onChange={set("mileage")} placeholder="84000" />
         </div>
         <div style={dealStyles.grid2}>
-          <Field label="Agreed price" value={form.price} onChange={set("price")} placeholder="18500" prefix="$" />
-          <Field label="Trim or notes" value={form.note} onChange={set("note")} placeholder="SR5, one owner" />
+          <Field label={es ? "Precio acordado" : "Agreed price"} value={form.price} onChange={set("price")} placeholder="18500" prefix="$" />
+          <Field label={es ? "Versión o notas" : "Trim or notes"} value={form.note} onChange={set("note")} placeholder={es ? "SR5, un solo dueño" : "SR5, one owner"} />
         </div>
 
-        <div style={dealStyles.fieldLabel}>Handover date (optional)</div>
+        <div style={dealStyles.fieldLabel}>{es ? "Fecha de entrega (opcional)" : "Handover date (optional)"}</div>
         <input
           type="date"
           value={form.handover_date}
@@ -438,8 +445,12 @@ export function StartDealView({ currentUser, promoterCode, onBack, onNavigate, s
         />
         <div style={{ fontSize: 13, color: "#6b7280", marginTop: 6, marginBottom: 18, lineHeight: 1.5 }}>
           {form.handover_date
-            ? "The other party sees this date before they join. Payment stays protected until the handover — set it if the car is shipping."
-            : "If the car is being transported, put the date it should arrive. Without one, an unconfirmed deal is flagged for review a week after payment — which can be while the car is still on a truck."}
+            ? (es
+              ? "La otra parte ve esta fecha antes de unirse. El pago sigue protegido hasta la entrega: indícala si el auto se va a enviar."
+              : "The other party sees this date before they join. Payment stays protected until the handover — set it if the car is shipping.")
+            : (es
+              ? "Si el auto se está transportando, pon la fecha en que debe llegar. Sin una, un trato sin confirmar se marca para revisión una semana después del pago, lo cual puede ocurrir mientras el auto todavía va en un camión."
+              : "If the car is being transported, put the date it should arrive. Without one, an unconfirmed deal is flagged for review a week after payment — which can be while the car is still on a truck.")}
         </div>
 
         <div ref={feedbackRef} />
@@ -449,11 +460,10 @@ export function StartDealView({ currentUser, promoterCode, onBack, onNavigate, s
         {needsOnboarding && (
           <div style={dealStyles.warnBox}>
             <div style={{ marginBottom: 12 }}>
-              Set up payouts before you send the link. The buyer cannot fund a deal until you can
-              receive the money.
+              {es ? "Configura tus pagos antes de enviar el enlace. El comprador no puede financiar un trato hasta que tú puedas recibir el dinero." : "Set up payouts before you send the link. The buyer cannot fund a deal until you can receive the money."}
             </div>
             <button style={dealStyles.primaryBtnInline} onClick={() => onNavigate?.("profile")}>
-              Set up payouts
+              {es ? "Configurar pagos" : "Set up payouts"}
             </button>
           </div>
         )}
@@ -463,11 +473,11 @@ export function StartDealView({ currentUser, promoterCode, onBack, onNavigate, s
           disabled={!canSubmit || submitting}
           style={{ ...dealStyles.primaryBtn, ...(!canSubmit || submitting ? dealStyles.btnDisabled : null) }}
         >
-          {submitting ? "Creating…" : "Create deal link"}
+          {submitting ? (es ? "Creando…" : "Creating…") : (es ? "Crear enlace del trato" : "Create deal link")}
         </button>
 
         <div style={dealStyles.finePrint}>
-          The seller is paid once the buyer confirms the car. {platformFeeLabel()} seller fee, taken at payout.
+          {es ? `Al vendedor se le paga cuando el comprador confirma el auto. Tarifa de ${platformFeeLabel()} para el vendedor, descontada al momento del pago.` : `The seller is paid once the buyer confirms the car. ${platformFeeLabel()} seller fee, taken at payout.`}
         </div>
       </div>
     </div>
@@ -490,6 +500,7 @@ async function inviteErrorMessage(fnErr, fallback) {
 }
 
 export function JoinDealView({ token, currentUser, onNavigate, onAuth, onJoined, showToast }) {
+  const es = useLang().lang === "es";
   const [loading, setLoading] = useState(true);
   const [preview, setPreview] = useState(null);
   const [error, setError] = useState(null);
@@ -548,7 +559,7 @@ export function JoinDealView({ token, currentUser, onNavigate, onAuth, onJoined,
 
       if (data.state === "ready_for_payment") {
         try { localStorage.removeItem("dl_post_auth_deal"); } catch { /* noop */ }
-        showToast?.("You're in. Review the car and continue.");
+        showToast?.(es ? "Ya estás dentro. Revisa el auto y continúa." : "You're in. Review the car and continue.");
         onJoined?.(data.listing_id);
       }
     } finally {
@@ -559,7 +570,7 @@ export function JoinDealView({ token, currentUser, onNavigate, onAuth, onJoined,
   if (loading) {
     return (
       <div style={dealStyles.page}>
-        <div style={dealStyles.inner}><p style={dealStyles.sub}>Loading deal…</p></div>
+        <div style={dealStyles.inner}><p style={dealStyles.sub}>{es ? "Cargando el trato…" : "Loading deal…"}</p></div>
       </div>
     );
   }
@@ -568,10 +579,10 @@ export function JoinDealView({ token, currentUser, onNavigate, onAuth, onJoined,
     return (
       <div style={dealStyles.page}>
         <div style={dealStyles.inner}>
-          <h1 style={dealStyles.title}>This link doesn't work</h1>
+          <h1 style={dealStyles.title}>{es ? "Este enlace no funciona" : "This link doesn't work"}</h1>
           <p style={dealStyles.sub}>{error}</p>
           <button style={dealStyles.secondaryBtn} onClick={() => onNavigate?.("home")}>
-            Go to DriveLink
+            {es ? "Ir a DriveLink" : "Go to DriveLink"}
           </button>
         </div>
       </div>
@@ -582,13 +593,13 @@ export function JoinDealView({ token, currentUser, onNavigate, onAuth, onJoined,
     return (
       <div style={dealStyles.page}>
         <div style={dealStyles.inner}>
-          <h1 style={dealStyles.title}>You're in as the {waiting.role}</h1>
+          <h1 style={dealStyles.title}>{es ? `Estás dentro como ${waiting.role === "seller" ? "vendedor" : waiting.role === "buyer" ? "comprador" : waiting.role}` : `You're in as the ${waiting.role}`}</h1>
           <p style={dealStyles.sub}>{waiting.message}</p>
           <p style={dealStyles.sub}>
-            We'll email you when the other party joins. You can close this page.
+            {es ? "Te enviaremos un correo cuando la otra parte se una. Puedes cerrar esta página." : "We'll email you when the other party joins. You can close this page."}
           </p>
           <button style={dealStyles.secondaryBtn} onClick={() => onNavigate?.("home")}>
-            Go to DriveLink
+            {es ? "Ir a DriveLink" : "Go to DriveLink"}
           </button>
         </div>
       </div>
@@ -606,10 +617,10 @@ export function JoinDealView({ token, currentUser, onNavigate, onAuth, onJoined,
     return (
       <div style={dealStyles.page}>
         <div style={dealStyles.inner}>
-          <h1 style={dealStyles.title}>Someone already joined</h1>
-          <p style={dealStyles.sub}>This deal is no longer open. Ask for a new link.</p>
+          <h1 style={dealStyles.title}>{es ? "Alguien ya se unió" : "Someone already joined"}</h1>
+          <p style={dealStyles.sub}>{es ? "Este trato ya no está abierto. Pide un enlace nuevo." : "This deal is no longer open. Ask for a new link."}</p>
           <button style={dealStyles.secondaryBtn} onClick={() => onNavigate?.("home")}>
-            Go to DriveLink
+            {es ? "Ir a DriveLink" : "Go to DriveLink"}
           </button>
         </div>
       </div>
@@ -619,16 +630,16 @@ export function JoinDealView({ token, currentUser, onNavigate, onAuth, onJoined,
   return (
     <div style={dealStyles.page}>
       <div style={dealStyles.inner}>
-        <div style={dealStyles.inviteEyebrow}>Secure deal invitation</div>
+        <div style={dealStyles.inviteEyebrow}>{es ? "Invitación a un trato seguro" : "Secure deal invitation"}</div>
         <h1 style={dealStyles.title}>{title}</h1>
         <p style={dealStyles.sub}>
-          {car.mileage ? `${Number(car.mileage).toLocaleString()} miles` : "Mileage not given"}
+          {car.mileage ? `${Number(car.mileage).toLocaleString()} ${es ? "millas" : "miles"}` : (es ? "Millaje no indicado" : "Mileage not given")}
           {car.note ? ` · ${car.note}` : ""}
         </p>
 
         <div style={dealStyles.priceCard}>
           <div style={dealStyles.priceRow}>
-            <span style={dealStyles.priceLabel}>Agreed price</span>
+            <span style={dealStyles.priceLabel}>{es ? "Precio acordado" : "Agreed price"}</span>
             <span style={dealStyles.priceValue}>${(Number(car.price) / 100).toLocaleString()}</span>
           </div>
           {car.vin && (
@@ -641,7 +652,7 @@ export function JoinDealView({ token, currentUser, onNavigate, onAuth, onJoined,
 
         {chooseRole && (
           <div style={{ marginBottom: 28 }}>
-            <div style={dealStyles.eyebrow}>Which side of this deal are you on?</div>
+            <div style={dealStyles.eyebrow}>{es ? "¿De qué lado de este trato estás?" : "Which side of this deal are you on?"}</div>
             <div style={dealStyles.roleRow}>
               {["buyer", "seller"].map((r) => (
                 <button
@@ -649,32 +660,31 @@ export function JoinDealView({ token, currentUser, onNavigate, onAuth, onJoined,
                   onClick={() => setPickedRole(r)}
                   style={{ ...dealStyles.roleBtn, ...(pickedRole === r ? dealStyles.roleBtnActive : null) }}
                 >
-                  {r === "buyer" ? "I'm buying" : "I'm selling"}
+                  {r === "buyer" ? (es ? "Estoy comprando" : "I'm buying") : (es ? "Estoy vendiendo" : "I'm selling")}
                 </button>
               ))}
             </div>
             <div style={{ fontSize: 13, color: "#6b7280", marginTop: 8, lineHeight: 1.5 }}>
-              This deal was set up by someone arranging it for you both. Whoever
-              opens this link second takes the other side.
+              {es ? "Este trato lo organizó alguien para ambos. Quien abra este enlace en segundo lugar toma el otro lado." : "This deal was set up by someone arranging it for you both. Whoever opens this link second takes the other side."}
             </div>
           </div>
         )}
 
         {effectiveRole && (
         <div style={dealStyles.stepsWrap}>
-          <div style={dealStyles.eyebrow}>You are joining as the {effectiveRole}</div>
+          <div style={dealStyles.eyebrow}>{es ? `Te unes como ${isSeller ? "vendedor" : "comprador"}` : `You are joining as the ${effectiveRole}`}</div>
           <ol style={dealStyles.steps}>
             {isSeller ? (
               <>
-                <li style={dealStyles.step}>Confirm the car and price, and set up payouts.</li>
-                <li style={dealStyles.step}>The buyer pays through DriveLink. You never wait on a cheque to clear.</li>
-                <li style={dealStyles.step}>Hand over the car and title. Your payout is released to your bank once Stripe has cleared the card payment, usually within 2 business days of it being made.</li>
+                <li style={dealStyles.step}>{es ? "Confirma el auto y el precio, y configura tus pagos." : "Confirm the car and price, and set up payouts."}</li>
+                <li style={dealStyles.step}>{es ? "El comprador paga a través de DriveLink. Nunca esperas a que se acredite un cheque." : "The buyer pays through DriveLink. You never wait on a cheque to clear."}</li>
+                <li style={dealStyles.step}>{es ? "Entrega el auto y el título. Tu pago se libera a tu banco una vez que Stripe haya liberado el pago con tarjeta, normalmente dentro de 2 días hábiles." : "Hand over the car and title. Your payout is released to your bank once Stripe has cleared the card payment, usually within 2 business days of it being made."}</li>
               </>
             ) : (
               <>
-                <li style={dealStyles.step}>Confirm the car and price.</li>
-                <li style={dealStyles.step}>Pay through DriveLink. The seller isn't paid out until you confirm the handover.</li>
-                <li style={dealStyles.step}>Inspect the car and take the title, then release the funds.</li>
+                <li style={dealStyles.step}>{es ? "Confirma el auto y el precio." : "Confirm the car and price."}</li>
+                <li style={dealStyles.step}>{es ? "Paga a través de DriveLink. Al vendedor no se le paga hasta que confirmes la entrega." : "Pay through DriveLink. The seller isn't paid out until you confirm the handover."}</li>
+                <li style={dealStyles.step}>{es ? "Inspecciona el auto y recibe el título; luego libera los fondos." : "Inspect the car and take the title, then release the funds."}</li>
               </>
             )}
           </ol>
@@ -686,10 +696,10 @@ export function JoinDealView({ token, currentUser, onNavigate, onAuth, onJoined,
         {needsOnboarding ? (
           <div style={dealStyles.warnBox}>
             <div style={{ marginBottom: 12 }}>
-              Set up payouts to receive the money, then come back to this link.
+              {es ? "Configura tus pagos para recibir el dinero y luego vuelve a este enlace." : "Set up payouts to receive the money, then come back to this link."}
             </div>
             <button style={dealStyles.primaryBtnInline} onClick={() => onNavigate?.("profile")}>
-              Set up payouts
+              {es ? "Configurar pagos" : "Set up payouts"}
             </button>
           </div>
         ) : currentUser ? (
@@ -698,21 +708,21 @@ export function JoinDealView({ token, currentUser, onNavigate, onAuth, onJoined,
             disabled={joining || (chooseRole && !pickedRole)}
             style={{ ...dealStyles.primaryBtn, ...(joining || (chooseRole && !pickedRole) ? dealStyles.btnDisabled : null) }}
           >
-            {joining ? "Joining…" : chooseRole && !pickedRole ? "Pick your side first" : "Join this deal"}
+            {joining ? (es ? "Uniéndote…" : "Joining…") : chooseRole && !pickedRole ? (es ? "Elige tu lado primero" : "Pick your side first") : (es ? "Unirme a este trato" : "Join this deal")}
           </button>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             <button style={dealStyles.primaryBtn} onClick={() => (onAuth ? onAuth("signup") : onNavigate?.("auth"))}>
-              Create an account to continue
+              {es ? "Crea una cuenta para continuar" : "Create an account to continue"}
             </button>
             <button style={dealStyles.secondaryBtn} onClick={() => (onAuth ? onAuth("signin") : onNavigate?.("auth"))}>
-              I already have an account. Sign in
+              {es ? "Ya tengo una cuenta. Iniciar sesión" : "I already have an account. Sign in"}
             </button>
           </div>
         )}
 
         <div style={dealStyles.finePrint}>
-          The seller is paid once the buyer confirms the car.
+          {es ? "Al vendedor se le paga cuando el comprador confirma el auto." : "The seller is paid once the buyer confirms the car."}
         </div>
       </div>
     </div>

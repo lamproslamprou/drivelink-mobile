@@ -3437,6 +3437,32 @@ function ListingDetailModal({ data, currentUser, isFavorited, isBlocked, onClose
             </div>
           )}
 
+          {/* What we can actually vouch for, row by row. Every line reads from a
+              real field: nothing here is asserted without data behind it. */}
+          {(() => {
+            const es = lang === "es";
+            const memberSince = seller?.created_at
+              ? new Date(seller.created_at).toLocaleDateString(es ? "es-US" : "en-US", { month: "long", year: "numeric" })
+              : null;
+            const rows = [
+              [payoutsReady, es ? "Cuenta de pagos de Stripe activa (Stripe verifica a los vendedores antes de pagarles)" : "Stripe payout account active (Stripe verifies sellers before paying them)"],
+              [!!seller?.verified, es ? "Identidad verificada con Stripe Identity" : "Identity verified with Stripe Identity"],
+              ...(listing.vin ? [[!!listing.vin_verified, es ? "VIN decodificado y coincide con la marca, modelo y año" : "VIN decoded and matches the make, model and year"]] : []),
+            ];
+            return (
+              <div style={{ border: "1px solid #e5e7eb", borderRadius: 10, padding: "10px 12px", margin: "0 0 14px", fontSize: 13, color: "#374151", lineHeight: 1.5 }}>
+                <div style={{ fontWeight: 700, color: "#0f172a", marginBottom: 6 }}>{es ? "Qué sabemos de este vendedor" : "What we know about this seller"}</div>
+                {rows.map(([ok, label], i) => (
+                  <div key={i} style={{ display: "flex", gap: 8, color: ok ? "#15803d" : "#6b7280" }}>
+                    <span aria-hidden="true">{ok ? "✓" : "–"}</span>
+                    <span>{label}{ok ? "" : (es ? " (aún no)" : " (not yet)")}</span>
+                  </div>
+                ))}
+                {memberSince && <div style={{ marginTop: 6, color: "#6b7280" }}>{es ? `Miembro desde ${memberSince}` : `Member since ${memberSince}`}</div>}
+              </div>
+            );
+          })()}
+
           <div style={styles.cardMeta}>
             <span>🛣 {listing.mileage?.toLocaleString()} {t("card.mi")}</span>
             <span>🎨 {listing.color}</span>
@@ -4799,6 +4825,7 @@ const AD_PLANS = [
 ];
 
 function AdvertiseView({ currentUser, onSubmit, onSignIn }) {
+  const es = useLang().lang === "es";
   const [selectedPlan, setSelectedPlan] = useState("6mo");
   const [businessName, setBusinessName] = useState("");
   const [contactEmail, setContactEmail] = useState(currentUser?.email || "");
@@ -4821,10 +4848,10 @@ function AdvertiseView({ currentUser, onSubmit, onSignIn }) {
 
   return (
     <div style={styles.pageWrap}>
-      <h2 style={styles.pageTitle}>📢 Advertise on DriveLink</h2>
-      <p style={{ color: "#6b7280", marginBottom: 24 }}>Put your business in front of car buyers and sellers with a sidebar ad on drivelink.deals.</p>
+      <h2 style={styles.pageTitle}>{es ? "📢 Anúnciate en DriveLink" : "📢 Advertise on DriveLink"}</h2>
+      <p style={{ color: "#6b7280", marginBottom: 24 }}>{es ? "Pon tu negocio frente a compradores y vendedores de autos con un anuncio lateral en drivelink.deals." : "Put your business in front of car buyers and sellers with a sidebar ad on drivelink.deals."}</p>
 
-      <h3 style={styles.sectionTitle}>Choose a plan</h3>
+      <h3 style={styles.sectionTitle}>{es ? "Elige un plan" : "Choose a plan"}</h3>
       <div style={{ display: "flex", gap: 12, marginBottom: 28, flexWrap: "wrap" }}>
         {AD_PLANS.map(p => (
           <div
@@ -4839,32 +4866,32 @@ function AdvertiseView({ currentUser, onSubmit, onSignIn }) {
               cursor: "pointer",
             }}
           >
-            <div style={{ fontWeight: 700, fontSize: 15 }}>{p.label}</div>
-            <div style={{ fontSize: 22, fontWeight: 800, margin: "6px 0 2px" }}>{fmt(p.monthly)}<span style={{ fontSize: 13, fontWeight: 500, color: "#6b7280" }}>/mo</span></div>
-            <div style={{ fontSize: 12, color: "#6b7280" }}>{fmt(p.total)} total</div>
-            {p.blurb && <div style={{ fontSize: 12, color: "#16a34a", fontWeight: 600, marginTop: 4 }}>{p.blurb}</div>}
+            <div style={{ fontWeight: 700, fontSize: 15 }}>{es ? p.label.replace("Months", "Meses") : p.label}</div>
+            <div style={{ fontSize: 22, fontWeight: 800, margin: "6px 0 2px" }}>{fmt(p.monthly)}<span style={{ fontSize: 13, fontWeight: 500, color: "#6b7280" }}>{es ? "/mes" : "/mo"}</span></div>
+            <div style={{ fontSize: 12, color: "#6b7280" }}>{fmt(p.total)} {es ? "en total" : "total"}</div>
+            {p.blurb && <div style={{ fontSize: 12, color: "#16a34a", fontWeight: 600, marginTop: 4 }}>{es ? p.blurb.replace("Save", "Ahorra") : p.blurb}</div>}
           </div>
         ))}
       </div>
 
       {!currentUser ? (
         <div style={{ marginTop: 8 }}>
-          <p style={{ color: "#6b7280", marginBottom: 16 }}>Sign in or create an account to set up your ad and continue to payment.</p>
-          <button style={styles.confirmBtn} onClick={onSignIn}>Sign In / Create Account</button>
+          <p style={{ color: "#6b7280", marginBottom: 16 }}>{es ? "Inicia sesión o crea una cuenta para configurar tu anuncio y continuar al pago." : "Sign in or create an account to set up your ad and continue to payment."}</p>
+          <button style={styles.confirmBtn} onClick={onSignIn}>{es ? "Iniciar sesión / Crear cuenta" : "Sign In / Create Account"}</button>
         </div>
       ) : (
         <>
-          <h3 style={styles.sectionTitle}>Your ad details</h3>
-          <Field label="Business name" value={businessName} onChange={setBusinessName} placeholder="Your business name" />
-          <Field label="Contact email" value={contactEmail} onChange={setContactEmail} placeholder="you@business.com" type="email" />
-          <Field label="Link URL (where the ad sends people)" value={linkUrl} onChange={setLinkUrl} placeholder="https://yourbusiness.com" />
+          <h3 style={styles.sectionTitle}>{es ? "Los datos de tu anuncio" : "Your ad details"}</h3>
+          <Field label={es ? "Nombre del negocio" : "Business name"} value={businessName} onChange={setBusinessName} placeholder={es ? "El nombre de tu negocio" : "Your business name"} />
+          <Field label={es ? "Correo de contacto" : "Contact email"} value={contactEmail} onChange={setContactEmail} placeholder="you@business.com" type="email" />
+          <Field label={es ? "URL del enlace (adónde lleva el anuncio)" : "Link URL (where the ad sends people)"} value={linkUrl} onChange={setLinkUrl} placeholder="https://yourbusiness.com" />
           <div style={{ marginBottom: 16 }}>
-            <label style={styles.fieldLabel}>Ad image (optional — you can add this later)</label>
+            <label style={styles.fieldLabel}>{es ? "Imagen del anuncio (opcional: puedes añadirla después)" : "Ad image (optional — you can add this later)"}</label>
             <ImageUpload images={images} onChange={setImages} />
           </div>
 
           <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 16 }}>
-            You'll be taken to secure Stripe checkout to complete payment. Your ad goes live once payment is confirmed.
+            {es ? "Te llevaremos al checkout seguro de Stripe para completar el pago. Tu anuncio se publica cuando se confirme el pago." : "You'll be taken to secure Stripe checkout to complete payment. Your ad goes live once payment is confirmed."}
           </div>
 
           <button
@@ -4872,7 +4899,7 @@ function AdvertiseView({ currentUser, onSubmit, onSignIn }) {
             onClick={handleSubmit}
             disabled={submitting || !businessName.trim() || !linkUrl.trim()}
           >
-            {submitting ? "Redirecting…" : `Continue to Payment — ${fmt(AD_PLANS.find(p => p.id === selectedPlan).total)}`}
+            {submitting ? (es ? "Redirigiendo…" : "Redirecting…") : `${es ? "Continuar al pago" : "Continue to Payment"} — ${fmt(AD_PLANS.find(p => p.id === selectedPlan).total)}`}
           </button>
         </>
       )}
