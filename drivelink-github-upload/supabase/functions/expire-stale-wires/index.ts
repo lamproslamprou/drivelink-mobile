@@ -153,7 +153,10 @@ Deno.serve(async (req) => {
               );
             } catch (cancelErr) {
               const msg = cancelErr instanceof Error ? cancelErr.message : String(cancelErr);
-              if (!/already (been )?canceled|canceled/i.test(msg)) {
+              // Match only "already canceled" / "status of canceled". A bare /canceled/ also matches
+              // Stripe's "cannot cancel ... status of succeeded. Only a PaymentIntent with one of the
+              // following statuses may be canceled", which would reopen a just-paid listing.
+              if (!/already (been )?canceled|status of canceled/i.test(msg)) {
                 results.expireFailed++;
                 results.errors.push(`${listing.id}: could not cancel wire PaymentIntent — ${msg}`);
                 notifyAdmin({
