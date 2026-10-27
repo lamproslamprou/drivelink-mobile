@@ -1,8 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "./supabase.js";
 import { useLang, Rich, LangToggle } from "./i18n.jsx";
 import logoFull from "./assets/logo-full.png";
 import { analytics } from "@heycatch/sdk";
+
+const GOOGLE_CLIENT_ID = "505787415364-vjcnqg3k36bva6k3khgbnlgt6v5l73gt.apps.googleusercontent.com";
 
 const styles = {
   googleBtn: { width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, padding: "12px 16px", background: "#fff", color: "#1f2937", border: "1.5px solid #d1d5db", borderRadius: 12, fontSize: 15, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", minHeight: 44, marginBottom: 14 },
@@ -160,6 +162,56 @@ export default function Auth({ onAuth, returnView, carLabel, initialTab, onBack 
     if (error) { setError(error.message); setLoading(false); }
     // On success the browser is already leaving for Google.
   };
+
+  // Primary Google path: Google Identity Services. Google's own button opens an
+  // account-picker popup that names drivelink.deals, and the ID token goes to
+  // Supabase via signInWithIdToken, so nobody sees the *.supabase.co redirect
+  // screen. The redirect button (handleGoogle) stays as the fallback if the
+  // script can't load.
+  const googleBtnRef = useRef(null);
+  const [gisReady, setGisReady] = useState(false);
+  useEffect(() => {
+    if (!googleOn) return;
+    let cancelled = false;
+    const init = async () => {
+      if (cancelled || !window.google?.accounts?.id || !googleBtnRef.current) return;
+      const raw = crypto.randomUUID() + crypto.randomUUID();
+      const bytes = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(raw));
+      const hashed = Array.from(new Uint8Array(bytes)).map((b) => b.toString(16).padStart(2, "0")).join("");
+      if (cancelled) return;
+      window.google.accounts.id.initialize({
+        client_id: GOOGLE_CLIENT_ID,
+        nonce: hashed,
+        use_fedcm_for_prompt: true,
+        callback: async ({ credential }) => {
+          setError(""); setLoading(true);
+          const { data, error } = await supabase.auth.signInWithIdToken({ provider: "google", token: credential, nonce: raw });
+          if (error) { setError(error.message); setLoading(false); return; }
+          markSeenAccount();
+          try { analytics.trackEvent("signed_in"); } catch { /* ignore */ }
+          onAuth(data.user);
+        },
+      });
+      window.google.accounts.id.renderButton(googleBtnRef.current, {
+        type: "standard", theme: "outline", size: "large", text: "continue_with", shape: "rectangular", width: 320,
+      });
+      setGisReady(true);
+    };
+    if (window.google?.accounts?.id) {
+      init();
+    } else {
+      let el = document.getElementById("gis-script");
+      if (!el) {
+        el = document.createElement("script");
+        el.id = "gis-script";
+        el.src = "https://accounts.google.com/gsi/client";
+        el.async = true;
+        document.head.appendChild(el);
+      }
+      el.addEventListener("load", init);
+    }
+    return () => { cancelled = true; };
+  }, [googleOn]);
 
   const handleSignUp = async () => {
     setError(""); setLoading(true);
@@ -324,6 +376,8 @@ export default function Auth({ onAuth, returnView, carLabel, initialTab, onBack 
 
         {googleOn && (
           <>
+            <div ref={googleBtnRef} style={{ display: gisReady ? "flex" : "none", justifyContent: "center", minHeight: 44, marginBottom: 14 }} />
+            {!gisReady && (
             <button style={{ ...styles.googleBtn, opacity: loading ? 0.6 : 1 }} onClick={handleGoogle} disabled={loading}>
               <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true" style={{ flex: "none" }}>
                 <path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.9 6.1C12.4 13.5 17.7 9.5 24 9.5z"/>
@@ -333,6 +387,7 @@ export default function Auth({ onAuth, returnView, carLabel, initialTab, onBack 
               </svg>
               {t("auth.google")}
             </button>
+            )}
             <div style={styles.orRow}><span style={styles.orLine} /><span style={styles.orText}>{t("auth.or")}</span><span style={styles.orLine} /></div>
           </>
         )}
