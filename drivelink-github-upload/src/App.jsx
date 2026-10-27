@@ -5012,6 +5012,18 @@ function AboutView({ onBack, onBrowse, onSafety, onPricing }) {
           <FounderBlock />
           <p>Questions, problems, or something that looks wrong on the platform: <a href="mailto:support@drivelink.deals">support@drivelink.deals</a>.</p>
 
+          <h2 id="verify">Check us yourself</h2>
+          <p>You shouldn't have to take our word for any of this. Here is what you can confirm without asking us:</p>
+          <ul>
+            <li><strong>We are a real, registered company.</strong> DriveLink LLC, state entity ID 0451487511, active and in good standing with the State of New Jersey. <a href="https://www1.state.nj.us/TYTR_StandingCert/JSP/Verify_Cert.jsp" target="_blank" rel="noopener noreferrer">Verify the certificate (no. 6182729526) on the State's site</a>.</li>
+            <li><strong>We have a physical address.</strong> 971 US Highway 202N, Ste N, Branchburg, NJ 08876, our registered office.</li>
+            <li><strong>Your card payment goes to the seller's own Stripe account.</strong> You pay through Stripe's checkout, and the seller can't withdraw the money until your 6-digit code is entered. DriveLink never sees your card details.</li>
+            <li><strong>Sellers are identity-checked by Stripe</strong> before they can be paid, and buyers can verify too.</li>
+            <li><strong>Our rules are public.</strong> <a href="/terms">Terms</a>, <a href="/privacy">Privacy Policy</a>, and a <a href="/pricing">full fee schedule with a worked example</a>. No hidden charges.</li>
+            <li><strong>You can reach a person.</strong> <a href="mailto:support@drivelink.deals">support@drivelink.deals</a>.</li>
+            <li><strong>Outside reviews.</strong> We have a <a href="https://www.trustpilot.com/review/drivelink.deals" target="_blank" rel="noopener noreferrer">Trustpilot profile</a>. It's new, so reviews will appear as real deals complete.</li>
+          </ul>
+
           <h2>Before you meet anyone</h2>
           <p>Protected payment secures the payment. It doesn't replace the ordinary care any private sale needs — checking the VIN, meeting somewhere public, confirming the title. Our <button style={styles.legalInlineLink} onClick={onSafety}>meetup safety guide</button> covers what to check and where to meet.</p>
 
