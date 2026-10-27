@@ -158,7 +158,7 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn, list
             <button style={styles.ctaByodDark} onClick={handleStartDeal}>{t("lp.ctaByod")}</button>
             <button style={styles.ctaPrimary} onClick={onBrowse}>{t("lp.ctaBrowse")}</button>
           </div>
-
+          <p style={styles.heroSafety}>{t("lp.heroSafety")}</p>
 
           <div style={styles.sellerLinks} className="dl-seller-links">
             <SpaLink href="/seller-toolkit" view="sellerToolkit" onNavigate={onNavigate} style={styles.sellerLink}>
@@ -625,6 +625,7 @@ const styles = {
   trustLink: { background: "none", border: "none", padding: 0, cursor: "pointer", fontSize: 12.5, fontWeight: 600, color: "#2563eb", whiteSpace: "nowrap", fontFamily: "inherit" },
   sellerLinks: { display: "flex", flexWrap: "wrap", gap: "4px 20px", margin: "0 0 18px" },
   sellerLink: { background: "none", border: "none", padding: 0, cursor: "pointer", fontSize: 14.5, fontWeight: 700, color: "#2563eb", textDecoration: "none", fontFamily: "inherit" },
+  heroSafety: { margin: "12px 0 0", fontSize: 13.5, lineHeight: 1.5, color: "#64748b" },
   trustCard: { width: "100%", maxWidth: 560, boxSizing: "border-box", textAlign: "left", background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 16, padding: "18px 18px 16px" },
   trustList: { listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 12 },
   trustRow: { display: "flex", alignItems: "flex-start", gap: 12, fontSize: 14.5, lineHeight: 1.45, color: "#334155" },
