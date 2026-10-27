@@ -50,7 +50,7 @@ export function faqItemsEn() {
         a: "Tell us. We check in with both parties automatically if a sale sits unconfirmed, and we'll ask each of you directly whether the car changed hands. The seller isn't paid out until it's resolved — nothing is released or refunded on a timer, and no one is left waiting indefinitely without a human looking at it.",
       },
       {
-        q: "Why should I trust a company I've never heard of?",
+        q: "Why should I trust DriveLink with my payment?",
         a: "You don't have to take our word for much. DriveLink LLC is registered in New Jersey with a federal EIN, and our identity is verified with Stripe. The protection comes from where the money sits and who can release it, not from our reputation.",
       },
       {

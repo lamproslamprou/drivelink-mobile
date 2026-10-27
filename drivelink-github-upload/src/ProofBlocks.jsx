@@ -123,12 +123,12 @@ export function TrustCallout({ onMore }) {
   return (
     <div style={S.callout} className="dl-trust-callout">
       <p style={S.calloutHead}>
-        {es ? "¿Por qué confiar en una empresa que no conoces?" : "Why trust a company you've never heard of?"}
+        {es ? "¿Por qué confiar en DriveLink con tu pago?" : "Why trust DriveLink with your payment?"}
       </p>
       <p style={S.calloutBody}>
         {es
-          ? "No tienes que hacerlo. Stripe envía tu pago directo a la cuenta de Stripe del vendedor, y el vendedor no puede retirarlo hasta que se ingrese tu código de 6 dígitos. DriveLink LLC está registrada en Nueva Jersey."
-          : "You don't have to. Stripe sends your payment straight to the seller's own Stripe account, and the seller can't withdraw it until your 6-digit code is entered. DriveLink LLC is registered in New Jersey."}
+          ? "No tienes que confiar en nosotros. Stripe envía tu pago directo a la cuenta de Stripe del vendedor, y el vendedor no puede retirarlo hasta que se ingrese tu código de 6 dígitos. DriveLink LLC está registrada en Nueva Jersey."
+          : "You don't have to rely on us. Stripe sends your payment straight to the seller's own Stripe account, and the seller can't withdraw it until your 6-digit code is entered. DriveLink LLC is registered in New Jersey."}
       </p>
       <button style={S.calloutLink} onClick={onMore}>{es ? "Cómo se protege tu dinero →" : "How your money is protected →"}</button>
     </div>

@@ -9,8 +9,7 @@
 //      link-unfurlers that never run JS see them too.
 // Plain JS, no JSX, imports only fee.js — both consumers must be able to load it.
 //
-// Titles stay under ~60 characters. Not listed here on purpose: /inspectors
-// (InspectorsView sets its own), /listing/* (ListingDetailModal + listing-meta.js)
+// Titles stay under ~60 characters. Not listed here on purpose: /listing/* (ListingDetailModal + listing-meta.js)
 // and the lien-payoff guides (set by their own components).
 // ============================================================================
 import { platformFeeLabel } from "./fee.js";
@@ -36,6 +35,11 @@ export function pageMetaTable() {
       title: "Start a Protected Deal on Any Private Car Sale | DriveLink",
       description:
         "Found a car on Facebook Marketplace or Craigslist? Start a deal on that car and the seller isn't paid until the keys and title change hands.",
+    },
+    "/inspectors": {
+      title: "Find a Pre-Purchase Inspector | DriveLink",
+      description:
+        "Independent pre-purchase inspection businesses for DriveLink car buyers to find and contact. Run an inspection business? List it for free.",
     },
     "/faq": {
       title: "Is DriveLink Safe? How Your Money Is Protected",
