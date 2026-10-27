@@ -16,6 +16,7 @@ import { useState, useEffect, useRef } from "react";
 import { supabase } from "./supabase";
 import { platformFeeLabel, promoActive } from "./fee.js";
 import { analytics } from "@heycatch/sdk";
+import { useLang } from "./i18n.jsx";
 
 const currentYear = new Date().getFullYear();
 
@@ -47,6 +48,7 @@ function clearPromoterCode() {
 // ============================================================================
 
 export function StartDealView({ currentUser, promoterCode, onBack, onNavigate, showToast }) {
+  const es = useLang().lang === "es";
   const [role, setRole] = useState("seller");
   const [form, setForm] = useState({
     vin: "", year: "", make: "", model: "", mileage: "", price: "", note: "",
@@ -226,51 +228,55 @@ export function StartDealView({ currentUser, promoterCode, onBack, onNavigate, s
               guide, an outreach email, or a /p/ link and is not ready to sign
               up yet had nowhere to go and no reason to believe there was
               anything else here. */}
-          {onBack && <button style={dealStyles.backBtn} onClick={onBack}>← Back to DriveLink</button>}
+          {onBack && <button style={dealStyles.backBtn} onClick={onBack}>{es ? "← Volver a DriveLink" : "← Back to DriveLink"}</button>}
           {referrer && (
-            <div style={dealStyles.inviteEyebrow}>Referred by {referrer}</div>
+            <div style={dealStyles.inviteEyebrow}>{es ? "Te refirió" : "Referred by"} {referrer}</div>
           )}
-          <h1 style={dealStyles.title}>Buying a car from someone you've never met?</h1>
+          <h1 style={dealStyles.title}>{es ? "¿Vas a comprar un auto a alguien que no conoces?" : "Buying a car from someone you've never met?"}</h1>
           <p style={dealStyles.sub}>
-            The seller isn't paid until the car is actually handed over, so
-            neither side has to go first.
+            {es
+              ? "Al vendedor no se le paga hasta que el auto se entrega de verdad, así que ninguna de las dos partes tiene que dar el primer paso."
+              : "The seller isn't paid until the car is actually handed over, so neither side has to go first."}
           </p>
 
           <div style={dealStyles.stepsWrap}>
             <ol style={dealStyles.steps}>
               <li style={dealStyles.step}>
-                The buyer pays through DriveLink. The seller can see the payment is
-                secured, but can't touch them yet.
+                {es
+                  ? "El comprador paga a través de DriveLink. El vendedor puede ver que el pago está asegurado, pero todavía no puede tocarlo."
+                  : "The buyer pays through DriveLink. The seller can see the payment is secured, but can't touch them yet."}
               </li>
               <li style={dealStyles.step}>
-                The seller ships or delivers the car.
+                {es ? "El vendedor envía o entrega el auto." : "The seller ships or delivers the car."}
               </li>
               <li style={dealStyles.step}>
-                At handover the buyer gives the seller a 6-digit code. Entering
-                it releases the money. No code, no payout.
+                {es
+                  ? "En la entrega, el comprador le da al vendedor un código de 6 dígitos. Al ingresarlo se libera el dinero. Sin código, no hay pago."
+                  : "At handover the buyer gives the seller a 6-digit code. Entering it releases the money. No code, no payout."}
               </li>
             </ol>
           </div>
 
           <div style={dealStyles.priceCard}>
-            <div style={dealStyles.eyebrow}>What it costs</div>
+            <div style={dealStyles.eyebrow}>{es ? "Cuánto cuesta" : "What it costs"}</div>
             <div style={dealStyles.priceRow}>
-              <span style={dealStyles.priceLabel}>DriveLink protection fee{promoActive() ? " (half price through October 31)" : ""}</span>
+              <span style={dealStyles.priceLabel}>{es ? "Tarifa de protección de DriveLink" : "DriveLink protection fee"}{promoActive() ? (es ? " (mitad de precio hasta el 31 de octubre)" : " (half price through October 31)") : ""}</span>
               <span style={dealStyles.vinValue}>{platformFeeLabel()}</span>
             </div>
             {referrer && (
               <div style={{ fontSize: 12, color: "#6b7280", lineHeight: 1.6, marginTop: 12 }}>
-                {referrer} sent you here. It costs you nothing extra — DriveLink
-                pays them directly. You can also start a deal directly at drivelink.deals.
+                {es
+                  ? `${referrer} te envió aquí. No te cuesta nada extra: DriveLink le paga directamente. También puedes iniciar un trato directamente en drivelink.deals.`
+                  : `${referrer} sent you here. It costs you nothing extra — DriveLink pays them directly. You can also start a deal directly at drivelink.deals.`}
               </div>
             )}
           </div>
 
           <button style={dealStyles.primaryBtn} onClick={() => onNavigate?.("auth")}>
-            Create an account to start
+            {es ? "Crea una cuenta para empezar" : "Create an account to start"}
           </button>
           <p style={{ fontSize: 13, color: "#6b7280", marginTop: 12, textAlign: "center" }}>
-            Free to set up. You're only charged when a deal goes through.
+            {es ? "Es gratis crear la cuenta. Solo se te cobra cuando un trato se concreta." : "Free to set up. You're only charged when a deal goes through."}
           </p>
           {/* Not everyone landing here has a car in mind — some arrive from a
               guide or an ad. Without this, the only path forward is signup,
@@ -278,12 +284,12 @@ export function StartDealView({ currentUser, promoterCode, onBack, onNavigate, s
               inventory first. DriveLink is a marketplace as well as a payment-protection
               layer and this screen never said so. */}
           <p style={{ fontSize: 14, color: "#6b7280", marginTop: 22, textAlign: "center" }}>
-            Don't have a car picked out yet?{" "}
+            {es ? "¿Todavía no tienes un auto elegido?" : "Don't have a car picked out yet?"}{" "}
             <button
               onClick={() => onNavigate?.("home")}
               style={{ background: "none", border: "none", padding: 0, color: "#1d4ed8", fontSize: 14, fontWeight: 600, cursor: "pointer", textDecoration: "underline" }}
             >
-              Browse cars listed on DriveLink
+              {es ? "Ver autos publicados en DriveLink" : "Browse cars listed on DriveLink"}
             </button>
           </p>
         </div>

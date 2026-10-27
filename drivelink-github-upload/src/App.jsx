@@ -2689,7 +2689,49 @@ function LegalPageView({ type, onBack }) {
   );
 }
 
+function SafetyTipsViewEs({ onBack }) {
+  return (
+    <div style={styles.legalPage}>
+      <style>{css}</style>
+      <div style={styles.legalInner}>
+        <button style={styles.legalBackBtn} onClick={onBack}>← Volver a DriveLink</button>
+        <h1 style={styles.legalTitle}>🛡️ Consejos de seguridad para el encuentro</h1>
+        <p style={styles.legalUpdated}>DriveLink te conecta directamente con la otra persona. Así se hace el intercambio de forma segura.</p>
+        <div style={styles.legalBody} className="legalBody">
+          <h2>Antes de reunirse</h2>
+          <p>Escribe un poco antes a través del chat de DriveLink antes de acordar el encuentro: es una forma fácil de comprobar que la otra persona parece legítima y de guardar constancia de lo acordado.</p>
+          <p>Nunca envíes dinero, ni siquiera un depósito, fuera del pago de la plataforma para «reservar» un auto. Esa petición por sí sola es uno de los patrones de estafa más comunes en la venta de autos.</p>
+
+          <h2>Dónde reunirse</h2>
+          <p>Reúnete en un lugar público y con luz de día siempre que sea posible. Muchos departamentos de policía locales ofrecen una «zona de intercambio seguro» en su estacionamiento, a menudo con cámaras de seguridad: busca «[tu ciudad] police safe exchange zone» para encontrar una cercana.</p>
+          <p>Si hay prueba de manejo, reúnanse primero en un lugar público y luego recorran una ruta con la que te sientas cómodo (un estacionamiento público concurrido, no el domicilio del vendedor ni del comprador), sobre todo en un primer encuentro.</p>
+
+          <h2>Lleva compañía</h2>
+          <p>Lleva a un amigo o familiar si puedes. Si vas solo, avisa a alguien adónde vas, con quién te reúnes y a qué hora piensas volver.</p>
+
+          <h2>Antes de entregar el auto o el dinero</h2>
+          <p>Compradores: verifiquen que el VIN del tablero o del marco de la puerta coincida con el anuncio, y confirmen que la identificación del vendedor coincida con el nombre que aparece en el título. Vendedores: el pago del comprador ya está hecho y protegido antes de que se encuentren (está en tu propio saldo de Stripe y no se puede pagar hasta que se ingrese el código de entrega), así que no necesitas aceptar un cheque, una captura de pantalla ni una promesa.</p>
+
+          <h2>Tu código de entrega</h2>
+          <p>Cuando un comprador paga, DriveLink le da un código de entrega de 6 dígitos. Ese código es la llave del dinero: en el momento en que el vendedor lo ingresa, los fondos se liberan y la venta es definitiva. Stripe retiene los pagos con tarjeta unos 2 días hábiles (a menudo más en los primeros pagos de un vendedor), así que el depósito llega al banco del vendedor después de ese plazo, no al instante.</p>
+          <p><strong>Compradores: no des tu código hasta que el auto y el título firmado estén físicamente en tus manos.</strong> Ni al llegar, ni mientras inspeccionas, ni como gesto de buena fe. Un vendedor que lo pide antes está pidiendo que le paguen cuando todavía no tienes nada. Díctalo en persona en lugar de enviarlo por mensaje.</p>
+          <p>Vendedores: pide el código cuando el comprador ya se haya llevado el auto y el título firmado. Al ingresarlo se libera tu pago de inmediato; Stripe retiene los pagos con tarjeta unos 2 días hábiles (más en un primer pago), así que si la entrega ocurre a las pocas horas del pago, el depósito se envía automáticamente en cuanto Stripe lo libere.</p>
+          <p>Si algo no está bien, no entregues el código. Reporta un problema en DriveLink y mantendremos retenido el pago del vendedor mientras lo investigamos. Nada se libera automáticamente, así que no hay un reloj que te obligue a decidir en el momento.</p>
+
+          <h2>Confía en tu instinto</h2>
+          <p>Si algo te parece raro (presión para apurarte, reticencia a reunirse en público, peticiones de métodos de pago inusuales), está bien irte. Siempre puedes reportar un anuncio o a un usuario directamente desde DriveLink si algo te parece mal.</p>
+
+          <h2>Después de la venta</h2>
+          <p>Completa el traspaso del título de tu estado sin demora: los requisitos varían, así que consulta el sitio web del DMV local para ver los pasos exactos. Guarda una copia de la factura de venta firmada para tus registros.</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function SafetyTipsView({ onBack }) {
+  const { lang } = useLang();
+  if (lang === "es") return <SafetyTipsViewEs onBack={onBack} />;
   return (
     <div style={styles.legalPage}>
       <style>{css}</style>
@@ -4980,7 +5022,69 @@ const INSTALL_SNOOZE_DAYS = 30;
 // hand a stranger $7,000 through a site they have never heard of is asking who
 // runs it, where the money sits, and what happens when it goes wrong — so the
 // page answers those plainly rather than selling.
+function AboutViewEs({ onBack, onBrowse, onSafety, onPricing }) {
+  return (
+    <div style={styles.legalPage}>
+      <style>{css}</style>
+      <div style={styles.legalInner}>
+        <button style={styles.legalBackBtn} onClick={onBack}>← Volver a DriveLink</button>
+        <h1 style={styles.legalTitle}>Acerca de DriveLink</h1>
+        <p style={styles.legalUpdated}>Un mercado de autos entre particulares donde el pago está protegido hasta que el auto realmente cambia de manos.</p>
+        <div style={styles.legalBody} className="legalBody">
+          <h2>Por qué existe DriveLink</h2>
+          <p>Comprar un auto usado a un particular suele significar elegir entre dos malas opciones. Mercados como Facebook y Craigslist tienen los autos pero ninguna protección de pago: te reúnes con un desconocido y entregas un cheque de caja, esperando que el título esté limpio. Los servicios de depósito en garantía (escrow) de terceros ofrecen protección pero no están hechos para autos, así que terminas aplicando un proceso genérico a una transacción para la que no fue diseñado.</p>
+          <p>DriveLink junta ambas cosas. Cada venta se cierra con pago protegido: al vendedor no se le paga hasta que las llaves y el título hayan cambiado de manos.</p>
+
+          <h2>Cómo funciona una venta</h2>
+          <p>Un vendedor publica su auto. Un comprador paga a través de la plataforma y ese pago queda retenido: todavía no llega al vendedor. Los dos coordinan la entrega por su cuenta, en persona, como en cualquier venta entre particulares.</p>
+          <p>Nada se libera por un temporizador. Cuando el comprador paga, recibe un código de entrega de 6 dígitos. En la entrega, cuando el auto y el título firmado ya están en sus manos, le da ese código al vendedor, quien lo ingresa, y los fondos se liberan. Stripe retiene los pagos con tarjeta unos 2 días hábiles (más en los primeros pagos de un vendedor), así que el pago al vendedor se envía en cuanto el cobro se haya liberado. El comprador también puede confirmar la recepción en la app si lo prefiere. Si una venta se queda sin movimiento y no hay confirmación de ninguna de las partes, la pausamos y les preguntamos a ambos qué pasó, en lugar de pagarle a alguien y esperar que todo salga bien. Si algo sale mal, el comprador puede abrir una disputa en cualquier momento.</p>
+
+          <h2>Cuánto cuesta</h2>
+          <p>DriveLink cobra a los vendedores {platformFeeLabel()} del precio de venta{promoActive() ? " (la mitad de nuestro 1 % habitual, hasta el 31 de octubre)" : ""}. Los compradores no pagan nada más allá del precio del auto. La tarifa se muestra de antemano al publicar un auto, junto con lo que el vendedor realmente recibirá después de los costos de procesamiento de la tarjeta: sin sorpresas con el número real a la hora del pago.</p>
+          {onPricing && <p><button style={styles.legalInlineLink} onClick={onPricing}>Ver la tabla completa de tarifas con un ejemplo →</button></p>}
+
+          <h2>Dónde está el dinero</h2>
+          <p>Los pagos los procesa Stripe directamente a la cuenta de Stripe del propio vendedor, y el vendedor no puede retirarlos hasta la liberación. DriveLink nunca maneja los datos de la tarjeta: van directo a Stripe. Los vendedores conectan su propia cuenta para recibir los pagos.</p>
+
+          <h2>Quién está detrás</h2>
+          <p>DriveLink LLC es una sociedad de responsabilidad limitada de Nueva Jersey (ID de entidad estatal 0451487511), registrada el 29 de junio de 2026. El Estado de Nueva Jersey la certificó como empresa activa y en regla el 23 de octubre de 2026 (certificado n.º 6182729526, que cualquiera puede <a href="https://www1.state.nj.us/TYTR_StandingCert/JSP/Verify_Cert.jsp" target="_blank" rel="noopener noreferrer">verificar en el sitio web del Estado</a>).</p>
+          <p>Es una operación pequeña, y es a propósito: puedes hablar con una persona que realmente pueda resolver tu problema, en lugar de una fila de soporte.</p>
+          <FounderBlock />
+          <p>Preguntas, problemas o algo que te parezca mal en la plataforma: <a href="mailto:support@drivelink.deals">support@drivelink.deals</a>.</p>
+
+          <h2 id="verify">Compruébalo tú mismo</h2>
+          <p>No deberías tener que creernos. Esto es lo que puedes confirmar sin preguntarnos:</p>
+          <ul>
+            <li><strong>Somos una empresa real y registrada.</strong> DriveLink LLC, ID de entidad estatal 0451487511, activa y en regla con el Estado de Nueva Jersey. <a href="https://www1.state.nj.us/TYTR_StandingCert/JSP/Verify_Cert.jsp" target="_blank" rel="noopener noreferrer">Verifica el certificado (n.º 6182729526) en el sitio del Estado</a>.</li>
+            <li><strong>Tenemos una dirección física.</strong> 971 US Highway 202N, Ste N, Branchburg, NJ 08876, nuestra oficina registrada.</li>
+            <li><strong>Tu pago con tarjeta va a la cuenta de Stripe del propio vendedor.</strong> Pagas con el checkout de Stripe, y el vendedor no puede retirar el dinero hasta que se ingrese tu código de 6 dígitos. DriveLink nunca ve los datos de tu tarjeta.</li>
+            <li><strong>Stripe verifica la identidad de los vendedores</strong> antes de que se les pueda pagar, y los compradores también pueden verificarse.</li>
+            <li><strong>Nuestras reglas son públicas.</strong> <a href="/terms">Términos</a> y <a href="/privacy">Política de privacidad</a> (en inglés), y una <a href="/pricing">tabla completa de tarifas con un ejemplo</a>. Sin cargos ocultos.</li>
+            <li><strong>Puedes hablar con una persona.</strong> <a href="mailto:support@drivelink.deals">support@drivelink.deals</a>.</li>
+          </ul>
+
+          <h2>Antes de reunirte con alguien</h2>
+          <p>El pago protegido asegura el pago. No reemplaza el cuidado normal que requiere cualquier venta entre particulares: revisar el VIN, reunirse en un lugar público, confirmar el título. Nuestra <button style={styles.legalInlineLink} onClick={onSafety}>guía de seguridad para el encuentro</button> explica qué revisar y dónde reunirse.</p>
+
+          <p>
+            Cómo nos comparamos:{" "}
+            <a href="/vs/drivelink-vs-privateauto">DriveLink vs PrivateAuto</a>,{" "}
+            <a href="/vs/drivelink-vs-keysavvy">DriveLink vs KeySavvy</a>,{" "}
+            <a href="/vs/drivelink-vs-escrow-com">DriveLink vs Escrow.com</a>.
+          </p>
+
+          <p style={{ marginTop: 28 }}>
+            <button style={styles.legalBackBtn} onClick={onBrowse}>Ver autos →</button>
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function AboutView({ onBack, onBrowse, onSafety, onPricing }) {
+  const { lang } = useLang();
+  if (lang === "es") return <AboutViewEs onBack={onBack} onBrowse={onBrowse} onSafety={onSafety} onPricing={onPricing} />;
   return (
     <div style={styles.legalPage}>
       <style>{css}</style>
@@ -5931,7 +6035,73 @@ function PromoterLinkRow({ code, listing, standing = false }) {
 // What a signed-out visitor sees at /promoter. This page is not linked from the
 // nav — people reach it from an outreach email or a direct link — so it has to
 // carry the whole pitch itself rather than assuming any context.
+function PromoterSignedOutEs({ onSignUp, onBack }) {
+  return (
+    <div style={{ ...styles.pageWrap, maxWidth: 720 }}>
+      <button
+        onClick={onBack}
+        style={{ background: "none", border: "none", padding: 0, color: "#6b7280", fontSize: 14, fontWeight: 600, cursor: "pointer", marginBottom: 20 }}
+      >
+        ← Volver a DriveLink
+      </button>
+      <h2 style={styles.pageTitle}>Gana $10 por cada persona que traigas a un trato</h2>
+
+      <p style={{ color: "#334155", fontSize: 16, lineHeight: 1.7 }}>
+        Si organizas ventas o transporte de vehículos, tus clientes ya están enviando
+        dinero a personas que nunca han conocido. DriveLink protege ese pago hasta que
+        las llaves y el título cambian de manos, y te paga{" "}
+        <b>$10 fijos</b> por cada usuario nuevo, con identidad verificada, que envíes y que inicie un trato.
+      </p>
+
+      <div style={{ ...styles.infoBox, marginTop: 24 }}>
+        <b>Los $10 los paga DriveLink, no se suman al trato.</b> Tu cliente
+        no paga nada extra y no reduce lo que recibe el vendedor. Se paga se cierre
+        o no la venta. Se aplican topes mensuales.
+      </div>
+
+      <div style={{ marginTop: 28 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: "#64748b", letterSpacing: ".06em", marginBottom: 14 }}>
+          CÓMO FUNCIONA
+        </div>
+        {[
+          ["1", "Crea una cuenta", "Toma un minuto. Sin costo, sin contrato, nada que instalar."],
+          ["2", "Obtén tu enlace", "Un solo enlace permanente. No está ligado a ningún auto en particular y no vence."],
+          ["3", "Envíalo a cualquiera que esté haciendo un trato", "Un cliente que compra desde otro estado, un vendedor nervioso por un cheque de caja: cualquiera que mueva un auto de forma privada."],
+          ["4", "Cobra cuando tu referido inicie un trato", "Se acreditan $10 a tu saldo tras un breve período de revisión, una vez que la persona que referiste haya verificado su identidad y empezado un trato. Se pagan a tu banco."],
+        ].map(([n, title, desc]) => (
+          <div key={n} style={{ display: "flex", gap: 14, marginBottom: 18 }}>
+            <div style={{
+              flexShrink: 0, width: 28, height: 28, borderRadius: 14, background: "#1d4ed8",
+              color: "#fff", fontSize: 14, fontWeight: 700, display: "flex",
+              alignItems: "center", justifyContent: "center",
+            }}>{n}</div>
+            <div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: "#0f172a" }}>{title}</div>
+              <div style={{ fontSize: 14, color: "#475569", lineHeight: 1.6, marginTop: 2 }}>{desc}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <button
+        onClick={onSignUp}
+        style={{
+          marginTop: 8, background: "#1d4ed8", color: "#fff", border: "none",
+          borderRadius: 10, padding: "15px 26px", fontSize: 16, fontWeight: 700, cursor: "pointer",
+        }}
+      >
+        Crea una cuenta y obtén mi enlace
+      </button>
+      <div style={{ fontSize: 13, color: "#6b7280", marginTop: 10 }}>
+        Es gratis. Solo se te paga, nunca se te cobra.
+      </div>
+    </div>
+  );
+}
+
 function PromoterSignedOut({ onSignUp, onBack }) {
+  const { lang } = useLang();
+  if (lang === "es") return <PromoterSignedOutEs onSignUp={onSignUp} onBack={onBack} />;
   return (
     <div style={{ ...styles.pageWrap, maxWidth: 720 }}>
       {/* This view renders outside the app shell, so there is no nav to fall
@@ -5947,8 +6117,8 @@ function PromoterSignedOut({ onSignUp, onBack }) {
 
       <p style={{ color: "#334155", fontSize: 16, lineHeight: 1.7 }}>
         If you arrange vehicle sales or transport, your customers are already
-        wiring money to people they have never met. DriveLink protects that payment
-        is protected until the keys and title change hands — and pays you{" "}
+        wiring money to people they have never met. DriveLink holds that payment
+        until the keys and title change hands — and pays you{" "}
         <b>a flat $10</b> for each new, ID-verified user you send who starts a deal.
       </p>
 
@@ -5966,7 +6136,7 @@ function PromoterSignedOut({ onSignUp, onBack }) {
           ["1", "Create an account", "Takes a minute. No fee, no contract, nothing to install."],
           ["2", "Get your link", "One standing link. It is not tied to any particular car, and it does not expire."],
           ["3", "Send it to anyone doing a deal", "A customer buying out of state, a seller nervous about a cashier's check \u2014 anyone moving a car privately."],
-          ["4", "Get paid when the sale completes", "$10 is credited to your balance after a short review period once the person you referred has verified their ID and started a deal. Paid out to your bank."],
+          ["4", "Get paid when your referral starts a deal", "$10 is credited to your balance after a short review period once the person you referred has verified their ID and started a deal. Paid out to your bank."],
         ].map(([n, title, desc]) => (
           <div key={n} style={{ display: "flex", gap: 14, marginBottom: 18 }}>
             <div style={{

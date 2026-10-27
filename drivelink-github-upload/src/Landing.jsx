@@ -369,20 +369,20 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn, list
       {/* HOW IT WORKS — ROLES */}
       <section style={{ ...styles.section, background: "#f8fafc" }} className="dl-section">
         <div style={styles.sectionInner}>
-          <div style={styles.sectionBadge}>How it works</div>
-          <h2 style={styles.sectionTitle} className="dl-section-title">Three ways to use DriveLink</h2>
+          <div style={styles.sectionBadge}>{lang === "es" ? "Cómo funciona" : "How it works"}</div>
+          <h2 style={styles.sectionTitle} className="dl-section-title">{lang === "es" ? "Tres formas de usar DriveLink" : "Three ways to use DriveLink"}</h2>
           <div style={styles.cards} className="dl-cards">
 
             <div style={{ ...styles.roleCard, background: "#fff" }}>
               <div style={styles.roleEmoji}>🚗</div>
-              <h3 style={styles.roleTitle}>Sellers</h3>
-              <p style={styles.roleDesc}>List your car for free in minutes. Upload photos, set your price, and let our network of promoters share it for you. The buyer pays first and you're not asked to hand over anything until the payment is in — so you're never deciding whether to trust a piece of paper in a parking lot.</p>
+              <h3 style={styles.roleTitle}>{lang === "es" ? "Vendedores" : "Sellers"}</h3>
+              <p style={styles.roleDesc}>{lang === "es" ? "Publica tu auto gratis en minutos. Sube fotos, fija tu precio y deja que nuestra red de promotores lo comparta por ti. El comprador paga primero y a ti no se te pide entregar nada hasta que el pago esté hecho, así que nunca tienes que decidir si confiar en un papel en un estacionamiento." : "List your car for free in minutes. Upload photos, set your price, and let our network of promoters share it for you. The buyer pays first and you're not asked to hand over anything until the payment is in — so you're never deciding whether to trust a piece of paper in a parking lot."}</p>
               <ul style={styles.roleList}>
-                <li>✅ Free to list</li>
-                <li>✅ Buyer's funds verified before handover</li>
-                <li>✅ {platformFeeLabel()} fee, paid by the seller</li>
+                <li>✅ {lang === "es" ? "Publicar es gratis" : "Free to list"}</li>
+                <li>✅ {lang === "es" ? "Fondos del comprador verificados antes de la entrega" : "Buyer's funds verified before handover"}</li>
+                <li>✅ {lang === "es" ? `Tarifa de ${platformFeeLabel()}, la paga el vendedor` : `${platformFeeLabel()} fee, paid by the seller`}</li>
               </ul>
-              <button style={styles.roleBtn} onClick={handleCta}>List My Car →</button>
+              <button style={styles.roleBtn} onClick={handleCta}>{lang === "es" ? "Publicar mi auto →" : "List My Car →"}</button>
             </div>
 
             {/* A pointer, not a pitch. /promoter carries the full explanation —
@@ -391,27 +391,27 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn, list
                 actually mint codes. "Most Popular" was also simply untrue. */}
             <div style={{ ...styles.roleCard, ...styles.roleCardFeatured }}>
               <div style={styles.roleEmoji}>🔗</div>
-              <h3 style={{ ...styles.roleTitle, color: "#fff" }}>Promoters</h3>
-              <p style={{ fontSize: 13, fontWeight: 700, color: "#60a5fa", marginBottom: 10 }}>Know someone buying or selling a car?</p>
-              <p style={{ ...styles.roleDesc, color: "#94a3b8" }}>Share a listing from here, or send your own link to two people doing a deal on a car we've never seen. Either way you earn $10 when someone you refer verifies their ID and starts a deal. DriveLink pays it, so it never comes out of anyone's pocket.</p>
+              <h3 style={{ ...styles.roleTitle, color: "#fff" }}>{lang === "es" ? "Promotores" : "Promoters"}</h3>
+              <p style={{ fontSize: 13, fontWeight: 700, color: "#60a5fa", marginBottom: 10 }}>{lang === "es" ? "¿Conoces a alguien que compre o venda un auto?" : "Know someone buying or selling a car?"}</p>
+              <p style={{ ...styles.roleDesc, color: "#94a3b8" }}>{lang === "es" ? "Comparte un anuncio desde aquí, o envía tu propio enlace a dos personas que hacen un trato por un auto que no hemos visto. De cualquier forma, ganas $10 cuando alguien que refieres verifica su identidad y empieza un trato. Lo paga DriveLink, así que nunca sale del bolsillo de nadie." : "Share a listing from here, or send your own link to two people doing a deal on a car we've never seen. Either way you earn $10 when someone you refer verifies their ID and starts a deal. DriveLink pays it, so it never comes out of anyone's pocket."}</p>
               <ul style={{ ...styles.roleList, color: "#94a3b8" }}>
-                <li>✅ Works on any car, listed here or not</li>
-                <li>✅ One standing link, no expiry</li>
-                <li>✅ Paid out to your bank</li>
+                <li>✅ {lang === "es" ? "Funciona con cualquier auto, publicado aquí o no" : "Works on any car, listed here or not"}</li>
+                <li>✅ {lang === "es" ? "Un enlace permanente, sin vencimiento" : "One standing link, no expiry"}</li>
+                <li>✅ {lang === "es" ? "Se paga a tu banco" : "Paid out to your bank"}</li>
               </ul>
-              <button style={{ ...styles.roleBtn, background: "#3b82f6" }} onClick={() => onNavigate?.("promoter")}>See how it works →</button>
+              <button style={{ ...styles.roleBtn, background: "#3b82f6" }} onClick={() => onNavigate?.("promoter")}>{lang === "es" ? "Ver cómo funciona →" : "See how it works →"}</button>
             </div>
 
             <div style={{ ...styles.roleCard, background: "#fff" }}>
               <div style={styles.roleEmoji}>🛒</div>
-              <h3 style={styles.roleTitle}>Buyers</h3>
-              <p style={styles.roleDesc}>Browse cars listed directly by their owners. No dealer markups, no pressure. The seller isn't paid out until you confirm you have the car and the title in your hands.</p>
+              <h3 style={styles.roleTitle}>{lang === "es" ? "Compradores" : "Buyers"}</h3>
+              <p style={styles.roleDesc}>{lang === "es" ? "Explora autos publicados directamente por sus dueños. Sin sobreprecios de concesionario, sin presión. Al vendedor no se le paga hasta que confirmes que tienes el auto y el título en tus manos." : "Browse cars listed directly by their owners. No dealer markups, no pressure. The seller isn't paid out until you confirm you have the car and the title in your hands."}</p>
               <ul style={styles.roleList}>
-                <li>✅ Direct from owners</li>
-                <li>✅ Seller not paid until you have the keys</li>
-                <li>✅ Every seller is identity-checked by Stripe before they can be paid</li>
+                <li>✅ {lang === "es" ? "Directo de los dueños" : "Direct from owners"}</li>
+                <li>✅ {lang === "es" ? "El vendedor no cobra hasta que tengas las llaves" : "Seller not paid until you have the keys"}</li>
+                <li>✅ {lang === "es" ? "Stripe verifica la identidad de cada vendedor antes de poder pagarle" : "Every seller is identity-checked by Stripe before they can be paid"}</li>
               </ul>
-              <button style={styles.roleBtn} onClick={onBrowse}>Browse Cars →</button>
+              <button style={styles.roleBtn} onClick={onBrowse}>{lang === "es" ? "Ver autos →" : "Browse Cars →"}</button>
             </div>
 
           </div>
