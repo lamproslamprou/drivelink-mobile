@@ -5021,7 +5021,6 @@ function AboutView({ onBack, onBrowse, onSafety, onPricing }) {
             <li><strong>Sellers are identity-checked by Stripe</strong> before they can be paid, and buyers can verify too.</li>
             <li><strong>Our rules are public.</strong> <a href="/terms">Terms</a>, <a href="/privacy">Privacy Policy</a>, and a <a href="/pricing">full fee schedule with a worked example</a>. No hidden charges.</li>
             <li><strong>You can reach a person.</strong> <a href="mailto:support@drivelink.deals">support@drivelink.deals</a>.</li>
-            <li><strong>Outside reviews.</strong> We have a <a href="https://www.trustpilot.com/review/drivelink.deals" target="_blank" rel="noopener noreferrer">Trustpilot profile</a>. It's new, so reviews will appear as real deals complete.</li>
           </ul>
 
           <h2>Before you meet anyone</h2>
