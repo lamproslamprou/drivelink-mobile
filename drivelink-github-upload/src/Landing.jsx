@@ -473,7 +473,6 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn, list
                 {lang === "es" ? "Cómo se protege tu dinero" : "How your money is protected"}
               </button>
               <SpaLink href="/about" view="about" onNavigate={onNavigate} style={styles.footerAnchor}>{lang === "es" ? "Acerca de" : "About"}</SpaLink>
-              <a href="/about#verify" style={styles.footerAnchor}>{lang === "es" ? "Compru\u00e9banos" : "Check us yourself"}</a>
               <button style={styles.footerLinkBtn} onClick={() => onNavigate?.("terms")}>{t("lp.foot.terms")}</button>
               <button style={styles.footerLinkBtn} onClick={() => onNavigate?.("privacy")}>{t("lp.foot.privacy")}</button>
               <a href="https://www.trustpilot.com/review/drivelink.deals" target="_blank" rel="noopener noreferrer" style={styles.footerAnchor}>{lang === "es" ? "⭐ Opiniones en Trustpilot" : "⭐ Reviews on Trustpilot"}</a>
