@@ -292,9 +292,9 @@
       if(form.elements.website.value){ box.className+=" ok"; return; }
       if(email.length>254||!RE.test(email)){ msg.className="msg err"; msg.textContent=msg.getAttribute("data-bad"); form.elements.email.focus(); return; }
       btn.disabled=true; btn.innerHTML=btn.getAttribute("data-working");
-      fetch(URL_BASE+"/rest/v1/email_leads",{method:"POST",headers:{"apikey":KEY,"Authorization":"Bearer "+KEY,"Content-Type":"application/json","Prefer":"return=minimal,resolution=ignore-duplicates"},
+      fetch(URL_BASE+"/rest/v1/email_leads",{method:"POST",headers:{"apikey":KEY,"Authorization":"Bearer "+KEY,"Content-Type":"application/json","Prefer":"return=minimal"},
         body:JSON.stringify({email:email,source:"nj-packet",lang:lang,consent_text:CONSENT[lang]})})
-      .then(function(r){ if(!r.ok) throw new Error(r.status); box.className+=" ok"; })
+      .then(function(r){ if(!r.ok && r.status!==409) throw new Error(r.status); box.className+=" ok"; })
       .catch(function(){ msg.className="msg err"; msg.textContent=msg.getAttribute("data-err"); })
       .then(function(){ btn.disabled=false; btn.innerHTML=label; });
     });
