@@ -2,6 +2,7 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App.jsx'
 import { LangProvider } from './i18n.jsx'
+import ErrorBoundary from './ErrorBoundary.jsx'
 import { analytics } from '@heycatch/sdk'
 
 // HeyCatch analytics. Module scope, once, in the entry file that runs on every
@@ -27,12 +28,26 @@ analytics.init({
   },
 })
 
+// After a deploy, a tab opened before it can request a code-split chunk whose
+// hashed filename no longer exists, which otherwise leaves a blank page. Vite
+// fires this event for that case: reload once to pick up the new build. The
+// sessionStorage flag stops a reload loop if the failure is something else.
+window.addEventListener("vite:preloadError", () => {
+  try {
+    if (sessionStorage.getItem("chunk_reload") === "1") return;
+    sessionStorage.setItem("chunk_reload", "1");
+  } catch { /* storage blocked: still try one reload */ }
+  window.location.reload();
+});
+
 // LangProvider sits outside App so the language choice survives every view
 // change and is available to Auth.jsx, which renders before App's own tree.
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <LangProvider>
-      <App />
-    </LangProvider>
+    <ErrorBoundary>
+      <LangProvider>
+        <App />
+      </LangProvider>
+    </ErrorBoundary>
   </React.StrictMode>
 )
