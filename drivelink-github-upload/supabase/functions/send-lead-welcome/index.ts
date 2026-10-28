@@ -50,6 +50,8 @@ const COPY = {
     g2: "Sold your car in New Jersey? Plates, insurance and paperwork",
     prod: "Already found a car and want the payment protected until the car and signed title change hands? DriveLink can do that.",
     cta: "Secure a deal",
+    sell: "Selling your car? Build a free ad and a pay-safely link:",
+    sellCta: "Seller Toolkit",
     why: "You're getting this because you asked for the free packet on drivelink.deals.",
     unsub: "Unsubscribe",
     note: "General information, not legal advice. Rules and fees change, so confirm with the NJ MVC.",
@@ -74,6 +76,8 @@ const COPY = {
     g2: "¿Vendiste tu auto en Nueva Jersey? Placas, seguro y documentos",
     prod: "¿Ya encontraste un auto y quieres que el pago esté protegido hasta que el auto y el título firmado cambien de manos? DriveLink puede hacerlo.",
     cta: "Asegurar un trato",
+    sell: "¿Vendes tu auto? Crea gratis un anuncio y un enlace de pago seguro:",
+    sellCta: "Kit para vendedores",
     why: "Recibes este correo porque pediste el paquete gratuito en drivelink.deals.",
     unsub: "Cancelar suscripción",
     note: "Información general, no es asesoría legal. Las reglas y tarifas cambian, confírmalas con el MVC de NJ.",
@@ -107,6 +111,7 @@ function build(lang: "en" | "es", token: string) {
   <p style="margin:0 0 20px 0;font-size:14px;line-height:1.6;"><a href="${c.gl1}" style="color:#1d4ed8;">${esc(c.g1)}</a><br><a href="${c.gl2}" style="color:#1d4ed8;">${esc(c.g2)}</a></p>
   <p style="margin:0 0 10px 0;font-size:14.5px;line-height:1.55;">${esc(c.prod)}</p>
   <p style="margin:0 0 24px 0;font-size:14.5px;"><a href="${SITE}/start-deal" style="color:#1d4ed8;font-weight:600;">${esc(c.cta)} &rarr;</a></p>
+  <p style="margin:0 0 24px 0;font-size:14.5px;">${esc(c.sell)} <a href="${SITE}/seller-toolkit" style="color:#1d4ed8;font-weight:600;">${esc(c.sellCta)} &rarr;</a></p>
 </td></tr>
 <tr><td style="padding:16px 28px 24px 28px;border-top:1px solid #e2e8f0;font-size:12px;line-height:1.6;color:#64748b;">
   ${esc(c.note)}<br><br>
@@ -129,6 +134,7 @@ function build(lang: "en" | "es", token: string) {
     "",
     c.prod,
     `${c.cta}: ${SITE}/start-deal`,
+    `${c.sell} ${SITE}/seller-toolkit`,
     "",
     "--",
     c.note,
