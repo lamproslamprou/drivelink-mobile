@@ -2653,7 +2653,7 @@ function LegalPageView({ type, onBack }) {
         ) : (
           <div style={styles.legalBody} className="legalBody">
             <h2>1. What We Collect</h2>
-            <p>When you create a DriveLink account, we collect your name, email address, and any information you add to listings (photos, vehicle details, price, location). When you message another user, we store that conversation so both parties can see message history.</p>
+            <p>When you create a DriveLink account, we collect your name, email address, and any information you add to listings (photos, vehicle details, price, location). When you message another user, we store that conversation so both parties can see message history. If you enter your email address to download a free guide or checklist, we store that address, the date and the page it came from, so we can give you the download and send occasional updates about private car sales. You can ask us to delete it at any time.</p>
 
             <h2>2. Payment Information</h2>
             <p>Checkout is handled entirely by Stripe. DriveLink never sees or stores your card number, expiration date, or CVC — Stripe processes and secures that data directly.</p>
@@ -2662,7 +2662,7 @@ function LegalPageView({ type, onBack }) {
             <p>The city or ZIP code you enter on a listing is converted to approximate map coordinates (via OpenStreetMap's Nominatim service) so your car can appear on the listings map. We don't collect precise device location.</p>
 
             <h2>4. How We Use Your Information</h2>
-            <p>We use your information to operate the marketplace: displaying listings, enabling buyer-seller messaging, paying referral bounties, processing reviews, and sending you account-related notifications. We do not sell your personal information to third parties.</p>
+            <p>We use your information to operate the marketplace: displaying listings, enabling buyer-seller messaging, paying referral bounties, processing reviews, and sending you account-related notifications. If you asked for a free download, we also use your email to send you occasional updates about private car sales, and every such email will include a way to unsubscribe. We do not sell your personal information to third parties.</p>
 
             <h2>5. What Other Users Can See</h2>
             <p>Your name and verified-seller status are visible on your listings. Your email is only visible to DriveLink and is not shown to other users unless you choose to share it (for example, in a message).</p>
