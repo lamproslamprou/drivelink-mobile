@@ -537,6 +537,28 @@ export async function sendCompletionEmails(
       ["Reference", listing.id],
     ];
 
+    // ── Review request ───────────────────────────────────────────────────
+    // Sent to BOTH parties on every completed sale, never only to people we
+    // expect to be happy: Trustpilot's guidelines forbid selective
+    // solicitation. Plain wording, no incentive, no pressure.
+    const reviewBlock = `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;
+                    margin:24px 0 0;padding:16px;border:1px solid #e2e8f0;border-radius:8px;background:#f8fafc;">
+             <p style="margin:0 0 8px;font-size:15px;font-weight:600;color:#0f172a;">How did it go?</p>
+             <p style="margin:0 0 12px;font-size:14px;color:#334155;line-height:1.5;">
+               DriveLink is new, and the next person deciding whether to trust it will read
+               what you say. Good or bad, an honest line helps.
+             </p>
+             <p style="margin:0 0 12px;font-size:15px;">
+               <a href="https://www.trustpilot.com/evaluate/drivelink.deals"
+                  style="color:#1d4ed8;text-decoration:none;font-weight:600;">Leave a review on Trustpilot</a>
+             </p>
+             <p style="margin:0;font-size:13px;color:#64748b;">
+               Or just reply to <a href="mailto:support@drivelink.deals" style="color:#1d4ed8;">support@drivelink.deals</a>.
+               If you're happy for us to quote you on the site with your first name,
+               say so and tell us what you'd like it to say.
+             </p>
+           </div>`;
+
     // ── Buyer ────────────────────────────────────────────────────────────
     if (buyer?.email) {
       const html = alertHtml(
@@ -546,7 +568,7 @@ export async function sendCompletionEmails(
           "Nothing further is owed through DriveLink. Make sure you have the signed title, then " +
           "transfer it into your name and register the vehicle with your state motor vehicle " +
           "agency — there's a filing deadline, so don't sit on it. Keep this email for your records.",
-      );
+      ) + reviewBlock;
       const ok = await sendEmail({
         to: buyer.email,
         subject: `Purchase complete — ${carLabel}`,
@@ -607,7 +629,7 @@ export async function sendCompletionEmails(
         "Card payments take a few business days to settle before Stripe pays out to your bank — " +
           "expect it within about 5–7 business days. First payouts on a new account can take " +
           "longer. Make sure you've given the buyer the signed title.",
-      ) + promoterBlock;
+      ) + promoterBlock + reviewBlock;
       const ok = await sendEmail({
         to: seller.email,
         subject: `Sale complete — ${sellerAmount} released`,
