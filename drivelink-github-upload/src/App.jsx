@@ -2443,36 +2443,47 @@ const denyInspector = async (id) => {
       </div>
       <InstallPrompt />
       <footer style={styles.appFooter}>
-        <button style={styles.appFooterLink} className="app-footer-link" onClick={() => setView("about")}>About DriveLink</button>
-        <span style={{ color: "#d1d5db" }}>·</span>
-        <button style={styles.appFooterLink} className="app-footer-link" onClick={() => setView("pricing")}>{lang === "es" ? "Precios" : "Pricing"}</button>
-        <span style={{ color: "#d1d5db" }}>·</span>
-        <button style={styles.appFooterLink} className="app-footer-link" onClick={() => setView("safety")}>🛡️ Safety Tips</button>
-        <button style={styles.appFooterLink} className="app-footer-link" onClick={() => setView("inspectors")}>🔍 Find an Inspector</button>
-        <a href="https://www.trustpilot.com/review/drivelink.deals" target="_blank" rel="noopener noreferrer" style={{ ...styles.appFooterLink, textDecoration: "none" }} className="app-footer-link">⭐ Reviews on Trustpilot</a>
-        <span style={{ color: "#d1d5db" }}>·</span>
-        <button style={styles.appFooterLink} className="app-footer-link" onClick={() => setView("faq")}>How your money is protected</button>
-        <span style={{ color: "#d1d5db" }}>·</span>
-        <button style={styles.appFooterLink} className="app-footer-link" onClick={() => setView("terms")}>Terms of Service</button>
-        <span style={{ color: "#d1d5db" }}>·</span>
-        <button style={styles.appFooterLink} className="app-footer-link" onClick={() => setView("privacy")}>Privacy Policy</button>
-        <span style={{ color: "#d1d5db" }}>·</span>
-        <a href="mailto:support@drivelink.deals" style={styles.appFooterLink} className="app-footer-link">support@drivelink.deals</a>
-        <span style={{ color: "#d1d5db" }}>·</span>
-        <a
-          href="https://instagram.com/drivelink_deals"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="app-footer-link" style={{ ...styles.appFooterLink, display: "inline-flex", alignItems: "center", gap: 4 }}
-          aria-label="DriveLink on Instagram"
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect>
-            <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path>
-            <line x1="17.5" y1="6.5" x2="17.5" y2="6.5"></line>
-          </svg>
-          Instagram
-        </a>
+        <div style={styles.appFooterCols} className="app-footer-cols">
+          <div style={styles.appFooterCol} className="app-footer-col">
+            <span style={styles.appFooterColTitle}>{lang === "es" ? "Producto" : "Product"}</span>
+            <button style={styles.appFooterLink} className="app-footer-link" onClick={() => setView("pricing")}>{lang === "es" ? "Precios" : "Pricing"}</button>
+            <button style={styles.appFooterLink} className="app-footer-link" onClick={() => setView("sellerToolkit")}>{lang === "es" ? "Kit para vendedores" : "Seller Toolkit"}</button>
+            <button style={styles.appFooterLink} className="app-footer-link" onClick={() => setView("features")}>{lang === "es" ? "Funciones" : "Features"}</button>
+            <button style={styles.appFooterLink} className="app-footer-link" onClick={() => setView("inspectors")}>{lang === "es" ? "🔍 Encuentra un inspector" : "🔍 Find an Inspector"}</button>
+            <button style={styles.appFooterLink} className="app-footer-link" onClick={() => setView("safety")}>🛡️ Safety Tips</button>
+          </div>
+          <div style={styles.appFooterCol} className="app-footer-col">
+            <span style={styles.appFooterColTitle}>{lang === "es" ? "Confianza" : "Trust"}</span>
+            <button style={styles.appFooterLink} className="app-footer-link" onClick={() => setView("faq")}>{lang === "es" ? "Cómo se protege tu dinero" : "How your money is protected"}</button>
+            <button style={styles.appFooterLink} className="app-footer-link" onClick={() => setView("about")}>{lang === "es" ? "Acerca de" : "About"}</button>
+            <button style={styles.appFooterLink} className="app-footer-link" onClick={() => setView("terms")}>Terms of Service</button>
+            <button style={styles.appFooterLink} className="app-footer-link" onClick={() => setView("privacy")}>Privacy Policy</button>
+            <a href="https://www.trustpilot.com/review/drivelink.deals" target="_blank" rel="noopener noreferrer" style={{ ...styles.appFooterLink, textDecoration: "none" }} className="app-footer-link">{lang === "es" ? "⭐ Opiniones en Trustpilot" : "⭐ Reviews on Trustpilot"}</a>
+          </div>
+          <div style={styles.appFooterCol} className="app-footer-col app-footer-col-compare">
+            <span style={styles.appFooterColTitle}>{lang === "es" ? "Comparar" : "Compare"}</span>
+            <button style={styles.appFooterLink} className="app-footer-link" onClick={() => setView("vsPrivateAuto")}>vs PrivateAuto</button>
+            <button style={styles.appFooterLink} className="app-footer-link" onClick={() => setView("vsKeySavvy")}>vs KeySavvy</button>
+            <button style={styles.appFooterLink} className="app-footer-link" onClick={() => setView("vsEscrowCom")}>vs Escrow.com</button>
+          </div>
+        </div>
+        <div style={styles.appFooterBottom}>
+          <a href="mailto:support@drivelink.deals" style={styles.appFooterLink} className="app-footer-link">support@drivelink.deals</a>
+          <a
+            href="https://instagram.com/drivelink_deals"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="app-footer-link" style={{ ...styles.appFooterLink, display: "inline-flex", alignItems: "center", gap: 4 }}
+            aria-label="DriveLink on Instagram"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect>
+              <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path>
+              <line x1="17.5" y1="6.5" x2="17.5" y2="6.5"></line>
+            </svg>
+            Instagram
+          </a>
+        </div>
       </footer>
       {viewingListing && (
         <ListingDetailModal
@@ -7241,7 +7252,11 @@ const styles = {
   legalUpdated: { fontSize: 13, color: "#9ca3af", marginBottom: 24 },
   legalDisclaimer: { background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 12, padding: "16px 20px", fontSize: 14, color: "#92400e", lineHeight: 1.6, marginBottom: 32 },
   legalBody: { fontSize: 15, color: "#374151", lineHeight: 1.7 },
-  appFooter: { maxWidth: 1200, margin: "0 auto", padding: "24px 16px 40px", paddingBottom: "calc(40px + env(safe-area-inset-bottom, 0px))", display: "flex", gap: 10, rowGap: 8, flexWrap: "wrap", alignItems: "center", justifyContent: "center", fontSize: 13, boxSizing: "border-box" },
+  appFooter: { maxWidth: 1200, margin: "0 auto", padding: "24px 16px 40px", paddingBottom: "calc(40px + env(safe-area-inset-bottom, 0px))", display: "flex", flexDirection: "column", alignItems: "center", gap: 16, fontSize: 13, boxSizing: "border-box" },
+  appFooterCols: { display: "grid", gridTemplateColumns: "repeat(3, auto)", columnGap: 56, rowGap: 16, justifyContent: "center", alignItems: "start", width: "100%", textAlign: "left" },
+  appFooterCol: { display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 8 },
+  appFooterColTitle: { fontSize: 12, fontWeight: 700, color: "#374151", textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 2 },
+  appFooterBottom: { display: "flex", alignItems: "center", justifyContent: "center", flexWrap: "wrap", gap: "0 16px", paddingTop: 12, borderTop: "1px solid #e5e7eb", width: "100%", maxWidth: 560 },
   appFooterLink: { background: "none", border: "none", cursor: "pointer", fontSize: 13, color: "#6b7280", padding: 0, whiteSpace: "nowrap" },
   // paddingTop reserves the iOS status-bar strip when the PWA runs standalone
   // with viewport-fit=cover. Resolves to 0px everywhere else.
@@ -7490,6 +7505,10 @@ const css = `
        Height/padding only; the layout above is unchanged. */
     .app-nav-links button, .app-nav-right button { min-height: 44px; }
     .app-footer-link { min-height: 44px; padding: 0 6px !important; display: inline-flex !important; align-items: center; }
+    .app-footer-cols { grid-template-columns: 1fr 1fr !important; column-gap: 16px !important; row-gap: 4px !important; }
+    .app-footer-col { gap: 0 !important; }
+    .app-footer-col-compare { grid-column: 1 / -1; flex-direction: row !important; flex-wrap: wrap; align-items: center !important; gap: 0 16px !important; border-top: 1px solid #e5e7eb; margin-top: 8px; padding-top: 8px; }
+    .app-footer-col-compare > span { flex-basis: 100%; }
   }
 
   @media (max-width: 700px) {
