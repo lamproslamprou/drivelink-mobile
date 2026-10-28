@@ -31,6 +31,7 @@ const COPY = {
     contactBtn: "Contact",
     listTitle: "Run an inspection business?",
     listBody: "List your business for free. Submissions are reviewed before they go live.",
+    kitLink: "Free handout cards and a line for your reports →",
     listToggleOpen: "List your business →",
     listToggleClose: "Hide form",
     form: {
@@ -58,6 +59,7 @@ const COPY = {
     contactBtn: "Contactar",
     listTitle: "¿Tienes un negocio de inspecciones?",
     listBody: "Publica tu negocio gratis. Las publicaciones se revisan antes de salir en línea.",
+    kitLink: "Tarjetas gratis y una frase para tus informes →",
     listToggleOpen: "Publica tu negocio →",
     listToggleClose: "Ocultar formulario",
     form: {
@@ -173,6 +175,7 @@ export default function InspectorsView({ inspectors, onBack, onSubmit }) {
         <div style={S.listSection}>
           <strong style={S.listTitle}>{t.listTitle}</strong>
           <p style={S.listBody}>{t.listBody}</p>
+          <p style={S.listBody}><a href="/for-inspectors" style={{ color: "#1d4ed8", fontWeight: 600 }}>{t.kitLink}</a></p>
 
           {!showForm && (
             <button style={S.listToggleBtn} onClick={() => { setShowForm(true); setResult(null); }}>
