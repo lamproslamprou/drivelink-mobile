@@ -3,6 +3,7 @@ import { supabase } from "./supabase.js";
 import { useLang, Rich, LangToggle } from "./i18n.jsx";
 import logoFull from "./assets/logo-full.png";
 import { analytics } from "@heycatch/sdk";
+import { isPasswordPwned } from "./pwned.js";
 
 const GOOGLE_CLIENT_ID = "505787415364-vjcnqg3k36bva6k3khgbnlgt6v5l73gt.apps.googleusercontent.com";
 
@@ -221,6 +222,7 @@ export default function Auth({ onAuth, returnView, carLabel, initialTab, onBack 
     // and strips the leading/trailing whitespace that was showing up on
     // listings as " Honda" and " accord Sport Sedan 4D".
     const cleanName = name.trim().replace(/\s+/g, " ");
+    if (await isPasswordPwned(password)) { setError(t("auth.pwned")); setLoading(false); return; }
     const { data, error } = await supabase.auth.signUp({
       email, password,
       options: { data: { name: cleanName, role: "member" }, emailRedirectTo: window.location.origin }

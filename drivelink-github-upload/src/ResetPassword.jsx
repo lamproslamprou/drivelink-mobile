@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "./supabase.js";
 import { useLang, LangToggle } from "./i18n.jsx";
 import logoFull from "./assets/logo-full.png";
+import { isPasswordPwned } from "./pwned.js";
 
 const styles = {
   overlay: { minHeight: "100vh", background: "#f8fafc", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Inter', system-ui, sans-serif", padding: 20, boxSizing: "border-box" },
@@ -56,6 +57,7 @@ export default function ResetPassword({ onDone }) {
     if (password.length < 8) { setError(t("auth.reset.tooShort")); return; }
     if (password !== confirm) { setError(t("auth.reset.mismatch")); return; }
     setSaving(true);
+    if (await isPasswordPwned(password)) { setSaving(false); setError(t("auth.pwned")); return; }
     const { error: err } = await supabase.auth.updateUser({ password });
     setSaving(false);
     if (err) { setError(err.message); return; }

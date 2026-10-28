@@ -26,6 +26,7 @@ import LienPayoffPA from "./guides/LienPayoffPA.jsx";
 import LienPayoffNY from "./guides/LienPayoffNY.jsx";
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { WIRE_OPEN } from "./flags.js";
+import { isPasswordPwned } from "./pwned.js";
 
 // ── MONEY IS CENTS ──────────────────────────────────────────────────────────
 // Every money column in the database is CENTS as of migration
@@ -1682,6 +1683,7 @@ const denyInspector = async (id) => {
   // users table.
   const changePassword = async (newPassword) => {
     if (!newPassword || newPassword.length < 8) { showToast("Password must be at least 8 characters.", "error"); return; }
+    if (await isPasswordPwned(newPassword)) { showToast("That password has appeared in a known data breach. Please choose a different one.", "error"); return; }
     const { error } = await supabase.auth.updateUser({ password: newPassword });
     if (error) { showToast(error.message || "Couldn't update password.", "error"); return; }
     showToast("Password updated.");
