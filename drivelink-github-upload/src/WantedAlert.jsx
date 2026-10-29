@@ -11,10 +11,10 @@ import { trackEvent } from "./track.js";
 const COPY = {
   en: {
     title: "Don't see your car? We'll watch for it.",
-    sub: "Tell us what you're looking for and we'll email you when a match is listed. No account, no mailing list, and you can stop anytime.",
-    make: "Make (e.g. Toyota)",
-    model: "Model (optional)",
-    price: "Max price, $",
+    sub: "Pick what you want, add your email, and we'll write when a match is listed. No account, no mailing list, stop anytime.",
+    make: "Any make",
+    price: "Any price",
+    priceUpTo: "Up to",
     email: "Your email",
     send: "Email me matches",
     sending: "Saving...",
@@ -22,7 +22,7 @@ const COPY = {
     doneBody: "We sent a confirmation. You'll get one email for each matching car, for the next 60 days.",
     another: "Add another",
     errEmail: "That email address doesn't look right.",
-    errNeed: "Add a make or a top price so we know what to watch for.",
+    errNeed: "Pick a make or a price so we know what to watch for.",
     errPrice: "Enter a top price between $500 and $500,000.",
     errRate: "You already have a few alerts set. Please try again later.",
     errGeneric: "Something went wrong. Please try again.",
@@ -31,9 +31,9 @@ const COPY = {
   es: {
     title: "¿No ves tu auto? Estaremos atentos.",
     sub: "Dinos qué buscas y te escribiremos cuando se publique una coincidencia. Sin cuenta, sin lista de correo, y puedes parar cuando quieras.",
-    make: "Marca (p. ej. Toyota)",
-    model: "Modelo (opcional)",
-    price: "Precio máx., $",
+    make: "Cualquier marca",
+    price: "Cualquier precio",
+    priceUpTo: "Hasta",
     email: "Tu correo",
     send: "Enviarme coincidencias",
     sending: "Guardando...",
@@ -41,13 +41,16 @@ const COPY = {
     doneBody: "Enviamos una confirmación. Recibirás un correo por cada auto que coincida, durante los próximos 60 días.",
     another: "Agregar otra",
     errEmail: "Ese correo no parece válido.",
-    errNeed: "Agrega una marca o un precio máximo para saber qué buscar.",
+    errNeed: "Elige una marca o un precio para saber qué buscar.",
     errPrice: "Ingresa un precio máximo entre $500 y $500,000.",
     errRate: "Ya tienes varias alertas activas. Inténtalo más tarde.",
     errGeneric: "Algo salió mal. Inténtalo de nuevo.",
     note: "Solo usamos tu correo para estas alertas.",
   },
 };
+
+const MAKES = ["Acura", "Audi", "BMW", "Buick", "Cadillac", "Chevrolet", "Chrysler", "Dodge", "Ford", "GMC", "Honda", "Hyundai", "Jeep", "Kia", "Lexus", "Mazda", "Mercedes-Benz", "Nissan", "Ram", "Subaru", "Tesla", "Toyota", "Volkswagen", "Volvo"];
+const PRICES = [5000, 10000, 15000, 25000, 40000];
 
 const ERRORS = { invalid_email: "errEmail", need_criteria: "errNeed", invalid_price: "errPrice", rate_limited: "errRate" };
 
@@ -63,13 +66,12 @@ const S = {
   note: { fontSize: 12, color: "#64748b", marginTop: 10 },
 };
 
-export default function WantedAlert({ defaultEmail = "", defaultMake = "" }) {
+export default function WantedAlert({ defaultEmail = "", defaultMake = "", defaultMaxPrice = "" }) {
   const { lang } = useLang();
   const c = COPY[lang === "es" ? "es" : "en"];
   const [email, setEmail] = useState(defaultEmail);
   const [make, setMake] = useState(defaultMake);
-  const [model, setModel] = useState("");
-  const [price, setPrice] = useState("");
+  const [price, setPrice] = useState(defaultMaxPrice ? String(defaultMaxPrice) : "");
   const [hp, setHp] = useState(""); // honeypot
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -84,14 +86,14 @@ export default function WantedAlert({ defaultEmail = "", defaultMake = "" }) {
     setBusy(true);
     try {
       const { data, error: fnErr } = await supabase.functions.invoke("wanted-alert", {
-        body: { email: email.trim(), make: make.trim(), model: model.trim(), max_price: String(price).trim() === "" ? null : Number(price), lang, hp },
+        body: { email: email.trim(), make: make.trim(), model: "", max_price: String(price).trim() === "" ? null : Number(price), lang, hp },
       });
       let code = data?.error;
       if (fnErr && !code) {
         try { code = (await fnErr.context?.json?.())?.error; } catch { /* ignore */ }
       }
       if (fnErr || code) { setError(c[ERRORS[code]] || c.errGeneric); return; }
-      trackEvent("wanted_alert_created", { has_model: !!model.trim(), has_price: !!String(price).trim() });
+      trackEvent("wanted_alert_created", { has_price: !!String(price).trim() });
       setDone(true);
     } catch {
       setError(c.errGeneric);
@@ -105,7 +107,7 @@ export default function WantedAlert({ defaultEmail = "", defaultMake = "" }) {
       <div style={S.card}>
         <h3 style={S.h}>{c.doneTitle}</h3>
         <p style={{ ...S.sub, marginBottom: 10 }}>{c.doneBody}</p>
-        <button type="button" style={S.link} onClick={() => { setDone(false); setMake(""); setModel(""); setPrice(""); }}>{c.another}</button>
+        <button type="button" style={S.link} onClick={() => { setDone(false); setMake(""); setPrice(""); }}>{c.another}</button>
       </div>
     );
   }
@@ -115,9 +117,14 @@ export default function WantedAlert({ defaultEmail = "", defaultMake = "" }) {
       <h3 style={S.h}>{c.title}</h3>
       <p style={S.sub}>{c.sub}</p>
       <div style={S.grid}>
-        <input style={S.input} value={make} onChange={(e) => setMake(e.target.value)} placeholder={c.make} maxLength={40} aria-label={c.make} />
-        <input style={S.input} value={model} onChange={(e) => setModel(e.target.value)} placeholder={c.model} maxLength={40} aria-label={c.model} />
-        <input style={S.input} value={price} onChange={(e) => setPrice(e.target.value.replace(/[^0-9]/g, ""))} placeholder={c.price} inputMode="numeric" aria-label={c.price} />
+        <select style={S.input} value={make} onChange={(e) => setMake(e.target.value)} aria-label={c.make}>
+          <option value="">{c.make}</option>
+          {[...new Set([...(make && !MAKES.includes(make) ? [make] : []), ...MAKES])].map((m) => <option key={m} value={m}>{m}</option>)}
+        </select>
+        <select style={S.input} value={price} onChange={(e) => setPrice(e.target.value)} aria-label={c.price}>
+          <option value="">{c.price}</option>
+          {[...new Set([...(price && !PRICES.includes(Number(price)) ? [Number(price)] : []), ...PRICES])].sort((a, b) => a - b).map((p) => <option key={p} value={String(p)}>{c.priceUpTo} ${Number(p).toLocaleString("en-US")}</option>)}
+        </select>
         <input style={S.input} type="email" inputMode="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder={c.email} aria-label={c.email} required />
       </div>
       {/* Honeypot: off-screen, not focusable, ignored by people. */}

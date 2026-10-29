@@ -2999,7 +2999,18 @@ for (const l of allListings.filter(l => l.status === "active")) {
            always stays: a visitor must be able to look for a car. Signed-in
            visitors also keep the saved-search alert button. */
         <div style={{ ...styles.filterBar, paddingBottom: 8 }} className="app-filterbar">
-          <input className="app-search" style={styles.searchInput} placeholder={t("home.searchPlaceholder")} value={search} onChange={e => setSearch(e.target.value)} />
+          {/* Tap-only filters: nothing to type. */}
+          <div className="app-quickfilters" role="group" aria-label={t("browse.maxPrice")}>
+            {[[20000000, t("browse.anyPrice")], [500000, t("browse.under5k")], [1000000, t("browse.under10k")], [2000000, t("browse.under20k")]].map(([cents, label]) => (
+              <button key={cents} type="button" className={"app-chip" + (maxPrice === cents ? " on" : "")} onClick={() => setMaxPrice(cents)} aria-pressed={maxPrice === cents}>{label}</button>
+            ))}
+            {makes.length > 1 && (
+              <select style={styles.selectInput} value={make} onChange={e => setMake(e.target.value)} aria-label={t("browse.allMakes")}>
+                <option value="all">{t("browse.allMakes")}</option>
+                {makes.map(m => <option key={m} value={m}>{m}</option>)}
+              </select>
+            )}
+          </div>
           {currentUser && (
             <button
               style={styles.saveSearchBtn}
@@ -3069,7 +3080,7 @@ for (const l of allListings.filter(l => l.status === "active")) {
       {/* Few cars listed, or nothing fits the filters: offer a no-account alert
           instead of leaving the visitor at a dead end. */}
       {(listings.length < 6 || filtered.length === 0) && (
-        <WantedAlert defaultEmail={currentUser?.email || ""} defaultMake={make !== "all" ? make : (search || "").slice(0, 40)} />
+        <WantedAlert defaultEmail={currentUser?.email || ""} defaultMake={make !== "all" ? make : ""} defaultMaxPrice={maxPrice < 20000000 ? Math.round(maxPrice / 100) : ""} />
       )}
 
       {compareIds.length > 0 && (
@@ -7601,6 +7612,9 @@ const css = `
      the bar lays out exactly as before. The toggle only exists on phones. */
   .app-filter-extra { display: contents; }
   .app-filter-toggle { display: none; }
+  .app-quickfilters { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .app-chip { min-height: 40px; padding: 0 14px; border-radius: 999px; border: 1px solid #cbd5e1; background: #fff; color: #334155; font-size: 14px; font-weight: 600; cursor: pointer; font-family: inherit; }
+  .app-chip.on { background: #0f172a; color: #fff; border-color: #0f172a; }
   .app-sticky-actions { display: none; }
   .app-detail-chips { gap: 8px !important; }
   .app-detail-chips span { background: #f1f5f9; color: #334155; font-weight: 600; border-radius: 999px; padding: 4px 10px; }
