@@ -2995,18 +2995,20 @@ for (const l of allListings.filter(l => l.status === "active")) {
         </div>
       </div>
       ) : (
-        /* With only a few cars, sliders and dropdowns are controls that do
-           nothing. Signed-in visitors keep the saved-search alert button. */
-        currentUser && (
-          <div style={{ ...styles.filterBar, paddingBottom: 8 }}>
+        /* With only a few cars, sliders and dropdowns do nothing, but search
+           always stays: a visitor must be able to look for a car. Signed-in
+           visitors also keep the saved-search alert button. */
+        <div style={{ ...styles.filterBar, paddingBottom: 8 }} className="app-filterbar">
+          <input className="app-search" style={styles.searchInput} placeholder={t("home.searchPlaceholder")} value={search} onChange={e => setSearch(e.target.value)} />
+          {currentUser && (
             <button
               style={styles.saveSearchBtn}
               onClick={() => onSaveSearch({ label: "Saved search", search: "", make: "", max_price: maxPrice, max_mileage: maxMileage, location_text: "" })}
             >
               🔔 Save this search
             </button>
-          </div>
-        )
+          )}
+        </div>
       )}
 
       {mode === "map" ? (
@@ -3067,7 +3069,7 @@ for (const l of allListings.filter(l => l.status === "active")) {
       {/* Few cars listed, or nothing fits the filters: offer a no-account alert
           instead of leaving the visitor at a dead end. */}
       {(listings.length < 6 || filtered.length === 0) && (
-        <WantedAlert defaultEmail={currentUser?.email || ""} defaultMake={make !== "all" ? make : ""} />
+        <WantedAlert defaultEmail={currentUser?.email || ""} defaultMake={make !== "all" ? make : (search || "").slice(0, 40)} />
       )}
 
       {compareIds.length > 0 && (
