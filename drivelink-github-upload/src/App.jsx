@@ -5,6 +5,7 @@ import ResetPassword from "./ResetPassword.jsx";
 import { useLang, LangToggle, LangSwitchLink } from "./i18n.jsx";
 import Landing from "./Landing.jsx";
 import ImageUpload from "./ImageUpload.jsx";
+import WantedAlert from "./WantedAlert.jsx";
 import CompAdForm from "./CompAdForm.jsx";
 import Messages from "./Messages.jsx";
 // The map (Leaflet) is only needed when someone opens Map view, so it loads on
@@ -2668,7 +2669,7 @@ function LegalPageView({ type, onBack }) {
         ) : (
           <div style={styles.legalBody} className="legalBody">
             <h2>1. What We Collect</h2>
-            <p>When you create a DriveLink account, we collect your name, email address, and any information you add to listings (photos, vehicle details, price, location). When you message another user, we store that conversation so both parties can see message history. If you enter your email address to download a free guide or checklist, we store that address, the date and the page it came from, so we can give you the download and send occasional updates about private car sales. You can ask us to delete it at any time.</p>
+            <p>When you create a DriveLink account, we collect your name, email address, and any information you add to listings (photos, vehicle details, price, location). When you message another user, we store that conversation so both parties can see message history. If you enter your email address to download a free guide or checklist, we store that address, the date and the page it came from, so we can give you the download and send occasional updates about private car sales. You can ask us to delete it at any time. If you ask for a car alert or contact a seller or save a car without an account, we store your email address and what you asked for, and use them only to deliver that email (alerts also email matching cars for up to 60 days, with a link to stop them anytime).</p>
 
             <h2>2. Payment Information</h2>
             <p>Checkout is handled entirely by Stripe. DriveLink never sees or stores your card number, expiration date, or CVC — Stripe processes and secures that data directly.</p>
@@ -3061,6 +3062,12 @@ for (const l of allListings.filter(l => l.status === "active")) {
             );
           })}
         </div>
+      )}
+
+      {/* Few cars listed, or nothing fits the filters: offer a no-account alert
+          instead of leaving the visitor at a dead end. */}
+      {(listings.length < 6 || filtered.length === 0) && (
+        <WantedAlert defaultEmail={currentUser?.email || ""} defaultMake={make !== "all" ? make : ""} />
       )}
 
       {compareIds.length > 0 && (
@@ -3509,9 +3516,9 @@ function ListingDetailModal({ data, currentUser, isFavorited, isBlocked, onClose
             );
           })()}
 
-          <div style={styles.cardMeta}>
-            <span>🛣 {listing.mileage?.toLocaleString()} {t("card.mi")}</span>
-            <span>🎨 {listing.color}</span>
+          <div style={styles.cardMeta} className="app-detail-chips">
+            {listing.mileage != null && <span>🛣 {listing.mileage?.toLocaleString()} {t("card.mi")}</span>}
+            {listing.color && <span>🎨 {listing.color}</span>}
             {listing.location_text && <span>📍 {listing.location_text}</span>}
             {seller?.name && <span>👤 {t("detail.soldBy")} {seller.name}</span>}
           </div>
@@ -3642,6 +3649,27 @@ function ListingDetailModal({ data, currentUser, isFavorited, isBlocked, onClose
             </div>
           )}
         </div>
+
+        {/* Phones only (CSS hides it elsewhere): the two actions that matter stay
+            pinned at the bottom while the buyer scrolls photos and details. The
+            full set of actions is still in the body above. */}
+        {!isOwnListing && (
+          <div className="app-sticky-actions">
+            {!currentUser ? (
+              <>
+                <button type="button" className="app-sticky-secondary" onClick={() => setGuestKind("message")}>💬 {t("card.askShort")}</button>
+                <button type="button" className="app-sticky-primary" onClick={onSignIn}>{t("action.signInShort")}</button>
+              </>
+            ) : (
+              <>
+                {onMakeOffer && !myOffer
+                  ? <button type="button" className="app-sticky-secondary" onClick={() => setOffering(true)}>💰 {t("card.makeOffer")}</button>
+                  : <button type="button" className="app-sticky-secondary" onClick={() => onMessageSeller(listing)}>💬 {t("card.messageSeller")}</button>}
+                {payoutsReady && <button type="button" className="app-sticky-primary" onClick={() => onBuy(listing)}>💳 {t("action.buyNow")}</button>}
+              </>
+            )}
+          </div>
+        )}
       </div>
 
       {offering && (
@@ -3703,10 +3731,23 @@ function TranslatableDescription({ listing, onTranslate }) {
   };
 
   const body = showing && translated ? translated : listing.description;
+  // Long descriptions are collapsed to a few lines with a Read more toggle, so
+  // the price, photos and buttons stay within reach on a phone. The full text
+  // is one tap away and is never altered.
+  const [expanded, setExpanded] = useState(false);
+  const isLong = String(body || "").length > 260;
+  const clampStyle = isLong && !expanded
+    ? { display: "-webkit-box", WebkitLineClamp: 4, WebkitBoxOrient: "vertical", overflow: "hidden" }
+    : null;
 
   return (
     <div style={{ marginTop: 12 }}>
-      <p style={styles.cardDesc}>{body}</p>
+      <p style={{ ...styles.cardDesc, ...(clampStyle || {}), ...(isLong ? { marginBottom: 4 } : {}) }}>{body}</p>
+      {isLong && (
+        <button type="button" style={styles.translateLink} onClick={() => setExpanded(e => !e)} aria-expanded={expanded}>
+          {expanded ? t("detail.readLess") : t("detail.readMore")}
+        </button>
+      )}
       {showing && translated && (
         <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 4 }}>{t("translate.notice")}</div>
       )}
@@ -4712,7 +4753,7 @@ function EditListingModal({ listing, onCancel, onSave }) {
     <div style={styles.overlay} onClick={onCancel}>
       <div style={{ ...styles.modalBox, maxWidth: 640, maxHeight: "88vh", overflowY: "auto" }} onClick={e => e.stopPropagation()}>
         <h3 style={styles.modalTitle}>Edit Listing</h3>
-        <ImageUpload images={images} onChange={setImages} />
+        <ImageUpload images={images} onChange={setImages} guide />
         <VehicleTypePicker
           value={form.vehicle_type}
           onChange={v => {
@@ -4818,7 +4859,7 @@ function PostListingView({ onPost }) {
     <div style={styles.pageWrap}>
       <h2 style={styles.pageTitle}>{t("sell.pageTitle")}</h2>
       <div style={styles.formCard}>
-        <ImageUpload images={images} onChange={setImages} />
+        <ImageUpload images={images} onChange={setImages} guide />
         <VehicleTypePicker
           value={form.vehicle_type}
           onChange={v => setForm(f => ({ ...f, vehicle_type: v, make: "", model: "" }))}
@@ -7558,6 +7599,9 @@ const css = `
      the bar lays out exactly as before. The toggle only exists on phones. */
   .app-filter-extra { display: contents; }
   .app-filter-toggle { display: none; }
+  .app-sticky-actions { display: none; }
+  .app-detail-chips { gap: 8px !important; }
+  .app-detail-chips span { background: #f1f5f9; color: #334155; font-weight: 600; border-radius: 999px; padding: 4px 10px; }
 
   @media (max-width: 700px) {
     .app-main { padding: 0 16px 48px !important; }
@@ -7574,6 +7618,10 @@ const css = `
     .app-filterbar.open .app-filter-extra > * { width: 100%; box-sizing: border-box; }
     .app-card-desc { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
     .app-card-vin { display: none !important; }
+    .app-sticky-actions { display: flex; gap: 10px; position: sticky; bottom: 0; z-index: 5; background: #fff; border-top: 1px solid #e5e7eb; padding: 10px 16px calc(10px + env(safe-area-inset-bottom)); box-shadow: 0 -6px 16px rgba(15,23,42,.08); }
+    .app-sticky-actions button { flex: 1; min-height: 48px; border-radius: 12px; font-size: 15px; font-weight: 700; cursor: pointer; font-family: inherit; }
+    .app-sticky-primary { background: #0f172a; color: #fff; border: none; }
+    .app-sticky-secondary { background: #fff; color: #0f172a; border: 1px solid #cbd5e1; }
     .app-grid { grid-template-columns: 1fr !important; }
     .app-form-grid { grid-template-columns: 1fr !important; }
     /* The inline style on rowInfo is "flex: 1", and the shorthand expands to

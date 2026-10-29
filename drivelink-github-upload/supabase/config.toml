@@ -25,3 +25,13 @@ entrypoint = "./functions/create-identity-verification/index.ts"
 enabled = true
 verify_jwt = false
 entrypoint = "./functions/guest-inquiry/index.ts"
+
+[functions.wanted-alert]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/wanted-alert/index.ts"
+
+[functions.notify-wanted]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/notify-wanted/index.ts"

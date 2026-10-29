@@ -1,7 +1,29 @@
 import { useState } from "react";
 import { supabase } from "./supabase.js";
+import { useLang } from "./i18n.jsx";
 
 const MAX_PHOTOS = 20;
+
+// Listings with plenty of clear photos get looked at; buyers judge a private
+// seller by them. The target is a nudge, never a requirement.
+const RECOMMENDED_PHOTOS = 8;
+
+const GUIDE = {
+  en: {
+    title: "Photos buyers trust",
+    sub: "Buyers click the photos first. Aim for at least {n}, in daylight, with no filters. Show flaws honestly; it builds trust.",
+    count: "{c} of {n} recommended photos",
+    done: "Great, that is a solid set.",
+    shots: ["Front, at an angle", "Rear, at an angle", "Both sides", "Front seats", "Back seats", "Dashboard with the odometer showing", "Engine bay", "Wheels and tires", "Any scratch, dent or wear, up close"],
+  },
+  es: {
+    title: "Fotos en las que confían los compradores",
+    sub: "Los compradores miran primero las fotos. Intenta subir al menos {n}, con luz natural y sin filtros. Muestra los defectos con honestidad: genera confianza.",
+    count: "{c} de {n} fotos recomendadas",
+    done: "Muy bien, es un buen conjunto.",
+    shots: ["Frente, en ángulo", "Parte trasera, en ángulo", "Ambos costados", "Asientos delanteros", "Asientos traseros", "Tablero con el odómetro visible", "Compartimiento del motor", "Ruedas y llantas", "Cualquier rayón, abolladura o desgaste, de cerca"],
+  },
+};
 
 // Ceiling on what we accept from the file picker, before compression. This is
 // deliberately generous — a modern phone shoots 8-12MB, and rejecting those
@@ -89,7 +111,8 @@ function extFor(type) {
 // one, and rendering "Car Photos (0/20)" on the comp-an-ad form was both wrong
 // and confusing. Defaults preserve the listing behaviour so no existing caller
 // changes.
-export default function ImageUpload({ images = [], onChange, label = "Car Photos", max = MAX_PHOTOS }) {
+export default function ImageUpload({ images = [], onChange, label = "Car Photos", max = MAX_PHOTOS, guide = false }) {
+  const { lang } = useLang();
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState({ done: 0, total: 0 });
   const [error, setError] = useState("");
@@ -187,6 +210,25 @@ export default function ImageUpload({ images = [], onChange, label = "Car Photos
     <div style={styles.wrap}>
       <label style={styles.label}>{label} ({images.length}/{max})</label>
 
+      {guide && max > 1 && (() => {
+        const g = GUIDE[lang === "es" ? "es" : "en"];
+        const enough = images.length >= RECOMMENDED_PHOTOS;
+        const pct = Math.min(100, Math.round((images.length / RECOMMENDED_PHOTOS) * 100));
+        return (
+          <div style={styles.guide}>
+            <div style={styles.guideTitle}>{g.title}</div>
+            <div style={styles.guideSub}>{g.sub.replace("{n}", RECOMMENDED_PHOTOS)}</div>
+            <div style={styles.meterTrack} aria-hidden="true"><div style={{ ...styles.meterFill, width: pct + "%", background: enough ? "#16a34a" : "#f59e0b" }} /></div>
+            <div style={{ ...styles.meterText, color: enough ? "#15803d" : "#92400e" }}>
+              {enough ? g.done : g.count.replace("{c}", images.length).replace("{n}", RECOMMENDED_PHOTOS)}
+            </div>
+            <ul style={styles.shotList}>
+              {g.shots.map(x => <li key={x}>{x}</li>)}
+            </ul>
+          </div>
+        );
+      })()}
+
       {images.length > 0 && (
         <div style={styles.grid}>
           {images.map((url, i) => (
@@ -254,5 +296,12 @@ const styles = {
   dropIcon: { fontSize: 32, marginBottom: 8 },
   dropText: { fontSize: 14, fontWeight: 600, color: "#374151", marginBottom: 4 },
   dropSub: { fontSize: 12, color: "#9ca3af", textAlign: "center", lineHeight: 1.5 },
+  guide: { background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 12, padding: "12px 14px", marginBottom: 12 },
+  guideTitle: { fontSize: 14, fontWeight: 700, color: "#0f172a", marginBottom: 4 },
+  guideSub: { fontSize: 13, color: "#475569", lineHeight: 1.5, marginBottom: 10 },
+  meterTrack: { height: 6, borderRadius: 999, background: "#e2e8f0", overflow: "hidden" },
+  meterFill: { height: "100%", borderRadius: 999, transition: "width .2s" },
+  meterText: { fontSize: 12, fontWeight: 600, margin: "6px 0 8px" },
+  shotList: { margin: 0, paddingLeft: 18, fontSize: 13, color: "#334155", lineHeight: 1.6, columns: "2 200px" },
   error: { background: "#fee2e2", color: "#dc2626", fontSize: 12, padding: "8px 12px", borderRadius: 8, marginTop: 8 },
 };
