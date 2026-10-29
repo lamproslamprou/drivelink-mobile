@@ -77,7 +77,7 @@ const ERRORS = {
 
 const S = {
   overlay: { position: "fixed", inset: 0, background: "rgba(15,23,42,.6)", display: "flex", alignItems: "flex-end", justifyContent: "center", zIndex: 2000, padding: 0 },
-  sheet: { background: "#fff", width: "100%", maxWidth: 460, borderRadius: "16px 16px 0 0", padding: 20, maxHeight: "92vh", overflowY: "auto", boxSizing: "border-box" },
+  sheet: { fontFamily: '"Inter", -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif', color: "#0f172a", background: "#fff", width: "100%", maxWidth: 460, borderRadius: "16px 16px 0 0", padding: 20, maxHeight: "92vh", overflowY: "auto", boxSizing: "border-box" },
   h: { fontSize: 20, fontWeight: 800, color: "#0f172a", margin: "0 0 6px" },
   sub: { fontSize: 14, color: "#475569", lineHeight: 1.5, margin: "0 0 14px" },
   label: { display: "block", fontSize: 13, fontWeight: 600, color: "#334155", margin: "10px 0 4px" },
