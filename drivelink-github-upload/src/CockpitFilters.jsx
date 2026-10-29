@@ -10,7 +10,7 @@ import { useState } from "react";
 
 const COPY = {
   en: {
-    deck: "FLIGHT DECK", title: "Filters", sight: "cars in sight", openPanel: "Open panel", closePanel: "Close panel",
+    deck: "FLIGHT DECK", title: "Filters", sight: "cars in sight", openPanel: "More filters", closePanel: "Hide filters",
     price: "Price", anyPrice: "Any", under: "Under", from: "From", to: "To",
     make: "Make", allMakes: "All", type: "Type", allTypes: "All",
     odo: "Odometer", upTo: "up to", mi: "mi", anyMiles: "any",
@@ -19,7 +19,7 @@ const COPY = {
     reset: "Reset", alert: "Set alert", model: "Model",
   },
   es: {
-    deck: "CABINA", title: "Filtros", sight: "autos a la vista", openPanel: "Abrir panel", closePanel: "Cerrar panel",
+    deck: "CABINA", title: "Filtros", sight: "autos a la vista", openPanel: "Más filtros", closePanel: "Ocultar filtros",
     price: "Precio", anyPrice: "Cualquiera", under: "Menos de", from: "Desde", to: "Hasta",
     make: "Marca", allMakes: "Todas", type: "Tipo", allTypes: "Todos",
     odo: "Odómetro", upTo: "hasta", mi: "mi", anyMiles: "cualquiera",
@@ -50,7 +50,7 @@ export const COCKPIT_CSS = `
 .cp-digits { font: 700 26px/1 ui-monospace,"SF Mono",Menlo,Consolas,monospace; color: var(--green); background:#050a12; border:1px solid #1c2a40; border-radius:8px; padding: 6px 10px; text-shadow: 0 0 10px rgba(53,224,138,.55); letter-spacing:.06em; }
 .cp-digits small { color:#2c7a55; font-size: 16px; text-shadow:none; }
 .cp-sight { font: 600 10px/1.2 ui-monospace,Menlo,Consolas,monospace; letter-spacing:.14em; text-transform:uppercase; color: var(--label); max-width: 70px; }
-.cp-toggle { display:none; }
+.cp .cp-toggle { display:none; }
 .cp-body { display:grid; grid-template-columns: repeat(auto-fit,minmax(230px,1fr)); gap: 10px; }
 .cp-mod { background: var(--recess); border:1px solid var(--edge); border-radius:12px; padding: 10px 12px 12px; box-shadow: inset 0 2px 6px rgba(0,0,0,.45); min-width:0; }
 .cp-lab { font: 700 10px/1 ui-monospace,"SF Mono",Menlo,Consolas,monospace; letter-spacing:.2em; text-transform:uppercase; color: var(--label); margin-bottom:9px; display:flex; justify-content:space-between; gap:8px; }
@@ -76,7 +76,7 @@ export const COCKPIT_CSS = `
 .cp-mobile-only { display:none; }
 @media (max-width: 700px) {
   .cp { padding: 12px 10px; margin: 12px 0 4px; }
-  .cp-toggle { display:inline-flex; }
+  .cp .cp-toggle { display:inline-flex; }
   .cp-body.cp-more { display:none; }
   .cp.open .cp-body.cp-more { display:grid; grid-template-columns: 1fr; margin-top: 10px; }
   .cp-foot.cp-more { display:none; }
