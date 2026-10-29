@@ -141,7 +141,10 @@ Deno.serve(async (req) => {
         "id, seller_id, buyer_id, seller_net, sale_price, status, funds_released, auto_release_at, handover_date, review_flagged_at, handover_warned_48h_at, handover_warned_24h_at, make, model, year",
       )
       .eq("status", "pending_confirmation")
-      .eq("funds_released", false);
+      .eq("funds_released", false)
+      // Test listings never get warnings or escalations: they are the owner's
+      // own payment checks and would only send noise.
+      .or("is_test.is.null,is_test.eq.false");
 
     if (error) throw error;
 
