@@ -97,7 +97,9 @@ export default async (request, context) => {
     headers.set("content-type", "text/html; charset=utf-8");
     // Short cache — listing price/status can change, but this doesn't need
     // to be instantaneous for a link-preview fetch.
-    headers.set("cache-control", "public, max-age=300");
+    // HTML must revalidate on every load. A cached copy keeps pointing at the
+    // previous deploy's hashed assets, which are gone, and the page renders blank.
+    headers.set("cache-control", "public, max-age=0, must-revalidate");
 
     return new Response(out, { status: response.status, headers });
   } catch {
