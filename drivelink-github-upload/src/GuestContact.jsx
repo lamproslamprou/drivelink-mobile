@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { supabase } from "./supabase.js";
 import { useLang } from "./i18n.jsx";
 import { trackEvent } from "./track.js";
@@ -75,12 +76,12 @@ const ERRORS = {
 };
 
 const S = {
-  overlay: { position: "fixed", inset: 0, background: "rgba(15,23,42,.6)", display: "flex", alignItems: "flex-end", justifyContent: "center", zIndex: 1000, padding: 0 },
+  overlay: { position: "fixed", inset: 0, background: "rgba(15,23,42,.6)", display: "flex", alignItems: "flex-end", justifyContent: "center", zIndex: 2000, padding: 0 },
   sheet: { background: "#fff", width: "100%", maxWidth: 460, borderRadius: "16px 16px 0 0", padding: 20, maxHeight: "92vh", overflowY: "auto", boxSizing: "border-box" },
   h: { fontSize: 20, fontWeight: 800, color: "#0f172a", margin: "0 0 6px" },
   sub: { fontSize: 14, color: "#475569", lineHeight: 1.5, margin: "0 0 14px" },
   label: { display: "block", fontSize: 13, fontWeight: 600, color: "#334155", margin: "10px 0 4px" },
-  input: { width: "100%", boxSizing: "border-box", padding: "12px 14px", borderRadius: 10, border: "1px solid #cbd5e1", fontSize: 16, outline: "none", background: "#fff" },
+  input: { width: "100%", boxSizing: "border-box", padding: "12px 14px", borderRadius: 10, border: "1px solid #cbd5e1", fontFamily: "inherit", fontSize: 16, outline: "none", background: "#fff" },
   err: { background: "#fef2f2", color: "#b91c1c", border: "1px solid #fecaca", borderRadius: 8, padding: "8px 12px", fontSize: 13, marginTop: 12 },
   row: { display: "flex", gap: 10, marginTop: 16 },
   primary: { flex: 1, minHeight: 48, background: "#1d4ed8", color: "#fff", border: "none", borderRadius: 10, fontSize: 16, fontWeight: 700, cursor: "pointer" },
@@ -130,7 +131,9 @@ export default function GuestContact({ listing, kind: initialKind = "message", o
 
   const car = [listing.year, listing.make, listing.model].filter(Boolean).join(" ");
 
-  return (
+  // Rendered into document.body: the car card has a CSS transform, which turns
+  // position: fixed into "fixed to the card" and trapped the sheet inside it.
+  return createPortal(
     <div style={S.overlay} onClick={onClose} role="dialog" aria-modal="true">
       <div style={S.sheet} onClick={(e) => e.stopPropagation()}>
         {done ? (
@@ -176,6 +179,7 @@ export default function GuestContact({ listing, kind: initialKind = "message", o
           </form>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
