@@ -6,6 +6,7 @@ import { useLang, LangToggle, LangSwitchLink } from "./i18n.jsx";
 import Landing from "./Landing.jsx";
 import ImageUpload from "./ImageUpload.jsx";
 import WantedAlert from "./WantedAlert.jsx";
+import CockpitFilters from "./CockpitFilters.jsx";
 import CompAdForm from "./CompAdForm.jsx";
 import Messages from "./Messages.jsx";
 // The map (Leaflet) is only needed when someone opens Map view, so it loads on
@@ -2847,14 +2848,27 @@ function SuccessView({ onHome }) {
   );
 }
 
+// Great-circle distance in miles.
+function milesBetween(lat1, lng1, lat2, lng2) {
+  const R = 3958.8, rad = Math.PI / 180;
+  const dLat = (lat2 - lat1) * rad, dLng = (lng2 - lng1) * rad;
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * rad) * Math.cos(lat2 * rad) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(a));
+}
+
 function HomeView({ listings, allListings, currentUser, users, onShare, onBuy, referrals, onSignIn, onMessageSeller, onReport, onSaveSearch, favorites, onToggleFavorite, onToggleBlock, onReportUser, blocks, reviews, offers, onMakeOffer, onOpenListing }) {
-  const { t } = useLang();
+  const { t, lang } = useLang();
   const [search, setSearch] = useState("");
   const [make, setMake] = useState("all");
   const [vehicleType, setVehicleType] = useState("all");
   // Cents, so it compares directly against listings.price and saves as cents.
   const [maxPrice, setMaxPrice] = useState(20000000);
+  const [minPrice, setMinPrice] = useState(0);
   const [maxMileage, setMaxMileage] = useState(300000);
+  // "Miles away": the visitor's position (from the browser, on a tap) lives in
+  // memory only, never stored or sent. radius is in miles.
+  const [geo, setGeo] = useState(null);
+  const [radius, setRadius] = useState(null);
   const [location, setLocation] = useState("");
   const [sort, setSort] = useState("newest");
   const [mode, setMode] = useState("grid"); // grid | map
@@ -2898,8 +2912,10 @@ function HomeView({ listings, allListings, currentUser, users, onShare, onBuy, r
     .filter(l => `${l.year} ${l.make} ${l.model}`.toLowerCase().includes(search.toLowerCase()))
     .filter(l => make === "all" || l.make === make)
     .filter(l => vehicleType === "all" || (l.vehicle_type || "car") === vehicleType)
-    .filter(l => l.price <= maxPrice)
+    .filter(l => l.price <= maxPrice && l.price >= minPrice)
     .filter(l => (l.mileage || 0) <= maxMileage)
+    // Cars with no coordinates are kept: hiding supply over missing data is worse.
+    .filter(l => !(geo && radius) || l.lat == null || l.lng == null || milesBetween(geo.lat, geo.lng, l.lat, l.lng) <= radius)
     .filter(l => !location.trim() || (l.location_text || "").toLowerCase().includes(location.toLowerCase()))
     .sort((a, b) => sort === "newest" ? new Date(b.created_at) - new Date(a.created_at) : sort === "priceLow" ? a.price - b.price : b.price - a.price);
 
@@ -2940,87 +2956,22 @@ for (const l of allListings.filter(l => l.status === "active")) {
           </div>
         </div>
       </div>
-      {listings.length >= 4 ? (
-      <div style={styles.filterBar} className={"app-filterbar" + (filtersOpen ? " open" : "")}>
-        <input className="app-search" style={styles.searchInput} placeholder={t("home.searchPlaceholder")} value={search} onChange={e => setSearch(e.target.value)} />
-        <button type="button" className="app-filter-toggle" onClick={() => setFiltersOpen(o => !o)} aria-expanded={filtersOpen}>
-          {filtersOpen ? "✕" : "⚙"} {filtersOpen ? t("browse.hideFilters") : t("browse.filters")}
-        </button>
-        <div className="app-filter-extra">
-        {/* Only shown once there is more than one type on the platform —
-            a lone "All types" dropdown is a control that does nothing. */}
-        {availableTypes.length > 1 && (
-          <select
-            style={styles.selectInput}
-            value={vehicleType}
-            onChange={e => { setVehicleType(e.target.value); setMake("all"); }}
-          >
-            <option value="all">{t("browse.allTypes")}</option>
-            {availableTypes.map(vt => (
-              <option key={vt.value} value={vt.value}>{vt.emoji} {vt.label}</option>
-            ))}
-          </select>
-        )}
-        <select style={styles.selectInput} value={make} onChange={e => setMake(e.target.value)}>
-          <option value="all">{t("browse.allMakes")}</option>
-          {makes.map(m => <option key={m} value={m}>{m}</option>)}
-        </select>
-        <div style={styles.filterGroup}>
-          <label style={styles.filterLabel}>{t("browse.maxPrice")}: {fmt(maxPrice)}</label>
-          <input type="range" min={500000} max={20000000} step={100000} value={maxPrice} onChange={e => setMaxPrice(+e.target.value)} style={styles.rangeInput} />
-        </div>
-        <div style={styles.filterGroup}>
-          <label style={styles.filterLabel}>{t("browse.maxMileage")}: {maxMileage.toLocaleString()} {t("card.mi")}</label>
-          <input type="range" min={0} max={300000} step={5000} value={maxMileage} onChange={e => setMaxMileage(+e.target.value)} style={styles.rangeInput} />
-        </div>
-        <input style={{ ...styles.searchInput, minWidth: 140 }} placeholder={t("browse.locationPlaceholder")} value={location} onChange={e => setLocation(e.target.value)} />
-        <select style={styles.selectInput} value={sort} onChange={e => setSort(e.target.value)}>
-          <option value="newest">{t("browse.sortNewest")}</option>
-          <option value="priceLow">{t("browse.sortPriceLow")}</option>
-          <option value="priceHigh">{t("browse.sortPriceHigh")}</option>
-        </select>
-        <div style={styles.viewToggle}>
-          <button style={{ ...styles.viewToggleBtn, ...(mode === "grid" ? styles.viewToggleBtnActive : {}) }} onClick={() => setMode("grid")}>⊞ Grid</button>
-          <button style={{ ...styles.viewToggleBtn, ...(mode === "map" ? styles.viewToggleBtnActive : {}) }} onClick={() => setMode("map")}>📍 Map</button>
-        </div>
-        {currentUser && (
-          <button
-            style={styles.saveSearchBtn}
-            onClick={() => onSaveSearch({ label: search || make !== "all" ? `${make !== "all" ? make + " " : ""}${search}`.trim() || "Saved search" : "Saved search", search, make: make === "all" ? "" : make, max_price: maxPrice, max_mileage: maxMileage, location_text: location })}
-          >
-            🔔 Save this search
-          </button>
-        )}
-      
-        </div>
-      </div>
-      ) : (
-        /* With only a few cars, sliders and dropdowns do nothing, but search
-           always stays: a visitor must be able to look for a car. Signed-in
-           visitors also keep the saved-search alert button. */
-        <div style={{ ...styles.filterBar, paddingBottom: 8 }} className="app-filterbar">
-          {/* Tap-only filters: nothing to type. */}
-          <div className="app-quickfilters" role="group" aria-label={t("browse.maxPrice")}>
-            {[[20000000, t("browse.anyPrice")], [500000, t("browse.under5k")], [1000000, t("browse.under10k")], [2000000, t("browse.under20k")]].map(([cents, label]) => (
-              <button key={cents} type="button" className={"app-chip" + (maxPrice === cents ? " on" : "")} onClick={() => setMaxPrice(cents)} aria-pressed={maxPrice === cents}>{label}</button>
-            ))}
-            {makes.length > 1 && (
-              <select style={styles.selectInput} value={make} onChange={e => setMake(e.target.value)} aria-label={t("browse.allMakes")}>
-                <option value="all">{t("browse.allMakes")}</option>
-                {makes.map(m => <option key={m} value={m}>{m}</option>)}
-              </select>
-            )}
-          </div>
-          {currentUser && (
-            <button
-              style={styles.saveSearchBtn}
-              onClick={() => onSaveSearch({ label: "Saved search", search: "", make: "", max_price: maxPrice, max_mileage: maxMileage, location_text: "" })}
-            >
-              🔔 Save this search
-            </button>
-          )}
-        </div>
-      )}
+      <CockpitFilters
+        lang={lang}
+        count={filtered.length}
+        total={listings.length}
+        makes={makes}
+        make={make} setMake={setMake}
+        types={availableTypes} vehicleType={vehicleType} setVehicleType={(v) => { setVehicleType(v); setMake("all"); }}
+        minPrice={minPrice} setMinPrice={setMinPrice} maxPrice={maxPrice} setMaxPrice={setMaxPrice}
+        maxMileage={maxMileage} setMaxMileage={setMaxMileage}
+        geo={geo} setGeo={setGeo} radius={radius} setRadius={setRadius}
+        sort={sort} setSort={setSort} mode={mode} setMode={setMode}
+        search={search} clearSearch={() => setSearch("")}
+        canSave={!!currentUser}
+        onSave={() => onSaveSearch({ label: search || make !== "all" ? `${make !== "all" ? make + " " : ""}${search}`.trim() || "Saved search" : "Saved search", search, make: make === "all" ? "" : make, max_price: maxPrice, max_mileage: maxMileage, location_text: location })}
+        onReset={() => { setMake("all"); setVehicleType("all"); setMaxPrice(20000000); setMinPrice(0); setMaxMileage(300000); setGeo(null); setRadius(null); setSearch(""); setLocation(""); setSort("newest"); }}
+      />
 
       {mode === "map" ? (
         <Suspense fallback={<div style={{ padding: "60px 0", textAlign: "center", color: "#6b7280" }}>…</div>}><ListingsMap listings={filtered} /></Suspense>
