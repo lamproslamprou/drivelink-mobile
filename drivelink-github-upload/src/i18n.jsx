@@ -219,7 +219,7 @@ const dict = {
 
 
     // ── Home / hero ──────────────────────────────────────────────────────
-    "home.badge": "Peer-to-peer • Commission-backed",
+    "home.badge": "Peer-to-peer • Protected payments",
 
     "lp.why.badge": "Why protected payment",
     "lp.why.title": "Everything about a private sale is fine until the money moves.",
@@ -516,7 +516,7 @@ const dict = {
     "auth.reset.checking": "Verificando tu enlace\u2026",
 
 
-    "home.badge": "De persona a persona • Con comisión",
+    "home.badge": "De persona a persona • Pagos protegidos",
 
     "lp.why.badge": "Por qué pago protegido",
     "lp.why.title": "En una venta entre particulares todo va bien hasta que se mueve el dinero.",
