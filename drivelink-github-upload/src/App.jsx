@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, lazy, Suspense } from "react";
 import { supabase } from "./supabase.js";
 import Auth from "./Auth.jsx";
 import ResetPassword from "./ResetPassword.jsx";
@@ -7,7 +7,10 @@ import Landing from "./Landing.jsx";
 import ImageUpload from "./ImageUpload.jsx";
 import CompAdForm from "./CompAdForm.jsx";
 import Messages from "./Messages.jsx";
-import ListingsMap, { geocode } from "./ListingsMap.jsx";
+// The map (Leaflet) is only needed when someone opens Map view, so it loads on
+// demand instead of weighing down every first visit on a phone.
+const ListingsMap = lazy(() => import("./ListingsMap.jsx"));
+const geocode = async (text) => (await import("./ListingsMap.jsx")).geocode(text);
 import logoIcon from "./assets/logo-icon.png";
 import { StartDealView, JoinDealView } from "./DealViews.jsx";
 import FAQView from "./FAQView.jsx";
@@ -21,6 +24,8 @@ import InspectorsView from "./InspectorsView.jsx";
 import SellerToolkitView from "./SellerToolkitView.jsx";
 import { platformFeeRate, platformFeeLabel, promoActive } from "./fee.js";
 import { analytics } from "@heycatch/sdk";
+import { trackEvent, markInternalBrowser, isInternalAccount } from "./track.js";
+import GuestContact from "./GuestContact.jsx";
 import LienPayoffNJ from "./guides/LienPayoffNJ.jsx";
 import LienPayoffPA from "./guides/LienPayoffPA.jsx";
 import LienPayoffNY from "./guides/LienPayoffNY.jsx";
@@ -847,10 +852,8 @@ export default function App() {
   // Mark this browser as internal once an admin signs in, so HeyCatch's
   // beforeSend (main.jsx) stops counting it as a customer visitor.
   useEffect(() => {
-    if (dbUser?.role === "admin") {
-      try { localStorage.setItem("dl_internal", "1"); } catch { /* private mode */ }
-    }
-  }, [dbUser]);
+    if (currentUser && dbUser && isInternalAccount(currentUser, dbUser)) markInternalBrowser();
+  }, [dbUser, currentUser]);
 
   // ── Scroll to top on every view change. Without this, navigating between
   // views (e.g. clicking "Browse Cars" from partway down the Landing page)
@@ -1228,6 +1231,7 @@ const denyInspector = async (id) => {
     const row = { id: "off" + Date.now(), listing_id: listingId, buyer_id: currentUser.id, seller_id: sellerId, amount, message, status: "pending" };
     const { error } = await supabase.from("offers").insert(row);
     if (error) { showToast("Couldn't submit offer", "error"); return; }
+    trackEvent("offer_made", { signed_in: true });
     await loadData();
     showToast("Offer sent to the seller.");
   };
@@ -2853,6 +2857,9 @@ function HomeView({ listings, allListings, currentUser, users, onShare, onBuy, r
   const [location, setLocation] = useState("");
   const [sort, setSort] = useState("newest");
   const [mode, setMode] = useState("grid"); // grid | map
+  // Mobile: the filter controls collapse behind one button. Most visits are on a
+  // phone, and a stack of sliders and dropdowns used to push the cars below the fold.
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [compareIds, setCompareIds] = useState([]);
   const [showCompare, setShowCompare] = useState(false);
   const MAX_COMPARE = 3;
@@ -2911,9 +2918,9 @@ for (const l of allListings.filter(l => l.status === "active")) {
     <div>
       <div style={styles.hero} className="app-hero">
         <div style={styles.heroInner}>
-          <div style={styles.heroBadge}>{t("home.badge")}</div>
+          <div style={styles.heroBadge} className="app-hero-badge">{t("home.badge")}</div>
           <h1 style={styles.heroTitle} className="app-hero-title">{t("home.title")}<br /><span style={styles.heroAccent}>{t("home.titleAccent")}</span></h1>
-          <p style={styles.heroSub}>{t("home.sub")}</p>
+          <p style={styles.heroSub} className="app-hero-sub">{t("home.sub")}</p>
           <LangSwitchLink />
           <div style={styles.heroStats} className="app-hero-stats">
             {/* "1 Active listings" on a brand-new marketplace reads as empty
@@ -2932,8 +2939,13 @@ for (const l of allListings.filter(l => l.status === "active")) {
           </div>
         </div>
       </div>
-      <div style={styles.filterBar}>
-        <input style={styles.searchInput} placeholder={t("home.searchPlaceholder")} value={search} onChange={e => setSearch(e.target.value)} />
+      {listings.length >= 4 ? (
+      <div style={styles.filterBar} className={"app-filterbar" + (filtersOpen ? " open" : "")}>
+        <input className="app-search" style={styles.searchInput} placeholder={t("home.searchPlaceholder")} value={search} onChange={e => setSearch(e.target.value)} />
+        <button type="button" className="app-filter-toggle" onClick={() => setFiltersOpen(o => !o)} aria-expanded={filtersOpen}>
+          {filtersOpen ? "✕" : "⚙"} {filtersOpen ? t("browse.hideFilters") : t("browse.filters")}
+        </button>
+        <div className="app-filter-extra">
         {/* Only shown once there is more than one type on the platform —
             a lone "All types" dropdown is a control that does nothing. */}
         {availableTypes.length > 1 && (
@@ -2978,10 +2990,26 @@ for (const l of allListings.filter(l => l.status === "active")) {
             🔔 Save this search
           </button>
         )}
+      
+        </div>
       </div>
+      ) : (
+        /* With only a few cars, sliders and dropdowns are controls that do
+           nothing. Signed-in visitors keep the saved-search alert button. */
+        currentUser && (
+          <div style={{ ...styles.filterBar, paddingBottom: 8 }}>
+            <button
+              style={styles.saveSearchBtn}
+              onClick={() => onSaveSearch({ label: "Saved search", search: "", make: "", max_price: maxPrice, max_mileage: maxMileage, location_text: "" })}
+            >
+              🔔 Save this search
+            </button>
+          </div>
+        )
+      )}
 
       {mode === "map" ? (
-        <ListingsMap listings={filtered} />
+        <Suspense fallback={<div style={{ padding: "60px 0", textAlign: "center", color: "#6b7280" }}>…</div>}><ListingsMap listings={filtered} /></Suspense>
       ) : (
         <div style={styles.grid} className="app-grid">
           {filtered.length === 0 && (
@@ -2991,7 +3019,7 @@ for (const l of allListings.filter(l => l.status === "active")) {
               <div style={{ fontSize: 14 }}>{t("browse.widenSearch")}</div>
             </div>
           )}
-          {filtered.map(l => {
+          {filtered.map((l, idx) => {
             const myRef = currentUser ? referrals.find(r => r.listing_id === l.id && r.promoter_id === currentUser.id) : null;
             const seller = users.find(u => u.id === l.seller_id);
             const comparablePrices = avgByModel[`${l.make}|${l.model}`] || [];
@@ -3026,8 +3054,9 @@ for (const l of allListings.filter(l => l.status === "active")) {
                 onMakeOffer={onMakeOffer}
                 onOpenListing={() => onOpenListing({ listing: l, seller, myRef, sellerRating, sellerReviewCount: sellerReviews.length, myOffer })}
                 isComparing={compareIds.includes(l.id)}
-                onToggleCompare={toggleCompare}
+                onToggleCompare={filtered.length >= 2 ? toggleCompare : undefined}
                 compareDisabled={compareIds.length >= MAX_COMPARE}
+                priority={idx === 0}
               />
             );
           })}
@@ -3076,12 +3105,13 @@ for (const l of allListings.filter(l => l.status === "active")) {
   );
 }
 
-function CarCard({ listing, seller, avgPrice, similarCount, onSeeSimilar, currentUser, onShare, onBuy, myRef, onSignIn, onMessageSeller, onReport, isFavorited, onToggleFavorite, isBlocked, onToggleBlock, onReportUser, sellerRating, sellerReviewCount, myOffer, onMakeOffer, onOpenListing, isComparing, onToggleCompare, compareDisabled }) {
+function CarCard({ listing, seller, avgPrice, similarCount, onSeeSimilar, currentUser, onShare, onBuy, myRef, onSignIn, onMessageSeller, onReport, isFavorited, onToggleFavorite, isBlocked, onToggleBlock, onReportUser, sellerRating, sellerReviewCount, myOffer, onMakeOffer, onOpenListing, isComparing, onToggleCompare, compareDisabled, priority }) {
   const { t } = useLang();
   const [copied, setCopied] = useState(false);
   const [reporting, setReporting] = useState(false);
   const [reportingUser, setReportingUser] = useState(false);
   const [offering, setOffering] = useState(false);
+  const [guestKind, setGuestKind] = useState(null); // "message" | "save" for signed-out visitors
   const handleShare = async () => {
     const code = await onShare(listing.id);
     if (!code) return; // blocked (own listing) or failed — onShare already explained why
@@ -3108,7 +3138,7 @@ function CarCard({ listing, seller, avgPrice, similarCount, onSeeSimilar, curren
   return (
     <div style={styles.card} className="car-card">
       <div style={{ ...styles.cardImgWrap, cursor: onOpenListing ? "pointer" : "default" }} onClick={() => onOpenListing?.()}>
-        <img src={cover} alt={`${listing.make} ${listing.model}`} style={styles.cardImg} onError={e => { e.target.src = "https://images.unsplash.com/photo-1494976388531-d1058494cdd8?w=600&q=80"; }} />
+        <img src={cover} alt={`${listing.make} ${listing.model}`} style={styles.cardImg} loading={priority ? "eager" : "lazy"} decoding="async" fetchpriority={priority ? "high" : "auto"} onError={e => { e.target.src = "https://images.unsplash.com/photo-1494976388531-d1058494cdd8?w=600&q=80"; }} />
         <div style={styles.cardPrice}>{fmt(listing.price)}</div>
         {listing.status === "pending" && <div style={styles.pendingRibbon}>{t("card.salePending")}</div>}
         {isStale && <div style={{ ...styles.pendingRibbon, background: "#6b7280", top: listing.status === "pending" ? 40 : 12 }}>{t("card.sellerInactive")}</div>}
@@ -3156,9 +3186,9 @@ function CarCard({ listing, seller, avgPrice, similarCount, onSeeSimilar, curren
             {isComparing ? "✓ Comparing" : "⚖️ Add to Compare"}
           </button>
         )}
-        <p style={styles.cardDesc}>{listing.description}</p>
+        <p style={styles.cardDesc} className="app-card-desc">{listing.description}</p>
         {listing.vin && (
-          <div style={styles.vinRow}>
+          <div style={styles.vinRow} className="app-card-vin">
             VIN: {listing.vin} {listing.vin_verified && <span style={styles.verifiedBadge} title="VIN was decoded and matches the make/model/year on this listing">✓ VIN Verified</span>} · <a href="https://www.carfax.com/vehicle-history-reports/" target="_blank" rel="noreferrer noopener" style={styles.vinLink}>{t("detail.carfax")} →</a> · <a href="https://www.nicb.org/vincheck" target="_blank" rel="noreferrer noopener" style={styles.vinLink}>{t("detail.nicb")} →</a>
           </div>
         )}
@@ -3180,9 +3210,11 @@ function CarCard({ listing, seller, avgPrice, similarCount, onSeeSimilar, curren
           <>
             <button style={styles.offerBtn} onClick={onSignIn}>💰 {t("card.makeOffer")}</button>
             <div style={styles.cardSecondaryActions}>
-              <button style={styles.messageLink} onClick={onSignIn}>💬 {t("card.messageSeller")}</button>
+              <button style={styles.messageLink} onClick={() => setGuestKind("message")}>💬 {t("card.askSeller")}</button>
+              <button style={styles.messageLink} onClick={() => setGuestKind("save")}>✉️ {t("card.emailMe")}</button>
             </div>
             <div style={{ fontSize: 12, color: "#64748b", marginTop: 6, lineHeight: 1.4 }}>🔒 {t("card.guestReassure")}</div>
+            {guestKind && <GuestContact listing={listing} kind={guestKind} onClose={() => setGuestKind(null)} onCreateAccount={onSignIn} />}
           </>
         )}
         {currentUser && !isOwnListing && onMakeOffer && (
@@ -3319,6 +3351,7 @@ function ListingDetailModal({ data, currentUser, isFavorited, isBlocked, onClose
   const [linkCopied, setLinkCopied] = useState(false);
   const [reporting, setReporting] = useState(false);
   const [offering, setOffering] = useState(false);
+  const [guestKind, setGuestKind] = useState(null); // "message" | "save" for signed-out visitors
 
   const images = (listing.images && listing.images.length ? listing.images : [listing.image]).filter(Boolean);
   const isOwnListing = currentUser && listing.seller_id === currentUser.id;
@@ -3588,6 +3621,15 @@ function ListingDetailModal({ data, currentUser, isFavorited, isBlocked, onClose
 
           <DealCheckButton listing={listing} onCheckDeal={onCheckDeal} />
 
+          {/* Signed-out visitors can still reach the seller or keep the car, by
+              email, with no account. Sign-in used to gate every action here. */}
+          {!currentUser && (
+            <div style={styles.cardSecondaryActions}>
+              <button style={styles.messageLink} onClick={() => setGuestKind("message")}>💬 {t("card.askSeller")}</button>
+              <button style={styles.messageLink} onClick={() => setGuestKind("save")}>✉️ {t("card.emailMe")}</button>
+            </div>
+          )}
+
           {currentUser && !isOwnListing && (
             <div style={styles.cardSecondaryActions}>
               <button style={styles.messageLink} onClick={() => onMessageSeller(listing)}>💬 {t("card.messageSeller")}</button>
@@ -3615,6 +3657,7 @@ function ListingDetailModal({ data, currentUser, isFavorited, isBlocked, onClose
           onSubmit={(reason, details) => { onReport(listing.id, reason, details); setReporting(false); }}
         />
       )}
+      {guestKind && <GuestContact listing={listing} kind={guestKind} onClose={() => setGuestKind(null)} onCreateAccount={onSignIn} />}
     </div>
   );
 }
@@ -7511,11 +7554,26 @@ const css = `
     .app-footer-col-compare > span { flex-basis: 100%; }
   }
 
+  /* Filter controls: on desktop the wrapper disappears (display: contents), so
+     the bar lays out exactly as before. The toggle only exists on phones. */
+  .app-filter-extra { display: contents; }
+  .app-filter-toggle { display: none; }
+
   @media (max-width: 700px) {
     .app-main { padding: 0 16px 48px !important; }
-    .app-hero { margin: 0 -16px !important; padding: 40px 16px !important; }
-    .app-hero-title { font-size: 32px !important; }
-    .app-hero-stats { gap: 20px !important; flex-wrap: wrap; }
+    .app-hero { margin: 0 -16px !important; padding: 22px 16px 20px !important; }
+    .app-hero-title { font-size: 26px !important; margin-bottom: 4px !important; }
+    /* Phones: put the cars within the first screen. The badge, sub-line and
+       promoter stat live on the landing page and /promoter. */
+    .app-hero-badge, .app-hero-sub, .app-hero-stats { display: none !important; }
+    .app-filterbar { gap: 10px !important; padding: 12px 0 8px !important; }
+    .app-filterbar .app-search { min-width: 0 !important; }
+    .app-filter-toggle { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 14px; border-radius: 10px; border: 1px solid #e5e7eb; background: #fff; font-size: 14px; font-weight: 600; color: #334155; cursor: pointer; }
+    .app-filter-extra { display: none; }
+    .app-filterbar.open .app-filter-extra { display: flex; flex-direction: column; gap: 12px; width: 100%; }
+    .app-filterbar.open .app-filter-extra > * { width: 100%; box-sizing: border-box; }
+    .app-card-desc { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+    .app-card-vin { display: none !important; }
     .app-grid { grid-template-columns: 1fr !important; }
     .app-form-grid { grid-template-columns: 1fr !important; }
     /* The inline style on rowInfo is "flex: 1", and the shorthand expands to

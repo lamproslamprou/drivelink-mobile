@@ -4,6 +4,7 @@ import App from './App.jsx'
 import { LangProvider } from './i18n.jsx'
 import ErrorBoundary from './ErrorBoundary.jsx'
 import { analytics } from '@heycatch/sdk'
+import { isInternalBrowser } from './track.js'
 
 // HeyCatch analytics. Module scope, once, in the entry file that runs on every
 // page — not inside a component. The project key is a public key and is meant
@@ -15,10 +16,9 @@ analytics.init({
   // covers this browser's anonymous visits afterwards. /admin is always
   // dropped, flag or not. Dropped events never leave the page.
   beforeSend: (event) => {
-    try {
-      if (window.location.pathname.startsWith('/admin')) return null
-      if (localStorage.getItem('dl_internal') === '1') return null
-    } catch { /* storage blocked: fall through and keep the event */ }
+    // /admin, and any browser flagged internal (admin or test account sign-in,
+    // or ?internal=1). See track.js.
+    if (isInternalBrowser()) return null
     return event
   },
   install: {

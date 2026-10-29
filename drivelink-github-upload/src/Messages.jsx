@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "./supabase.js";
+import { trackEvent } from "./track.js";
 
 // Listing states where money is in flight. A thread attached to one of these is
 // the only record of what the two parties agreed to, so it can't be removed
@@ -234,6 +235,12 @@ export default function Messages({ currentUser, listings, users, offers, openThr
       setDraft(body);
       setSendError(error.message || "Message didn't send. Try again.");
       return;
+    }
+
+    // First message this person has sent in the thread: a real contact attempt,
+    // counted once per conversation as a funnel goal ("inquiry_sent").
+    if (!(active.msgs || []).some(m => m.sender_id === currentUser.id)) {
+      trackEvent("inquiry_sent", { kind: "message", signed_in: true });
     }
 
     // Inserts with moderation_status = 'pending', so the recipient cannot see

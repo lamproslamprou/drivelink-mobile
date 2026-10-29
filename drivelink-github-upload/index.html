@@ -52,6 +52,17 @@
     <!-- Google tag (gtag.js) -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-ZR5N15ZQZ1"></script>
     <script>
+      // Internal browsers (admin, test accounts) stay out of GA4. Visit any page
+      // with ?internal=1 to flag a browser, ?internal=0 to clear it. This runs
+      // before gtag is configured so no hit is ever sent from a flagged browser.
+      try {
+        var q = new URLSearchParams(window.location.search).get('internal');
+        if (q === '1') localStorage.setItem('dl_internal', '1');
+        if (q === '0') localStorage.removeItem('dl_internal');
+        if (localStorage.getItem('dl_internal') === '1' || window.location.pathname.indexOf('/admin') === 0) {
+          window['ga-disable-G-ZR5N15ZQZ1'] = true;
+        }
+      } catch (e) { /* storage blocked: keep tracking */ }
       window.dataLayer = window.dataLayer || [];
       function gtag(){dataLayer.push(arguments);}
       gtag('js', new Date());
