@@ -35,9 +35,9 @@ const esc = (v: unknown) =>
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
 const SITE = "https://drivelink.deals";
-// Sends from notifications@ like the other functions (a send-only address).
-// Replies go to Reply-To, never to the From address.
-const FROM = "DriveLink <notifications@drivelink.deals>";
+// Sends from support@, the one real DriveLink mailbox, so replies land somewhere.
+// Reply-To is the guest for the seller copy, support@ otherwise.
+const FROM = "DriveLink <support@drivelink.deals>";
 const ADDRESS = "DriveLink LLC, 971 US Highway 202N, Ste N, Branchburg, NJ 08876";
 
 const EMAIL_RE = /^[^\s@<>"']+@[^\s@<>"']+\.[^\s@<>"']{2,}$/;

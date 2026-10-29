@@ -27,7 +27,7 @@ const CRON_SECRET = Deno.env.get("CRON_SHARED_SECRET");
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
 
 const SITE = "https://drivelink.deals";
-const FROM = "DriveLink <hello@drivelink.deals>";
+const FROM = "DriveLink <support@drivelink.deals>";
 const REPLY_TO = "support@drivelink.deals";
 const ADDRESS = "DriveLink LLC, 971 US Highway 202N, Ste N, Branchburg, NJ 08876";
 const MAX_PER_RUN = 25;
