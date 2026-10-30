@@ -77,6 +77,8 @@ const CRON_SECRET = Deno.env.get("CRON_SHARED_SECRET");
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY")!;
 const FROM = "DriveLink <noreply@drivelink.deals>";
+// noreply@ is not a real mailbox; replies must land in the one that is.
+const REPLY_TO = "support@drivelink.deals";
 const SITE = "https://drivelink.deals";
 
 // Local rather than shared: these are the only user-facing emails this job
@@ -90,7 +92,7 @@ async function sendUserEmail(to: string, subject: string, html: string) {
         Authorization: `Bearer ${RESEND_API_KEY}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ from: FROM, to, subject, html }),
+      body: JSON.stringify({ from: FROM, to, subject, html, reply_to: REPLY_TO }),
     });
     if (!res.ok) {
       console.error(`Resend failed for ${to}:`, await res.text());
@@ -112,6 +114,29 @@ function shell(heading: string, body: string) {
       DriveLink · <a href="${SITE}" style="color:#B87300">drivelink.deals</a>
     </p>
   </div>`;
+}
+
+function openButton(label: string) {
+  return `<p><a href="${SITE}" style="display:inline-block;background:#FFB020;color:#111;padding:10px 18px;border-radius:6px;text-decoration:none;font-weight:600">${label}</a></p>`;
+}
+
+// Buyer and seller get different instructions: the buyer confirms receipt,
+// the seller enters the buyer's handover code. Same question to both.
+function pausedBody(carLabel: string, role: "buyer" | "seller") {
+  const intro = role === "buyer"
+    ? `Your purchase of the <strong>${carLabel}</strong> has been open for a while with no confirmation, so we've paused it for review.`
+    : `Your sale of the <strong>${carLabel}</strong> has been open for a while with no confirmation, so we've paused it for review.`;
+  const ifHandedOver = role === "buyer"
+    ? `If you have the car and the signed title, open the app and confirm receipt — that releases the funds to the seller straight away.`
+    : `If the buyer has the car and the signed title, open the app and enter the buyer's 6-digit handover code — that releases your funds straight away.`;
+  const button = role === "buyer" ? "Confirm receipt in DriveLink" : "Enter handover code in DriveLink";
+  return `
+    <p>${intro} <strong>The money is safe and has not moved.</strong></p>
+    <p style="background:#FFF8E7;border-left:3px solid #FFB020;padding:12px 14px;margin:18px 0">
+      <strong>Reply to this email with one line: has the car changed hands yet?</strong>
+    </p>
+    <p style="font-size:14px;color:#444">${ifHandedOver} If it hasn't changed hands, just reply and tell us — we'll sort it out.</p>
+    ${openButton(button)}`;
 }
 
 Deno.serve(async (req) => {
@@ -184,26 +209,15 @@ Deno.serve(async (req) => {
         // One question to each party, because the two answers mean opposite
         // things: "the car never arrived" is a refund, "I got it and forgot to
         // confirm" is a release. Nothing here should guess which.
-        const askBody = `
-          <p>Your <strong>${carLabel}</strong> sale has been open for a while
-          with no confirmation, so we've paused it for review. <strong>The money is safe and
-          has not moved.</strong></p>
-          <p style="background:#FFF8E7;border-left:3px solid #FFB020;padding:12px 14px;margin:18px 0">
-            <strong>Reply to this email with one line: has the car changed hands yet?</strong>
-          </p>
-          <p style="font-size:14px;color:#444">If it has, the buyer can confirm receipt in the app,
-          or the seller can enter the buyer's 6-digit handover code — either releases the funds
-          straight away. If it hasn't, tell us and we'll sort it out.</p>`;
-
         const sentBuyer = await sendUserEmail(
           buyer?.email ?? "",
           `Action needed — your ${carLabel} purchase is on hold`,
-          shell("We've paused this transaction", askBody),
+          shell("We've paused this transaction", pausedBody(carLabel, "buyer")),
         );
         const sentSeller = await sendUserEmail(
           seller?.email ?? "",
           `Action needed — your ${carLabel} sale is on hold`,
-          shell("We've paused this transaction", askBody),
+          shell("We've paused this transaction", pausedBody(carLabel, "seller")),
         );
 
         await notifyAdminSync({
