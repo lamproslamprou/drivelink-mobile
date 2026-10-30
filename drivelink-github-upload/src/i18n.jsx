@@ -67,8 +67,8 @@ const dict = {
     // feature. A per-listing translate button is the right answer for that.
     "card.salePending": "Sale Pending",
     "card.sellerInactive": "Seller Inactive",
-    "card.verified": "Verified",
-    "card.verifiedTitle": "Verified seller",
+    "card.verified": "Stripe verified",
+    "card.verifiedTitle": "Seller ID verified by Stripe Identity",
     "card.unverifiedSeller": "Unverified Seller",
     "card.unverifiedTitle": "This seller hasn't completed identity verification",
     "card.mi": "mi",
@@ -380,8 +380,8 @@ const dict = {
 
     "card.salePending": "Venta pendiente",
     "card.sellerInactive": "Vendedor inactivo",
-    "card.verified": "Verificado",
-    "card.verifiedTitle": "Vendedor verificado",
+    "card.verified": "Verificado por Stripe",
+    "card.verifiedTitle": "Identidad del vendedor verificada con Stripe Identity",
     "card.unverifiedSeller": "Vendedor sin verificar",
     "card.unverifiedTitle": "Este vendedor no ha completado la verificación de identidad",
     "card.mi": "mi",
