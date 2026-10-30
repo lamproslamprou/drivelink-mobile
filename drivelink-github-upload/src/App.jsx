@@ -3423,12 +3423,12 @@ function ListingDetailModal({ data, currentUser, isFavorited, isBlocked, onClose
 
         <div style={styles.detailBody}>
           <div style={{ fontSize: 24, fontWeight: 800, color: "#0f172a", lineHeight: 1.2, overflowWrap: "anywhere" }}>{listing.year} {listing.make} {listing.model}</div>
-          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, marginTop: 8 }}>
+          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "6px 10px", margin: "8px 0 14px" }}>
+            <span style={{ fontSize: 26, fontWeight: 800, color: "#0f172a" }}>{fmt(listing.price)}</span>
             {seller?.verified && <span style={{ ...styles.verifiedBadge, whiteSpace: "nowrap" }} title={t("card.verifiedTitle")}>✓ {t("card.verified")}</span>}
             {!seller?.verified && listing.price >= HIGH_VALUE_LISTING_THRESHOLD && <span style={{ ...styles.unverifiedBadge, whiteSpace: "nowrap" }} title={t("card.unverifiedTitle")}>🔒 {t("card.unverifiedSeller")}</span>}
             {sellerRating != null && <span style={{ ...styles.ratingBadge, whiteSpace: "nowrap" }}>⭐ {sellerRating.toFixed(1)} ({sellerReviewCount})</span>}
           </div>
-          <div style={{ fontSize: 28, fontWeight: 800, color: "#0f172a", margin: "10px 0 14px" }}>{fmt(listing.price)}</div>
 
           {/* Escrow reassurance, shown right where the money question forms.
               Only shows the "pending" variant when we positively know payouts
@@ -7412,7 +7412,7 @@ const styles = {
   modalBox: { background: "#fff", borderRadius: 20, padding: 28, maxWidth: 440, width: "100%", boxShadow: "0 20px 60px rgba(0,0,0,.2)", boxSizing: "border-box" },
   detailBox: { background: "#fff", borderRadius: 20, width: "100%", maxWidth: 760, maxHeight: "90vh", overflowY: "auto", boxShadow: "0 20px 60px rgba(0,0,0,.25)", boxSizing: "border-box", position: "relative" },
   detailCloseBtn: { position: "absolute", top: 14, right: 14, zIndex: 2, background: "rgba(15,23,42,.7)", color: "#fff", border: "none", width: 32, height: 32, borderRadius: "50%", cursor: "pointer", fontSize: 14 },
-  detailGalleryWrap: { position: "relative", width: "100%", height: 380, background: "#0f172a" },
+  detailGalleryWrap: { position: "relative", width: "100%", aspectRatio: "4 / 3", maxHeight: 380, background: "#0f172a" },
   detailMainImg: { width: "100%", height: "100%", objectFit: "cover", display: "block" },
   detailGalleryNav: { position: "absolute", top: "50%", transform: "translateY(-50%)", background: "rgba(0,0,0,.5)", color: "#fff", border: "none", width: 36, height: 36, borderRadius: "50%", cursor: "pointer", fontSize: 20 },
   detailGalleryCount: { position: "absolute", bottom: 12, right: 12, background: "rgba(0,0,0,.6)", color: "#fff", fontSize: 12, fontWeight: 600, padding: "3px 10px", borderRadius: 20 },
