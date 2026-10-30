@@ -3425,7 +3425,7 @@ function ListingDetailModal({ data, currentUser, isFavorited, isBlocked, onClose
           <div style={{ fontSize: 24, fontWeight: 800, color: "#0f172a", lineHeight: 1.2, overflowWrap: "anywhere" }}>{listing.year} {listing.make} {listing.model}</div>
           <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "6px 10px", margin: "8px 0 14px" }}>
             <span style={{ fontSize: 26, fontWeight: 800, color: "#0f172a" }}>{fmt(listing.price)}</span>
-            {seller?.verified && <span style={{ ...styles.verifiedBadge, whiteSpace: "nowrap" }} title={t("card.verifiedTitle")}>✓ {t("card.verified")}</span>}
+            {seller?.verified && <span style={{ ...styles.verifiedBadge, whiteSpace: "nowrap" }} title={t("card.verifiedTitle")}>✓ {t("card.verifiedSeller")}</span>}
             {!seller?.verified && listing.price >= HIGH_VALUE_LISTING_THRESHOLD && <span style={{ ...styles.unverifiedBadge, whiteSpace: "nowrap" }} title={t("card.unverifiedTitle")}>🔒 {t("card.unverifiedSeller")}</span>}
             {sellerRating != null && <span style={{ ...styles.ratingBadge, whiteSpace: "nowrap" }}>⭐ {sellerRating.toFixed(1)} ({sellerReviewCount})</span>}
           </div>
