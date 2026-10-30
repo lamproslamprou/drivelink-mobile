@@ -3422,13 +3422,13 @@ function ListingDetailModal({ data, currentUser, isFavorited, isBlocked, onClose
         )}
 
         <div style={styles.detailBody}>
-          <div style={styles.cardTitleRow}>
-            <div style={{ fontSize: 24, fontWeight: 800, color: "#0f172a" }}>{listing.year} {listing.make} {listing.model}</div>
-            {seller?.verified && <span style={styles.verifiedBadge} title={t("card.verifiedTitle")}>✓ {t("card.verified")}</span>}
-            {!seller?.verified && listing.price >= HIGH_VALUE_LISTING_THRESHOLD && <span style={styles.unverifiedBadge} title={t("card.unverifiedTitle")}>🔒 {t("card.unverifiedSeller")}</span>}
-            {sellerRating != null && <span style={styles.ratingBadge}>⭐ {sellerRating.toFixed(1)} ({sellerReviewCount})</span>}
+          <div style={{ fontSize: 24, fontWeight: 800, color: "#0f172a", lineHeight: 1.2, overflowWrap: "anywhere" }}>{listing.year} {listing.make} {listing.model}</div>
+          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, marginTop: 8 }}>
+            {seller?.verified && <span style={{ ...styles.verifiedBadge, whiteSpace: "nowrap" }} title={t("card.verifiedTitle")}>✓ {t("card.verified")}</span>}
+            {!seller?.verified && listing.price >= HIGH_VALUE_LISTING_THRESHOLD && <span style={{ ...styles.unverifiedBadge, whiteSpace: "nowrap" }} title={t("card.unverifiedTitle")}>🔒 {t("card.unverifiedSeller")}</span>}
+            {sellerRating != null && <span style={{ ...styles.ratingBadge, whiteSpace: "nowrap" }}>⭐ {sellerRating.toFixed(1)} ({sellerReviewCount})</span>}
           </div>
-          <div style={{ fontSize: 26, fontWeight: 800, color: "#0f172a", margin: "6px 0 14px" }}>{fmt(listing.price)}</div>
+          <div style={{ fontSize: 28, fontWeight: 800, color: "#0f172a", margin: "10px 0 14px" }}>{fmt(listing.price)}</div>
 
           {/* Escrow reassurance, shown right where the money question forms.
               Only shows the "pending" variant when we positively know payouts
