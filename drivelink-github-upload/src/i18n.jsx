@@ -192,6 +192,7 @@ const dict = {
     "auth.err.nameLong": "That name is too long — please shorten it.",
     "auth.err.nameLetters": "Please enter your name using letters.",
     "auth.err.nameReal": "Please enter your real name — buyers see this on your listings.",
+    "auth.err.fillBoth": "Please enter your email and password.",
 
     "auth.confirm.title": "Check your email",
     "auth.confirm.sentTo": "We sent a confirmation link to",
@@ -499,6 +500,7 @@ const dict = {
     "auth.err.nameLong": "Ese nombre es demasiado largo — por favor acórtalo.",
     "auth.err.nameLetters": "Por favor escribe tu nombre con letras.",
     "auth.err.nameReal": "Por favor escribe tu nombre real — los compradores lo verán en tus anuncios.",
+    "auth.err.fillBoth": "Por favor escribe tu correo y tu contraseña.",
 
     "auth.confirm.title": "Revisa tu correo",
     "auth.confirm.sentTo": "Enviamos un enlace de confirmación a",

@@ -134,9 +134,27 @@ export default function Auth({ onAuth, returnView, carLabel, initialTab, onBack 
   // returns to sign-in with the typed email still in place.
   const [forgotStage, setForgotStage] = useState(null);
 
+  // The error box sits at the top of the card, above the tabs and (on Create
+  // Account) the perks list, so on a phone it is scrolled out of view when the
+  // visitor taps the button at the bottom — the tap looks like it did nothing
+  // (HeyCatch rage-click clusters on /signin). showError bumps a counter so the
+  // box scrolls into view even when the same message repeats, which a plain
+  // setError(sameText) would not re-trigger.
+  const errorRef = useRef(null);
+  const [errTick, setErrTick] = useState(0);
+  const showError = (msg) => { setError(msg); setErrTick((n) => n + 1); };
+  useEffect(() => {
+    if (!errTick || !errorRef.current) return;
+    try { errorRef.current.scrollIntoView({ block: "center", behavior: "smooth" }); } catch { /* old browsers */ }
+  }, [errTick]);
+
   const handleSignIn = async () => {
-    setError(""); setLoading(true);
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    setError("");
+    // An empty submit used to round-trip to Supabase and come back as a
+    // terse API message; say what is missing instead.
+    if (!email.trim() || !password) { showError(t("auth.err.fillBoth")); return; }
+    setLoading(true);
+    const { data, error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
     if (error) {
       // Supabase returns this specific error when the account exists but hasn't confirmed its email yet
       if (error.message.toLowerCase().includes("email not confirmed")) {
@@ -144,7 +162,7 @@ export default function Auth({ onAuth, returnView, carLabel, initialTab, onBack 
         setLoading(false);
         return;
       }
-      setError(error.message); setLoading(false); return;
+      showError(error.message); setLoading(false); return;
     }
     markSeenAccount();
     // HeyCatch had no sign-in event at all (only signup_completed and
@@ -217,17 +235,18 @@ export default function Auth({ onAuth, returnView, carLabel, initialTab, onBack 
   const handleSignUp = async () => {
     setError(""); setLoading(true);
     const nameErrorKey = validateDisplayName(name);
-    if (nameErrorKey) { setError(t(nameErrorKey)); setLoading(false); return; }
+    if (nameErrorKey) { showError(t(nameErrorKey)); setLoading(false); return; }
+    if (!email.trim() || !password) { showError(t("auth.err.fillBoth")); setLoading(false); return; }
     // Store the normalized form, not the raw input — collapses double spaces
     // and strips the leading/trailing whitespace that was showing up on
     // listings as " Honda" and " accord Sport Sedan 4D".
     const cleanName = name.trim().replace(/\s+/g, " ");
-    if (await isPasswordPwned(password)) { setError(t("auth.pwned")); setLoading(false); return; }
+    if (await isPasswordPwned(password)) { showError(t("auth.pwned")); setLoading(false); return; }
     const { data, error } = await supabase.auth.signUp({
-      email, password,
+      email: email.trim(), password,
       options: { data: { name: cleanName, role: "member" }, emailRedirectTo: window.location.origin }
     });
-    if (error) { setError(error.message); setLoading(false); return; }
+    if (error) { showError(error.message); setLoading(false); return; }
     // Fired before the session branch so both outcomes count as one signup:
     // an immediate session, and the confirm-your-email path. The account row
     // exists either way, which is what the conversion is measuring.
@@ -373,7 +392,7 @@ export default function Auth({ onAuth, returnView, carLabel, initialTab, onBack 
           </div>
         )}
 
-        {error && <div style={styles.error}>{error}</div>}
+        {error && <div ref={errorRef} role="alert" style={styles.error}>{error}</div>}
         {success && <div style={styles.success}>{success}</div>}
 
         {googleOn && (
