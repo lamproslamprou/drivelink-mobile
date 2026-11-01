@@ -2199,7 +2199,7 @@ const denyInspector = async (id) => {
   if (view === "landing") return (
     <>
       <Landing
-        onSignIn={() => setView("auth")}
+        onSignIn={() => { setView("auth"); navigate(VIEW_PATHS.auth); }}
         onBrowse={() => setView("home")}
         onNavigate={setView}
         signedIn={!!currentUser}
