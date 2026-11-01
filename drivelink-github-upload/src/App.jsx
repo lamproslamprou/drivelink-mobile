@@ -575,7 +575,7 @@ export default function App() {
   // active is what actually stops a double-tap producing two live codes — the
   // guard below just turns that race into a silent re-read instead of an error.
   const mintPromoterCode = async () => {
-    if (!currentUser) { setView("auth"); return null; }
+    if (!currentUser) { setView("auth"); navigate(VIEW_PATHS.auth); return null; }
     const slug = slugFromName(dbUser?.name);
     for (let attempt = 0; attempt < 5; attempt++) {
       const code = `${slug}-${randomSuffix()}`;
@@ -1513,7 +1513,7 @@ const denyInspector = async (id) => {
   };
 
   const toggleBlock = async (userId) => {
-    if (!currentUser) { setView("auth"); return; }
+    if (!currentUser) { setView("auth"); navigate(VIEW_PATHS.auth); return; }
     const existing = blocks.find(b => b.blocked_id === userId);
     if (existing) {
       await supabase.from("blocks").delete().eq("id", existing.id);
@@ -2437,7 +2437,7 @@ const denyInspector = async (id) => {
               </div>
             ) : (
               <>
-                <button style={styles.signInBtn} onClick={() => setView("auth")}>{t("auth.signin")}</button>
+                <button style={styles.signInBtn} onClick={() => { setView("auth"); navigate(VIEW_PATHS.auth); }}>{t("auth.signin")}</button>
                 <LangToggle style={{ marginLeft: 8 }} />
               </>
             )}
@@ -2457,7 +2457,7 @@ const denyInspector = async (id) => {
         </div>
 
       <main style={styles.main} className="app-main">
-        {view === "advertise" && <AdvertiseView currentUser={dbUser} onSubmit={createAdCheckout} onSignIn={() => { setPendingView("advertise"); setView("auth"); }} />}
+        {view === "advertise" && <AdvertiseView currentUser={dbUser} onSubmit={createAdCheckout} onSignIn={() => { setPendingView("advertise"); setView("auth"); navigate(VIEW_PATHS.auth); }} />}
         {view === "home" && <HomeView key={homeResetKey} listings={activeListings} allListings={listings} currentUser={dbUser} users={users} onShare={generateShare} onBuy={handleBuyNow} referrals={referrals} onSignIn={signInForListing} onMessageSeller={messageSeller} onReport={fileReport} onSaveSearch={saveSearch} favorites={favorites} onToggleFavorite={toggleFavorite} onToggleBlock={toggleBlock} onReportUser={reportUserAction} blocks={blocks} reviews={reviews} offers={offers} onMakeOffer={makeOffer} onOpenListing={openListing} />}
         {view === "myListings" && <MyListingsView listings={listings.filter(l => l.seller_id === currentUser?.id)} referrals={referrals} users={users} offers={offers} stats={listingStats} onMarkSold={markSold} onSetStatus={setListingStatus} onUpdate={updateListing} onRespondToOffer={respondToOffer} onRescindOffer={rescindOffer} onOpenSafety={() => setView("safety")} onConfirmHandover={confirmHandover} currentUser={dbUser} onSetupPayouts={setupPayouts} onDelete={deleteListing} onRestore={restoreListing} />}
         {view === "myPurchases" && <MyPurchasesView listings={listings.filter(l => l.buyer_id === currentUser?.id)} users={users} reviews={reviews} currentUser={currentUser} handoverCodes={handoverCodes} onSubmitReview={submitReview} onConfirmReceipt={confirmReceipt} onFileDispute={fileDispute} onBuy={handleBuyNow} onBrowse={() => setView("home")} onOpenSafety={() => setView("safety")} onFindInspector={() => setView("inspectors")} />}
