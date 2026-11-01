@@ -299,6 +299,31 @@ async function decodeVin(vin) {
 //
 // "/" is the marketing landing page and "/browse" is the listing grid — two
 // different pages with different intent that used to share one URL.
+// ── Return-visit hook ─────────────────────────────────────────────────────────
+// HeyCatch showed second visits to /browse collapsing to seconds while first
+// visits ran long. The last car a visitor opened is remembered on this device
+// only (never sent anywhere) and offered back on /browse as a one-tap resume.
+// SESSION_START is fixed at page load: a car opened during THIS visit is never
+// offered back (that would greet someone with the car they just closed), only
+// one from an earlier visit.
+const LAST_VIEWED_KEY = "dl_last_viewed_listing";
+const LAST_VIEWED_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
+const SESSION_START = Date.now();
+function saveLastViewed(id) {
+  try { localStorage.setItem(LAST_VIEWED_KEY, JSON.stringify({ id, ts: Date.now() })); } catch { /* private mode */ }
+}
+function readReturnListingId() {
+  try {
+    const v = JSON.parse(localStorage.getItem(LAST_VIEWED_KEY) || "null");
+    if (!v?.id || typeof v.ts !== "number") return null;
+    if (v.ts >= SESSION_START || Date.now() - v.ts > LAST_VIEWED_MAX_AGE_MS) return null;
+    return v.id;
+  } catch { return null; }
+}
+function clearLastViewed() {
+  try { localStorage.removeItem(LAST_VIEWED_KEY); } catch { /* private mode */ }
+}
+
 const VIEW_PATHS = {
   landing:       "/",
   home:          "/browse",
@@ -1849,6 +1874,12 @@ const denyInspector = async (id) => {
     } catch { /* private browsing blocks localStorage; skip the count */ }
   };
 
+  // Remember the car for the return-visit hook (see readReturnListingId).
+  useEffect(() => {
+    const id = viewingListing?.listing?.id;
+    if (id) saveLastViewed(id);
+  }, [viewingListing?.listing?.id]);
+
   const closeListing = () => {
     setViewingListing(null);
     // Back to the grid, not the marketing page — "/" is the landing view now.
@@ -2879,6 +2910,23 @@ function HomeView({ listings, allListings, currentUser, users, onShare, onBuy, r
   const [showCompare, setShowCompare] = useState(false);
   const MAX_COMPARE = 3;
 
+  // Return-visit hook: id of the car this device opened on an earlier visit.
+  const [returnId, setReturnId] = useState(readReturnListingId);
+  const returnListing = returnId ? listings.find(l => l.id === returnId && l.status === "active") : null;
+  const resumeReturn = () => {
+    const l = returnListing;
+    if (!l) return;
+    const seller = users.find(u => u.id === l.seller_id);
+    const myRef = currentUser ? referrals.find(r => r.listing_id === l.id && r.promoter_id === currentUser.id) : null;
+    const sellerReviews = reviews?.filter(r => r.seller_id === l.seller_id) || [];
+    const sellerRating = sellerReviews.length ? sellerReviews.reduce((s, r) => s + r.rating, 0) / sellerReviews.length : null;
+    const myOffer = currentUser ? offers?.find(o => o.listing_id === l.id && o.buyer_id === currentUser.id && o.status !== "withdrawn" && o.status !== "declined") : null;
+    try { analytics.trackEvent("resume_listing_clicked"); } catch { /* ignore */ }
+    setReturnId(null);
+    onOpenListing({ listing: l, seller, myRef, sellerRating, sellerReviewCount: sellerReviews.length, myOffer });
+  };
+  const dismissReturn = () => { setReturnId(null); clearLastViewed(); };
+
   const toggleCompare = (listingId) => {
     setCompareIds(prev => {
       if (prev.includes(listingId)) return prev.filter(id => id !== listingId);
@@ -2956,6 +3004,24 @@ for (const l of allListings.filter(l => l.status === "active")) {
           </div>
         </div>
       </div>
+      {returnListing && (
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", maxWidth: 1100, margin: "12px auto 0", padding: "10px 12px", background: "#f0f9ff", border: "1px solid #bae6fd", borderRadius: 12, boxSizing: "border-box" }}>
+          <button
+            type="button"
+            onClick={resumeReturn}
+            style={{ flex: "1 1 220px", minHeight: 44, background: "none", border: "none", padding: 0, textAlign: "left", cursor: "pointer", fontFamily: "inherit", color: "#0c4a6e" }}
+          >
+            <span style={{ display: "block", fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".04em" }}>{t("browse.resume")}</span>
+            <span style={{ display: "block", fontSize: 15, fontWeight: 600 }}>{returnListing.year} {returnListing.make} {returnListing.model} · {fmt(returnListing.price)} →</span>
+          </button>
+          <button
+            type="button"
+            onClick={dismissReturn}
+            aria-label={t("browse.resumeDismiss")}
+            style={{ minWidth: 44, minHeight: 44, background: "none", border: "none", fontSize: 20, lineHeight: 1, color: "#475569", cursor: "pointer" }}
+          >×</button>
+        </div>
+      )}
       <CockpitFilters
         lang={lang}
         count={filtered.length}
