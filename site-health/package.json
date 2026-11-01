@@ -1,0 +1,7 @@
+{
+  "name": "drivelink-site-health",
+  "private": true,
+  "description": "Automated signed-out robustness checks for drivelink.deals, run by GitHub Actions. Never creates accounts or enters credentials.",
+  "scripts": { "test": "playwright test" },
+  "devDependencies": { "@playwright/test": "^1.49.0" }
+}
