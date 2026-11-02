@@ -3801,10 +3801,27 @@ function TranslatableDescription({ listing, onTranslate }) {
   );
 }
 
+// A saved AI check describes the car as it was when the check ran. Showing it
+// after the price (or anything else) changed put a wrong "$6,500" verdict on a
+// $6,200 car, because the server-side "edited since?" test only runs when
+// someone taps the button — a stored result on the page was shown as-is. This
+// applies the same test (and the same 14-day window as CACHE_DAYS in the
+// assess-deal function) before displaying anything.
+const ASSESSMENT_MAX_AGE_MS = 14 * 24 * 60 * 60 * 1000;
+function freshAssessment(l) {
+  if (!l?.deal_assessment || !l.deal_assessment_at) return null;
+  const at = new Date(l.deal_assessment_at).getTime();
+  if (Number.isNaN(at) || Date.now() - at > ASSESSMENT_MAX_AGE_MS) return null;
+  if (l.last_active_at && new Date(l.last_active_at).getTime() > at) return null;
+  return l.deal_assessment;
+}
+
 function DealCheckButton({ listing, onCheckDeal }) {
   const { t } = useLang();
   const [loading, setLoading] = useState(false);
-  const [assessment, setAssessment] = useState(listing.deal_assessment || null);
+  const [assessment, setAssessment] = useState(() => freshAssessment(listing));
+  // Follow the listing: an edit that lands while the card is open must retire the old verdict too.
+  useEffect(() => { setAssessment(freshAssessment(listing)); }, [listing.deal_assessment_at, listing.last_active_at, listing.price]);
 
   // Cars only, deliberately. assess-deal compares against Auto.dev comparables,
   // which is car data — on a motorcycle it returns nothing useful or, worse,
