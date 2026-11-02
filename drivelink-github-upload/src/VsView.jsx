@@ -1,4 +1,4 @@
-import { platformFeeLabel, platformFeeRate, promoActive } from "./fee.js";
+import { platformFeeLabel, platformFeeRate, promoActive, cardProcessingUsd, wireProcessingUsd } from "./fee.js";
 
 // /vs/* — honest comparison pages against the three services buyers actually
 // compare DriveLink with. English only for now.
@@ -18,15 +18,24 @@ export const VS_PATHS = {
 };
 
 const AS_OF = "October 12, 2026";
+// PrivateAuto's $29 listing + $150 closing fee were re-read on its pricing page
+// on Nov 2 2026; the Escrow.com and KeySavvy figures are still the Oct 12 reads.
+const AS_OF_PRIVATEAUTO = "November 2, 2026";
 const usd = (n) => "$" + Math.round(n).toLocaleString("en-US");
 const dlFee = (price) => price * platformFeeRate();
+// DriveLink's fee plus Stripe's processing, per rail. Processing is not ours,
+// but it comes out of the seller's proceeds, so an honest "what it costs"
+// column includes it: wire is capped at $5, card is about 2.9% + $0.30.
+const dlWire = (price) => dlFee(price) + wireProcessingUsd(price);
+const dlCard = (price) => dlFee(price) + cardProcessingUsd(price);
+const DL_NOTE = "DriveLink's columns are our fee plus Stripe's processing, which comes out of the seller's proceeds: capped at $5 on wire, about 2.9% + $0.30 on cards. The buyer chooses at checkout.";
 
 function pages() {
   const FEE = platformFeeLabel();
   const promo = promoActive();
   const dl = {
     fee: `${FEE} of the sale price, seller side, when the deal closes${promo ? " (half our usual 1%, through October 31)" : ""}`,
-    note: "Card processing is separate: paid to Stripe, about 2.9% + $0.30 on cards.",
+    note: DL_NOTE,
   };
   const prices = [10000, 30000, 60000];
   return {
@@ -39,9 +48,10 @@ function pages() {
         "The buyer's payment is protected until the buyer gives the seller a 6-digit code at the handover: the seller can't withdraw it before then. Nothing is released on a timer.",
         "DriveLink works on a car you found anywhere (Facebook Marketplace, Craigslist, a friend). You don't have to list it with us.",
       ],
-      tableHead: ["Sale price", "DriveLink fee", "PrivateAuto ($29 + $150)"],
-      tableRows: prices.map((p) => [usd(p), usd(dlFee(p)), usd(179)]),
-      tableNote: `DriveLink at ${FEE}. ${dl.note} PrivateAuto's figures are from privateauto.com as of ${AS_OF}; its pricing may include processing differently, so check theirs.`,
+      tableHead: ["Sale price", "DriveLink (buyer pays by wire)", "DriveLink (buyer pays by card)", "PrivateAuto ($29 + $150)"],
+      tableRows: prices.map((p) => [usd(p), usd(dlWire(p)), usd(dlCard(p)), usd(179)]),
+      tableNote: `DriveLink at ${FEE}. ${dl.note} PrivateAuto's figures are from privateauto.com as of ${AS_OF_PRIVATEAUTO}; its pricing may include processing differently, so check theirs.`,
+      asOf: AS_OF_PRIVATEAUTO,
       them: [
         "Flat fees: on higher-priced cars, $179 total can be less than a percentage fee" + (promo ? " once DriveLink's standard 1% returns on November 1" : "") + ".",
         "A full seller-side app with listing tools and a vehicle value report.",
@@ -63,8 +73,8 @@ function pages() {
         "KeySavvy acts as a dealer: it buys the car from the seller and sells it to the buyer, and ships the title. DriveLink never takes title. The two of you meet and hand over the keys and signed title yourselves.",
         "With DriveLink the buyer's money is released by a 6-digit code the buyer gives the seller at the handover.",
       ],
-      tableHead: ["Sale price", "DriveLink (seller pays)", "KeySavvy (buyer $99 + seller $99)"],
-      tableRows: prices.map((p) => [usd(p), usd(dlFee(p)), usd(198)]),
+      tableHead: ["Sale price", "DriveLink (buyer pays by wire)", "DriveLink (buyer pays by card)", "KeySavvy (buyer $99 + seller $99)"],
+      tableRows: prices.map((p) => [usd(p), usd(dlWire(p)), usd(dlCard(p)), usd(198)]),
       tableNote: `DriveLink at ${FEE}. ${dl.note} KeySavvy's figures are from keysavvy.com as of ${AS_OF}; a loan payoff adds $99 there.`,
       them: [
         "It does the title work: reassigns the title and ships it with tracking, including out of state.",
@@ -88,8 +98,8 @@ function pages() {
         "Escrow.com is generic: you set up the transaction terms yourselves. DriveLink is built around one car handover: the buyer gets a 6-digit code when they pay and gives it to the seller only once the car and signed title are in hand.",
         "DriveLink's fee is a single percentage, paid by the seller, charged only when the deal closes. Escrow.com's calculator quotes a standard fee of $50 on a $1,000 motor vehicle, $240 on $10,000 and $1,900 on $100,000 when the buyer pays by wire. Its fee changes with the amount and payment method, so get a quote for yours.",
       ],
-      tableHead: ["Sale price", "DriveLink fee", "Escrow.com standard fee (buyer pays by wire)"],
-      tableRows: [[usd(1000), usd(dlFee(1000)), "$50"], [usd(10000), usd(dlFee(10000)), "$240"], [usd(100000), usd(dlFee(100000)), "$1,900"]],
+      tableHead: ["Sale price", "DriveLink (buyer pays by wire)", "DriveLink (buyer pays by card)", "Escrow.com standard fee (buyer pays by wire)"],
+      tableRows: [[usd(1000), usd(dlWire(1000)), usd(dlCard(1000)), "$50"], [usd(10000), usd(dlWire(10000)), usd(dlCard(10000)), "$240"], [usd(100000), usd(dlWire(100000)), usd(dlCard(100000)), "$1,900"]],
       tableNote: `DriveLink at ${FEE}. ${dl.note} The Escrow.com figures are from its fee calculator (selling a motor vehicle, buyer paying by wire) as of ${AS_OF}. Their fee changes with the amount and payment method, so check their calculator for yours.`,
       them: [
         "Long track record, large volume, and many third-party reviews.",
@@ -152,7 +162,7 @@ export default function VsView({ page, onBack, onStart, onPricing, onNavigate })
           <button style={S.secondary} onClick={onPricing}>See our full pricing</button>
         </div>
 
-        <p style={S.note}>Competitor details come from each company's public website as of {AS_OF} and may have changed. Check their site for current terms.</p>
+        <p style={S.note}>Competitor details come from each company's public website as of {d.asOf || AS_OF} and may have changed. Check their site for current terms.</p>
 
         <div style={S.more}>
           {others.map((k) => (

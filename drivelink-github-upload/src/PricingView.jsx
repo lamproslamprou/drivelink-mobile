@@ -1,5 +1,5 @@
 import { useLang, LangToggle } from "./i18n.jsx";
-import { platformFeeLabel, platformFeeRate, maxFeeLabel, promoActive } from "./fee.js";
+import { platformFeeLabel, platformFeeRate, maxFeeLabel, promoActive, cardProcessingUsd, wireProcessingUsd } from "./fee.js";
 
 // /pricing — the whole fee schedule on one page, with a worked dollar example.
 // Every figure is derived from fee.js, so the page flips from the October 0.5%
@@ -11,14 +11,21 @@ import { platformFeeLabel, platformFeeRate, maxFeeLabel, promoActive } from "./f
 // something else" surprise that code comment warns about.
 
 const EXAMPLE_PRICE = 30000;
+const RAIL_PRICES = [10000, 30000, 60000];
 const usd = (n) => "$" + Math.round(n).toLocaleString("en-US");
 
 function figures() {
   const rate = platformFeeRate();
   const fee = EXAMPLE_PRICE * rate;
   const withPromoter = EXAMPLE_PRICE * (rate + 0.01);
-  const cardProcessing = Math.ceil(EXAMPLE_PRICE * 0.029 + 0.3);
-  return { fee, withPromoter, cardProcessing };
+  const cardProcessing = cardProcessingUsd(EXAMPLE_PRICE);
+  const wireProcessing = wireProcessingUsd(EXAMPLE_PRICE);
+  // What the seller keeps per rail: sale price less DriveLink's fee less processing.
+  const rails = RAIL_PRICES.map((p) => {
+    const dl = p * rate;
+    return [usd(p), usd(p - dl - wireProcessingUsd(p)), usd(p - dl - cardProcessingUsd(p))];
+  });
+  return { fee, withPromoter, cardProcessing, wireProcessing, rails };
 }
 
 function buildCopy() {
@@ -30,7 +37,7 @@ function buildCopy() {
     en: {
       back: "← Back to DriveLink",
       title: "What DriveLink costs",
-      lede: `Sellers pay ${FEE} of the sale price, once, when the deal closes${promo ? " (half our usual 1%, through October 31)" : ""}. Buyers pay nothing beyond the price of the car. If the deal falls through, nobody pays us anything. Card processing is a separate charge from Stripe (about 2.9% + $0.30), taken from the seller's proceeds: roughly ${usd(f.cardProcessing)} on a ${usd(EXAMPLE_PRICE)} card sale. Bank transfer costs much less.`,
+      lede: `Sellers pay ${FEE} of the sale price, once, when the deal closes${promo ? " (half our usual 1%, through October 31)" : ""}. Buyers pay nothing beyond the price of the car. If the deal falls through, nobody pays us anything. Card processing is a separate charge from Stripe (about 2.9% + $0.30), taken from the seller's proceeds: roughly ${usd(f.cardProcessing)} on a ${usd(EXAMPLE_PRICE)} card sale. If the buyer pays by wire instead, processing is capped at ${usd(f.wireProcessing)}.`,
       tableTitle: "The full fee schedule",
       rows: [
         ["Listing a car", "$0"],
@@ -47,8 +54,12 @@ function buildCopy() {
         `DriveLink's fee is ${usd(f.fee)} (${FEE}).`,
         `If the deal falls through, you pay ${"$0"}.`,
         `Card processing is separate, paid to Stripe, and comes out of the seller's proceeds: about ${usd(f.cardProcessing)} on a card payment of ${usd(EXAMPLE_PRICE)}.`,
+        `If the buyer pays by wire transfer instead, processing is about ${usd(f.wireProcessing)} (capped), so the seller keeps about ${usd(f.cardProcessing - f.wireProcessing)} more.`,
       ],
-      exNote: "When you list a car, the form shows exactly what you would receive after both the DriveLink fee and processing, before you publish.",
+      exNote: "When you list a car, the form shows exactly what you would receive after both the DriveLink fee and processing, by card and by wire, before you publish.",
+      railTitle: "What the seller keeps, by payment method",
+      railHead: ["Sale price", "Seller keeps (buyer pays by wire)", "Seller keeps (buyer pays by card)"],
+      railNote: `After DriveLink's ${FEE} fee and Stripe's processing. The buyer chooses card or wire at checkout; wire is offered on purchases of $500 or more and usually arrives in 1–2 business days.`,
       ctaStart: "Start a deal on a car you already found",
       ctaBrowse: "Browse cars",
       faqLink: "How your money is protected →",
@@ -56,7 +67,7 @@ function buildCopy() {
     es: {
       back: "← Volver a DriveLink",
       title: "Cuánto cuesta DriveLink",
-      lede: `Los vendedores pagan ${FEE} del precio de venta, una sola vez, cuando se cierra el trato${promo ? " (la mitad de nuestro 1% habitual, hasta el 31 de octubre)" : ""}. Los compradores no pagan nada aparte del precio del auto. Si el trato no se concreta, nadie nos paga nada. El procesamiento con tarjeta es un cargo aparte de Stripe (alrededor de 2.9% + $0.30), que sale de lo que recibe el vendedor: unos ${usd(f.cardProcessing)} en una venta de ${usd(EXAMPLE_PRICE)} con tarjeta. La transferencia bancaria cuesta mucho menos.`,
+      lede: `Los vendedores pagan ${FEE} del precio de venta, una sola vez, cuando se cierra el trato${promo ? " (la mitad de nuestro 1% habitual, hasta el 31 de octubre)" : ""}. Los compradores no pagan nada aparte del precio del auto. Si el trato no se concreta, nadie nos paga nada. El procesamiento con tarjeta es un cargo aparte de Stripe (alrededor de 2.9% + $0.30), que sale de lo que recibe el vendedor: unos ${usd(f.cardProcessing)} en una venta de ${usd(EXAMPLE_PRICE)} con tarjeta. Si el comprador paga por transferencia wire, el procesamiento tiene un tope de ${usd(f.wireProcessing)}.`,
       tableTitle: "Todas las tarifas",
       rows: [
         ["Publicar un auto", "$0"],
@@ -73,8 +84,12 @@ function buildCopy() {
         `La comisión de DriveLink es ${usd(f.fee)} (${FEE}).`,
         "Si el trato no se concreta, pagas $0.",
         `El procesamiento es aparte, se paga a Stripe y sale de lo que recibe el vendedor: alrededor de ${usd(f.cardProcessing)} con un pago de ${usd(EXAMPLE_PRICE)} por tarjeta.`,
+        `Si el comprador paga por transferencia wire, el procesamiento es de unos ${usd(f.wireProcessing)} (con tope), así que el vendedor se queda con unos ${usd(f.cardProcessing - f.wireProcessing)} más.`,
       ],
-      exNote: "Al publicar un auto, el formulario muestra exactamente lo que recibirías después de la comisión de DriveLink y del procesamiento, antes de publicar.",
+      exNote: "Al publicar un auto, el formulario muestra exactamente lo que recibirías después de la comisión de DriveLink y del procesamiento, con tarjeta y con wire, antes de publicar.",
+      railTitle: "Lo que se queda el vendedor, según el método de pago",
+      railHead: ["Precio de venta", "El vendedor recibe (pago por wire)", "El vendedor recibe (pago con tarjeta)"],
+      railNote: `Después de la comisión de DriveLink (${FEE}) y del procesamiento de Stripe. El comprador elige tarjeta o wire al pagar; el wire se ofrece en compras de $500 o más y suele llegar en 1–2 días hábiles.`,
       ctaStart: "Abrir un trato por un auto que ya encontraste",
       ctaBrowse: "Ver autos",
       faqLink: "Cómo se protege tu dinero →",
@@ -112,6 +127,19 @@ export default function PricingView({ onBack, onStart, onBrowse, onFaq }) {
           <p style={S.exNote}>{t.exNote}</p>
         </div>
 
+        <h2 style={S.h2}>{t.railTitle}</h2>
+        <div style={S.railWrap}>
+          <table style={S.railTable}>
+            <thead><tr>{t.railHead.map((h, i) => <th key={i} style={S.railTh}>{h}</th>)}</tr></thead>
+            <tbody>
+              {figures().rails.map((r, i) => (
+                <tr key={i}>{r.map((c, j) => <td key={j} style={S.railTd}>{c}</td>)}</tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <p style={S.exNote}>{t.railNote}</p>
+
         <div style={S.actions}>
           <button style={S.primary} onClick={onStart}>{t.ctaStart}</button>
           <button style={S.secondary} onClick={onBrowse}>{t.ctaBrowse}</button>
@@ -137,6 +165,10 @@ const S = {
   example: { background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 12, padding: "18px 20px" },
   exLine: { margin: "0 0 10px", fontSize: 15, lineHeight: 1.65, color: "#1f2937" },
   exNote: { margin: "6px 0 0", fontSize: 13, lineHeight: 1.6, color: "#6b7280" },
+  railWrap: { overflowX: "auto" },
+  railTable: { width: "100%", borderCollapse: "collapse", fontSize: 15 },
+  railTh: { textAlign: "left", padding: "10px 12px", borderBottom: "2px solid #e5e7eb", color: "#0f172a", fontWeight: 700 },
+  railTd: { padding: "10px 12px", borderBottom: "1px solid #e5e7eb", color: "#374151" },
   actions: { display: "flex", gap: 12, flexWrap: "wrap", marginTop: 32 },
   primary: { background: "#0f172a", color: "#fff", border: "none", padding: "13px 22px", borderRadius: 10, fontWeight: 700, fontSize: 15, cursor: "pointer", minHeight: 44 },
   secondary: { background: "#fff", color: "#0f172a", border: "1px solid #cbd5e1", padding: "13px 22px", borderRadius: 10, fontWeight: 700, fontSize: 15, cursor: "pointer", minHeight: 44 },
