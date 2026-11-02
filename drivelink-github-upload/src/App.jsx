@@ -5694,7 +5694,11 @@ function sellerNetBreakdown(price) {
   const promoter = Math.round(p * PROMOTER_FEE);
   const net = Math.max(0, p - platformFee - processing);
   const netWithPromoter = Math.max(0, net - promoter);
-  return { price: p, platformFee, processing, promoter, net, netWithPromoter };
+  // Wire (Stripe bank transfer): about 0.8%, capped at $5. Same figure the
+  // listing page shows buyers. Only meaningful at or above WIRE_MIN_CENTS.
+  const wireProcessing = Math.min(Math.ceil(p * 0.008), 500);
+  const wireNet = Math.max(0, p - platformFee - wireProcessing);
+  return { price: p, platformFee, processing, promoter, net, netWithPromoter, wireProcessing, wireNet };
 }
 
 function SellerNetPreview({ price }) {
@@ -5707,6 +5711,11 @@ function SellerNetPreview({ price }) {
       <div style={{ fontSize: 13, lineHeight: 1.6 }}>
         {t("fee.breakdown", { price: fmt(b.price), rate: platformFeeLabel(), platform: fmt(b.platformFee), processing: fmt(b.processing) })}
       </div>
+      {b.price >= WIRE_MIN_CENTS && (
+        <div style={{ fontSize: 13, lineHeight: 1.6, marginTop: 6 }}>
+          {t("fee.wireReceive", { amount: fmt(b.wireNet), processing: fmt(b.wireProcessing) })}
+        </div>
+      )}
     </div>
   );
 }

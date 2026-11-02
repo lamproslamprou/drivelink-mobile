@@ -38,3 +38,25 @@ export function platformFeeLabel(now = new Date()) {
 export function maxFeeLabel(now = new Date()) {
   return platformFeeLabel(now); // no Promoter add-on any more
 }
+
+// ---------------------------------------------------------------------------
+// Payment processing (Stripe), by rail. DriveLink does not charge or keep this:
+// it comes out of the seller's proceeds, so it belongs in every "what does it
+// cost / what do I keep" figure next to our own fee. Dollars in, dollars out.
+// App.jsx's seller payout preview and the listing-page rail note do the same
+// arithmetic in cents; keep the three rates below in step with them.
+//   card: about 2.9% + $0.30
+//   wire (Stripe bank transfer): about 0.8%, capped at $5
+// ---------------------------------------------------------------------------
+export const CARD_PROCESSING_PCT = 0.029;
+export const CARD_PROCESSING_FIXED_USD = 0.3;
+export const WIRE_PROCESSING_PCT = 0.008;
+export const WIRE_PROCESSING_CAP_USD = 5;
+
+export function cardProcessingUsd(priceUsd) {
+  return Math.ceil(priceUsd * CARD_PROCESSING_PCT + CARD_PROCESSING_FIXED_USD);
+}
+
+export function wireProcessingUsd(priceUsd) {
+  return Math.min(Math.ceil(priceUsd * WIRE_PROCESSING_PCT), WIRE_PROCESSING_CAP_USD);
+}

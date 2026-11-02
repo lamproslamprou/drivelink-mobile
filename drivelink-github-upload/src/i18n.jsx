@@ -341,6 +341,7 @@ const dict = {
 
     "fee.youReceive": "You'll receive about {amount}",
     "fee.breakdown": "Sale price {price} − DriveLink fee {rate} ({platform}) − card processing ({processing})",
+    "fee.wireReceive": "If the buyer pays by wire instead, you'll receive about {amount} (wire processing is about {processing})",
 
     // ── Payout timing ────────────────────────────────────────────────────
     "payout.held": "The buyer's payment is protected and waiting for the handover. Once they confirm they've received the car, {amount} is released to you. If they don't confirm, we'll check in with both of you and review the sale. Bank arrival typically takes another few business days after that.",
@@ -645,6 +646,7 @@ const dict = {
 
     "fee.youReceive": "Recibirás aproximadamente {amount}",
     "fee.breakdown": "Precio de venta {price} − comisión DriveLink {rate} ({platform}) − procesamiento de tarjeta ({processing})",
+    "fee.wireReceive": "Si el comprador paga por transferencia wire, recibirás aproximadamente {amount} (el procesamiento por wire es de unos {processing})",
 
     "payout.held": "El pago del comprador está protegido y espera la entrega. Cuando confirme que recibió el carro, se te entregan {amount}. Si no lo confirma, revisaremos la venta con ambas partes. Después de eso, el dinero suele tardar unos días hábiles más en llegar a tu banco.",
     "payout.released": "💸 Se te entregaron {amount} a tu cuenta de Stripe. Los pagos con tarjeta tardan unos días hábiles en liquidarse antes de que Stripe los deposite en tu banco — cuenta con unos 5 a 7 días hábiles desde la venta. Las cuentas nuevas pueden tardar más en el primer depósito.",
