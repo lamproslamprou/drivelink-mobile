@@ -42,10 +42,9 @@ function SpaLink({ href, view, onNavigate, style, children }) {
   );
 }
 
-export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn, listings = [], onOpenCar }) {
+export default function Landing({ onSignIn, onSignInTo, onBrowse, onNavigate, signedIn, listings = [], onOpenCar }) {
   const { t, lang } = useLang();
   const [menuOpen, setMenuOpen] = useState(false);
-  const handleCta = signedIn ? onBrowse : onSignIn;
   // "🔒 Secure a Deal" -> emoji + label, so the emoji can be dropped on the
   // narrowest phones (see .dl-nav-emoji) without touching the translation.
   const secureMatch = String(t("lp.nav.secure")).match(/^(\S+)\s+(.+)$/);
@@ -53,7 +52,15 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn, list
   const secureLabel = secureMatch ? secureMatch[2] : t("lp.nav.secure");
   // Signed-out visitors go to auth first — StartDealView needs an account to
   // attach the deal to. This is the one CTA that works with zero inventory.
-  const handleStartDeal = signedIn ? () => onNavigate?.("startDeal") : onSignIn;
+  // Signed-out visitors sign in first, but must come back to what they tapped.
+  // Plain onSignIn dropped them on Browse afterwards ("Already found a car?"
+  // and "List My Car" both ended on the car grid). onSignInTo(view) remembers
+  // the destination for the sign-in screen.
+  const signInThen = (view) => () => (onSignInTo ? onSignInTo(view) : onSignIn());
+  const handleStartDeal = signedIn ? () => onNavigate?.("startDeal") : signInThen("startDeal");
+  // "List my car" opens the sell form. It used to share handleCta with Browse,
+  // so a signed-in visitor tapping it landed on the car grid instead.
+  const handleList = signedIn ? () => onNavigate?.("postListing") : signInThen("postListing");
 
   return (
     <div style={styles.page}>
@@ -164,7 +171,7 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn, list
             <SpaLink href="/seller-toolkit" view="sellerToolkit" onNavigate={onNavigate} style={styles.sellerLink}>
               {lang === "es" ? "Kit gratuito para vendedores →" : "Free seller toolkit →"}
             </SpaLink>
-            <button style={styles.sellerLink} onClick={handleCta}>
+            <button style={styles.sellerLink} onClick={handleList}>
               {lang === "es" ? "Publica tu carro gratis →" : "List your car free →"}
             </button>
           </div>
@@ -382,7 +389,7 @@ export default function Landing({ onSignIn, onBrowse, onNavigate, signedIn, list
                 <li>✅ {lang === "es" ? "Fondos del comprador verificados antes de la entrega" : "Buyer's funds verified before handover"}</li>
                 <li>✅ {lang === "es" ? `Tarifa de ${platformFeeLabel()}, la paga el vendedor` : `${platformFeeLabel()} fee, paid by the seller`}</li>
               </ul>
-              <button style={styles.roleBtn} onClick={handleCta}>{lang === "es" ? "Publicar mi auto →" : "List My Car →"}</button>
+              <button style={styles.roleBtn} onClick={handleList}>{lang === "es" ? "Publicar mi auto →" : "List My Car →"}</button>
             </div>
 
             {/* A pointer, not a pitch. /promoter carries the full explanation —

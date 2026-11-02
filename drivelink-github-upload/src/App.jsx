@@ -2125,7 +2125,11 @@ const denyInspector = async (id) => {
       promoterCode={promoterCode?.code || null}
       showToast={showToast}
       onBack={() => { navigate("/"); setView("home"); }}
-      onNavigate={goView}
+      onNavigate={(v) => {
+        // "Create an account to start" must bring them back to this form.
+        if (v === "auth") { setPendingView("startDeal"); setView("auth"); navigate(VIEW_PATHS.auth); }
+        else goView(v);
+      }}
     />
   );
 
@@ -2242,6 +2246,7 @@ const denyInspector = async (id) => {
     <>
       <Landing
         onSignIn={() => { setView("auth"); navigate(VIEW_PATHS.auth); }}
+        onSignInTo={(dest) => { setPendingView(dest); setView("auth"); navigate(VIEW_PATHS.auth); }}
         onBrowse={() => goView("home")}
         onNavigate={goView}
         signedIn={!!currentUser}
