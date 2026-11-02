@@ -1898,6 +1898,17 @@ const denyInspector = async (id) => {
     navigate(VIEW_PATHS[v]);
   };
 
+  // Same rule for every in-page link on the landing and public pages: move the
+  // view AND the URL in one go. setView() alone leaves the address bar on the
+  // old path for a commit; if a data refresh lands in that commit the URL→view
+  // effect maps the stale path straight back and the tap is swallowed (the
+  // landing "Already found a car?" / "Browse Cars" buttons, Pricing "Start a
+  // deal", etc. all had this).
+  const goView = (v) => {
+    setView(v);
+    if (VIEW_PATHS[v]) navigate(VIEW_PATHS[v]);
+  };
+
   // ── Route resolution ────────────────────────────────────────────────────────
   // Runs whenever the path or the loaded data changes. Handles /s/:code Promoter
   // links and /listing/:id deep links; any other path clears the modal.
@@ -2114,7 +2125,7 @@ const denyInspector = async (id) => {
       promoterCode={promoterCode?.code || null}
       showToast={showToast}
       onBack={() => { navigate("/"); setView("home"); }}
-      onNavigate={setView}
+      onNavigate={goView}
     />
   );
 
@@ -2123,7 +2134,7 @@ const denyInspector = async (id) => {
       currentUser={currentUser}
       showToast={showToast}
       onBack={backHome}
-      onNavigate={setView}
+      onNavigate={goView}
       onSignIn={() => { setPendingView("sellerToolkit"); setView("auth"); navigate(VIEW_PATHS.auth); }}
     />
   );
@@ -2152,9 +2163,9 @@ const denyInspector = async (id) => {
   if (view === "about") return (
     <AboutView
       onBack={backHome}
-      onBrowse={() => setView("home")}
-      onSafety={() => setView("safety")}
-      onPricing={() => setView("pricing")}
+      onBrowse={() => goView("home")}
+      onSafety={() => goView("safety")}
+      onPricing={() => goView("pricing")}
     />
   );
 
@@ -2165,16 +2176,16 @@ const denyInspector = async (id) => {
   if (view === "pricing") return (
     <PricingView
       onBack={backHome}
-      onStart={() => setView("startDeal")}
-      onBrowse={() => setView("home")}
-      onFaq={() => setView("faq")}
+      onStart={() => goView("startDeal")}
+      onBrowse={() => goView("home")}
+      onFaq={() => goView("faq")}
     />
   );
 
   if (view === "features") return (
     <FeaturesView
       onBack={backHome}
-      onNavigate={setView}
+      onNavigate={goView}
     />
   );
 
@@ -2182,17 +2193,17 @@ const denyInspector = async (id) => {
     <VsView
       page={view}
       onBack={backHome}
-      onStart={() => setView("startDeal")}
-      onPricing={() => setView("pricing")}
-      onNavigate={setView}
+      onStart={() => goView("startDeal")}
+      onPricing={() => goView("pricing")}
+      onNavigate={goView}
     />
   );
 
   if (view === "faq") return (
     <FAQView
       onBack={backHome}
-      onSafety={() => setView("safety")}
-      onNavigate={setView}
+      onSafety={() => goView("safety")}
+      onNavigate={goView}
     />
   );
 
@@ -2207,7 +2218,7 @@ const denyInspector = async (id) => {
   if (view === "escrow") return (
     <EscrowExplained
       onBack={backHome}
-      onStart={() => setView("startDeal")}
+      onStart={() => goView("startDeal")}
     />
   );
 
@@ -2231,8 +2242,8 @@ const denyInspector = async (id) => {
     <>
       <Landing
         onSignIn={() => { setView("auth"); navigate(VIEW_PATHS.auth); }}
-        onBrowse={() => setView("home")}
-        onNavigate={setView}
+        onBrowse={() => goView("home")}
+        onNavigate={goView}
         signedIn={!!currentUser}
         listings={[...activeListings].sort((x, y) => String(y.created_at || "").localeCompare(String(x.created_at || "")))}
         onOpenCar={(id) => navigate(`/listing/${id}`)}
@@ -2352,16 +2363,16 @@ const denyInspector = async (id) => {
               belongs to "my account" moved into the avatar dropdown, which is
               what let this drop from 13 items to 5 and killed the drag-scroll. */}
           <div style={styles.navLinks} className="app-nav-links">
-            <NavBtn active={view === "home"} onClick={() => { setView("home"); setHomeResetKey(k => k + 1); }}>{t("nav.browse")}</NavBtn>
-            {currentUser && <NavBtn active={view === "myListings"} onClick={() => setView("myListings")}>{t("nav.myListings")}</NavBtn>}
-            {currentUser && <NavBtn active={view === "postListing"} onClick={() => setView("postListing")}>{t("nav.postListing")}</NavBtn>}
-            <NavBtn active={view === "startDeal"} onClick={() => setView("startDeal")}>{t("nav.startDeal")}</NavBtn>
-            <NavBtn active={view === "pricing"} onClick={() => setView("pricing")}>{lang === "es" ? "Precios" : "Pricing"}</NavBtn>
-            <NavBtn active={view === "advertise"} onClick={() => setView("advertise")}>{t("nav.advertise")}</NavBtn>
+            <NavBtn active={view === "home"} onClick={() => { goView("home"); setHomeResetKey(k => k + 1); }}>{t("nav.browse")}</NavBtn>
+            {currentUser && <NavBtn active={view === "myListings"} onClick={() => goView("myListings")}>{t("nav.myListings")}</NavBtn>}
+            {currentUser && <NavBtn active={view === "postListing"} onClick={() => goView("postListing")}>{t("nav.postListing")}</NavBtn>}
+            <NavBtn active={view === "startDeal"} onClick={() => goView("startDeal")}>{t("nav.startDeal")}</NavBtn>
+            <NavBtn active={view === "pricing"} onClick={() => goView("pricing")}>{lang === "es" ? "Precios" : "Pricing"}</NavBtn>
+            <NavBtn active={view === "advertise"} onClick={() => goView("advertise")}>{t("nav.advertise")}</NavBtn>
             {/* Not an action like the rest of this row, but it answers the one
                 objection that stops a first-time visitor from paying at all.
                 Literal strings: i18n.jsx has no nav.faq key yet. */}
-            <NavBtn active={view === "faq"} onClick={() => setView("faq")}>{lang === "es" ? "¿Es seguro?" : "Is this safe?"}</NavBtn>
+            <NavBtn active={view === "faq"} onClick={() => goView("faq")}>{lang === "es" ? "¿Es seguro?" : "Is this safe?"}</NavBtn>
           </div>
           <div style={styles.navRight} className="app-nav-right">
             {currentUser ? (

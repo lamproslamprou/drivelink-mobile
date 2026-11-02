@@ -77,6 +77,32 @@ test.describe("sign-in entry points work for a visitor who taps early", () => {
   }
 });
 
+test.describe("other early taps are not swallowed", () => {
+  // Same race as Sign In: tap a button the moment it appears, while data is
+  // still loading, and make sure the page actually moves and stays there.
+  test("Browse Cars from / lands on /browse and stays", async ({ page }) => {
+    await slowPhone(page);
+    await page.goto("/", { waitUntil: "commit" });
+    const btn = page.getByRole("button", { name: /browse cars/i }).first();
+    await btn.waitFor({ state: "visible" });
+    await btn.click();
+    await expect(page).toHaveURL(/\/browse/);
+    await page.waitForTimeout(6000);
+    await expect(page).toHaveURL(/\/browse/);
+  });
+
+  test("Pricing from the /browse menu lands on /pricing and stays", async ({ page }) => {
+    await slowPhone(page);
+    await page.goto("/browse", { waitUntil: "commit" });
+    const link = page.getByRole("button", { name: /^pricing$/i }).first();
+    await link.waitFor({ state: "visible" });
+    await link.click();
+    await expect(page).toHaveURL(/\/pricing/);
+    await page.waitForTimeout(6000);
+    await expect(page).toHaveURL(/\/pricing/);
+  });
+});
+
 test.describe("sign-in and create-account forms give visible feedback", () => {
   test("empty Sign In shows an error in view", async ({ page }) => {
     await page.goto("/signin");
