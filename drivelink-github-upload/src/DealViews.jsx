@@ -244,7 +244,7 @@ export function StartDealView({ currentUser, promoterCode, onBack, onNavigate, s
               <li style={dealStyles.step}>
                 {es
                   ? "El comprador paga a través de DriveLink. El vendedor puede ver que el pago está asegurado, pero todavía no puede tocarlo."
-                  : "The buyer pays through DriveLink. The seller can see the payment is secured, but can't touch them yet."}
+                  : "The buyer pays through DriveLink. The seller can see the payment is secured, but can't touch it yet."}
               </li>
               <li style={dealStyles.step}>
                 {es ? "El vendedor envía o entrega el auto." : "The seller ships or delivers the car."}

@@ -26,6 +26,17 @@ Deno.serve(async (req) => {
     if (!plan || !PLANS[plan]) throw new Error("Invalid plan selected");
     if (!business_name?.trim()) throw new Error("Business name is required");
     if (!link_url?.trim()) throw new Error("A destination link URL is required");
+    // The link is shown to every visitor as an <a href>. Only web links are
+    // accepted, so a "javascript:" or other scheme can never reach the page.
+    let parsedLink: URL;
+    try {
+      parsedLink = new URL(link_url.trim());
+    } catch {
+      throw new Error("The destination link must be a full web address, like https://example.com");
+    }
+    if (parsedLink.protocol !== "https:" && parsedLink.protocol !== "http:") {
+      throw new Error("The destination link must start with https://");
+    }
 
     const stripe = stripeClient();
     const supabase = supabaseAdmin();
@@ -62,7 +73,7 @@ Deno.serve(async (req) => {
       business_name: business_name.trim(),
       contact_email: contact_email?.trim() || null,
       image_url: image_url || null,
-      link_url: link_url.trim(),
+      link_url: parsedLink.href,
       plan,
       amount_cents: selectedPlan.amountCents,
       status: "pending_payment",

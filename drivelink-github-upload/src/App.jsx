@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, lazy, Suspense } from "react";
+import { safeHref } from "./safeHref.js";
 import { supabase } from "./supabase.js";
 import Auth from "./Auth.jsx";
 import ResetPassword from "./ResetPassword.jsx";
@@ -603,40 +604,71 @@ export default function App() {
   };
 
   const loadData = async () => {
-    const { data: listingsData } = await supabase.from("listings").select("*").order("created_at", { ascending: false });
-    const { data: referralsData } = await supabase.from("referrals").select("*");
-    // Read-only, own rows only (RLS). Empty for anyone who is not a Promoter.
-    const { data: bountiesData } = await supabase.from("promoter_bounties").select("*").order("created_at", { ascending: false });
-    // Under RLS, `users` returns only your own row (or everything, if you're an
-    // admin). Seller names and badges across the marketplace come from the
-    // public_profiles view instead, which exposes display fields only. Merge the
-    // two so full rows win wherever they're available.
-    const { data: profilesData } = await supabase.from("public_profiles").select("*");
-    const { data: usersData } = await supabase.from("users").select("*");
-    const { data: reportsData } = await supabase.from("reports").select("*").order("created_at", { ascending: false });
-    const { data: feedbackData } = await supabase.from("feedback").select("*").order("created_at", { ascending: false });
-    const { data: userReportsData } = await supabase.from("user_reports").select("*").order("created_at", { ascending: false });
-    const { data: reviewsData } = await supabase.from("reviews").select("*").order("created_at", { ascending: false });
-    const { data: payoutsData } = await supabase.from("payouts").select("*").order("paid_at", { ascending: false });
-    // RLS on promoter_codes is SELECT-scoped to the owner, so this returns your
-    // own row or nothing at all — no filter on user_id is needed or trusted.
-    const { data: promoterCodeData } = await supabase.from("promoter_codes").select("*").eq("active", true).limit(1);
-    const { data: disputesData } = await supabase.from("disputes").select("*").order("created_at", { ascending: false });
-    const { data: offersData } = await supabase.from("offers").select("*").order("created_at", { ascending: false });
-    const { data: inspectorsData } = await supabase.from("inspectors").select("*").order("created_at", { ascending: false });
-    // Two sources on purpose. public_ads is a display-only view any visitor can
-    // read (it powers the sidebar rail). ad_placements is the full table, which
-    // RLS returns only to admins — everyone else gets an empty array and the
-    // admin tab simply has nothing to show.
-    const { data: publicAdsData } = await supabase.from("public_ads").select("*");
-    // Returns only your own listings (or all, for an admin) — the view filters
-    // on auth.uid() since views can't carry RLS.
-    const { data: statsData } = await supabase.from("listing_stats").select("*");
-    // admin_ads is admin-only at the database level and returns zero rows for
-    // everyone else. Reading ad_placements directly here showed an admin only
-    // the ads they had bought themselves, which made the Ads tab report zero
-    // running while one was live in the rail.
-    const { data: adPlacementsData } = await supabase.from("admin_ads").select("*").order("created_at", { ascending: false });
+    // Every read below is independent, so they run in parallel instead of one
+    // after another (19 round trips in a row held the first paint). Two of them,
+    // listing_stats and admin_ads, are granted to signed-in users only and
+    // answered every signed-out visitor with a 401 in the console; they are
+    // skipped without a session and their state is cleared instead.
+    const { data: sessionData } = await supabase.auth.getSession();
+    const signedIn = !!sessionData?.session;
+    const none = Promise.resolve({ data: null });
+    const [
+      { data: listingsData },
+      { data: referralsData },
+      // Read-only, own rows only (RLS). Empty for anyone who is not a Promoter.
+      { data: bountiesData },
+      // Under RLS, `users` returns only your own row (or everything, if you're an
+      // admin). Seller names and badges across the marketplace come from the
+      // public_profiles view instead, which exposes display fields only. Merge the
+      // two so full rows win wherever they're available.
+      { data: profilesData },
+      { data: usersData },
+      { data: reportsData },
+      { data: feedbackData },
+      { data: userReportsData },
+      { data: reviewsData },
+      { data: payoutsData },
+      // RLS on promoter_codes is SELECT-scoped to the owner, so this returns your
+      // own row or nothing at all — no filter on user_id is needed or trusted.
+      { data: promoterCodeData },
+      { data: disputesData },
+      { data: offersData },
+      { data: inspectorsData },
+      // Two sources on purpose. public_ads is a display-only view any visitor can
+      // read (it powers the sidebar rail). admin_ads is the full list, which
+      // returns rows only to admins.
+      { data: publicAdsData },
+      // Returns only your own listings (or all, for an admin) — the view filters
+      // on auth.uid() since views can't carry RLS.
+      { data: statsData },
+      // admin_ads is admin-only at the database level and returns zero rows for
+      // everyone else. Reading ad_placements directly here showed an admin only
+      // the ads they had bought themselves, which made the Ads tab report zero
+      // running while one was live in the rail.
+      { data: adPlacementsData },
+    ] = await Promise.all([
+      supabase.from("listings").select("*").order("created_at", { ascending: false }),
+      supabase.from("referrals").select("*"),
+      supabase.from("promoter_bounties").select("*").order("created_at", { ascending: false }),
+      supabase.from("public_profiles").select("*"),
+      supabase.from("users").select("*"),
+      supabase.from("reports").select("*").order("created_at", { ascending: false }),
+      supabase.from("feedback").select("*").order("created_at", { ascending: false }),
+      supabase.from("user_reports").select("*").order("created_at", { ascending: false }),
+      supabase.from("reviews").select("*").order("created_at", { ascending: false }),
+      supabase.from("payouts").select("*").order("paid_at", { ascending: false }),
+      supabase.from("promoter_codes").select("*").eq("active", true).limit(1),
+      supabase.from("disputes").select("*").order("created_at", { ascending: false }),
+      supabase.from("offers").select("*").order("created_at", { ascending: false }),
+      supabase.from("inspectors").select("*").order("created_at", { ascending: false }),
+      supabase.from("public_ads").select("*"),
+      signedIn ? supabase.from("listing_stats").select("*") : none,
+      signedIn ? supabase.from("admin_ads").select("*").order("created_at", { ascending: false }) : none,
+    ]);
+    if (!signedIn) {
+      setListingStats({});
+      setAdPlacements([]);
+    }
     let finalListings = listingsData || [];
     // Stale-listing auto-archive runs server-side in the archive-stale-listings
     // pg_cron job, not here. It used to run opportunistically from whichever
@@ -668,20 +700,16 @@ export default function App() {
     // the security control, and a join would make it easy to widen the listings
     // select later without noticing the code came along for the ride. A seller
     // running this gets zero rows.
-    const { data: handoverData } = await supabase
-      .from("escrow_handovers")
-      .select("listing_id, code, confirmed_at");
+    const [{ data: handoverData }, { data: riskFlagData }] = await Promise.all([
+      supabase.from("escrow_handovers").select("listing_id, code, confirmed_at"),
+      // Same shape as handoverCodes and the same reasoning: admin-only at the
+      // database level, so no role check is needed here.
+      supabase.from("listing_risk_flags").select("*").is("resolved_at", null).order("score", { ascending: false }),
+    ]);
     if (handoverData) {
       setHandoverCodes(Object.fromEntries(handoverData.map(h => [h.listing_id, h])));
     }
 
-    // Same shape as handoverCodes above and the same reasoning: admin-only at
-    // the database level, so no role check is needed here.
-    const { data: riskFlagData } = await supabase
-      .from("listing_risk_flags")
-      .select("*")
-      .is("resolved_at", null)
-      .order("score", { ascending: false });
     if (riskFlagData) {
       const byListing = {};
       for (const f of riskFlagData) {
@@ -1228,7 +1256,13 @@ const submitInspector = async (fields) => {
     contact_phone: (fields.contactPhone || "").trim() || null,
     service_area: (fields.serviceArea || "").trim() || null,
     price_range: (fields.priceRange || "").trim() || null,
-    booking_link: (fields.bookingLink || "").trim() || null,
+    // Saved as a full web address so the directory can link it; a bare
+    // "www.example.com" gets https:// in front, any other scheme is dropped.
+    booking_link: (() => {
+      const raw = (fields.bookingLink || "").trim();
+      if (!raw) return null;
+      return safeHref(/^[a-z][a-z0-9+.-]*:/i.test(raw) ? raw : `https://${raw}`) || null;
+    })(),
     notes: (fields.notes || "").trim() || null,
     status: "pending",
   };
@@ -5553,7 +5587,7 @@ function AdRail({ ads, onPromoClick }) {
       {visible.map(ad => (
         <a
           key={ad.id}
-          href={ad.link_url}
+          href={safeHref(ad.link_url)}
           target="_blank"
           // noopener: the advertiser's page must not get a handle on this window.
           // nofollow + sponsored: paid links, and telling Google otherwise is how
@@ -6313,7 +6347,7 @@ function PromoterSignedOut({ onSignUp, onBack }) {
 
       <p style={{ color: "#334155", fontSize: 16, lineHeight: 1.7 }}>
         If you arrange vehicle sales or transport, your customers are already
-        wiring money to people they have never met. DriveLink holds that payment
+        wiring money to people they have never met. DriveLink protects that payment
         until the keys and title change hands — and pays you{" "}
         <b>a flat $10</b> for each new, ID-verified user you send who starts a deal.
       </p>
@@ -6821,7 +6855,7 @@ function AdminView({ listings, users, referrals, bounties, reports, feedback, us
                 <div style={styles.rowInfo} className="app-row-info">
                   <div style={styles.rowTitle}>{i.business_name}</div>
                   <div style={styles.rowMeta}>{i.contact_email}{i.contact_phone ? ` • ${i.contact_phone}` : ""}{i.service_area ? ` • ${i.service_area}` : ""}{i.price_range ? ` • ${i.price_range}` : ""}</div>
-                  {i.booking_link && <div style={styles.rowMeta}><a href={i.booking_link} target="_blank" rel="noreferrer noopener">{i.booking_link}</a></div>}
+                  {i.booking_link && <div style={styles.rowMeta}><a href={safeHref(i.booking_link)} target="_blank" rel="noreferrer noopener">{i.booking_link}</a></div>}
                   {i.notes && <div style={{ fontSize: 12, color: "#6b7280", marginTop: 2 }}>{i.notes}</div>}
                 </div>
                 <span style={{ ...styles.statusPill, ...badgeStyle }}>{i.status}</span>
@@ -6921,7 +6955,7 @@ function AdminView({ listings, users, referrals, bounties, reports, feedback, us
                     {a.comped && a.comped_reason ? ` • ${a.comped_reason}` : ""}
                   </div>
                   <div style={styles.rowMeta}>
-                    <a href={a.link_url} target="_blank" rel="noopener noreferrer nofollow">{a.link_url}</a>
+                    <a href={safeHref(a.link_url)} target="_blank" rel="noopener noreferrer nofollow">{a.link_url}</a>
                   </div>
                   {email && (
                     <div style={{ ...styles.rowMeta, display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginTop: 4 }}>
@@ -7219,7 +7253,7 @@ function DisputeRow({ dispute, listing, buyer, seller, onResolve }) {
         {dispute.evidence_urls?.length > 0 && (
           <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
             {dispute.evidence_urls.map((url, i) => (
-              <a key={i} href={url} target="_blank" rel="noreferrer">
+              <a key={i} href={safeHref(url)} target="_blank" rel="noreferrer">
                 <img src={url} alt={`Evidence ${i + 1}`} style={{ width: 64, height: 48, objectFit: "cover", borderRadius: 6, border: "1px solid #e5e7eb" }} />
               </a>
             ))}
@@ -7399,6 +7433,10 @@ function DangerZone({ onResetData }) {
 }
 
 const styles = {
+  // Header "Sign in" button on app pages (browse, listing, advertise). It was
+  // referenced but never defined, so it rendered as a bare browser button.
+  // Matches the landing page's Sign in button.
+  signInBtn: { background: "#0f172a", color: "#fff", border: "none", padding: "9px 20px", borderRadius: 10, cursor: "pointer", fontSize: 14, fontWeight: 600, whiteSpace: "nowrap", fontFamily: "inherit" },
   app: { fontFamily: "'Inter', system-ui, sans-serif", background: "#f8fafc", minHeight: "100vh", color: "#111827" },
   legalPage: { fontFamily: "'Inter', system-ui, sans-serif", background: "#fff", minHeight: "100vh", color: "#111827" },
   legalInner: { maxWidth: 760, margin: "0 auto", padding: "48px 24px 96px" },

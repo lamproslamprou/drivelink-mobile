@@ -2,8 +2,11 @@
 // Caches only the app shell and icons. Supabase and Stripe always hit the
 // network: a cached listing price or escrow state would mean showing someone
 // wrong information about their own money.
-const CACHE_VERSION = "drivelink-v1";
+const CACHE_VERSION = "drivelink-v2";
 const SHELL = "/index.html";
+// Pages served as their own static HTML, not the app shell. Caching one of
+// them under the shell key would show that page offline in place of the app.
+const STATIC_PAGES = /^\/(guides|tools|partners)(\/|$)|^\/(for-inspectors|listing-status|unsubscribe)(\.html)?\/?$/;
 const PRECACHE = [
   SHELL,
   "/icons/icon-192.png",
@@ -43,8 +46,12 @@ self.addEventListener("fetch", (event) => {
     event.respondWith(
       fetch(request)
         .then((response) => {
-          const copy = response.clone();
-          caches.open(CACHE_VERSION).then((cache) => cache.put(SHELL, copy));
+          // Only a good app-shell page refreshes the offline copy; an error
+          // page or a static guide must never replace it.
+          if (response.ok && !STATIC_PAGES.test(url.pathname)) {
+            const copy = response.clone();
+            caches.open(CACHE_VERSION).then((cache) => cache.put(SHELL, copy));
+          }
           return response;
         })
         .catch(() => caches.match(SHELL)),

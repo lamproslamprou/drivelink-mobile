@@ -23,6 +23,9 @@ import {
 } from "../_shared/helpers.ts";
 import { completeDirectRelease } from "../_shared/direct.ts";
 
+// How long after a confirmed handover a still-pending payout gets flagged.
+const STALL_ALERT_MS = 5 * 24 * 60 * 60 * 1000;
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -84,6 +87,25 @@ Deno.serve(async (req) => {
       // confirmed; don't re-send it on every 30-minute retry.
       const r = await completeDirectRelease(supabase, stripe, listing, "handover_code", { quiet: true });
       results.push({ id: listing.id, released: r.released, ...(r.released ? { payout: r.payoutId } : { reason: r.reason }) });
+
+      // A payout that is still waiting days after the handover will not fix
+      // itself (most card funds settle in about 2 business days). Retrying
+      // every 30 minutes was silent, so a stuck seller payout could sit for
+      // weeks unnoticed. Alert once a day, on the 14:00 UTC run, after 5 days.
+      const waitedMs = Date.now() - new Date(listing.confirmed_at).getTime();
+      const now = new Date();
+      if (!r.released && r.pending && waitedMs > STALL_ALERT_MS && now.getUTCHours() === 14 && now.getUTCMinutes() < 30) {
+        await notifyAdminSync({
+          subject: `⚠️ Seller payout still waiting — ${listing.id}`,
+          html: alertHtml("Payout waiting more than 5 days after handover", [
+            ["Listing ID", listing.id],
+            ["Car", [listing.year, listing.make, listing.model].filter(Boolean).join(" ") || "—"],
+            ["Handover confirmed", String(listing.confirmed_at)],
+            ["Last reason", r.reason],
+            ["What to check", "The seller's Stripe balance and payout schedule for this account"],
+          ]),
+        });
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       console.error("pending payout failed:", listing.id, message);

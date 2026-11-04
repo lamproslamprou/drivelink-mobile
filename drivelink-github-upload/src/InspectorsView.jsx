@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useLang, LangToggle } from "./i18n.jsx";
+import { safeHref } from "./safeHref.js";
 
 /*
   InspectorsView — standalone directory page at /inspectors.
@@ -160,7 +161,7 @@ export default function InspectorsView({ inspectors, onBack, onSubmit }) {
                 {i.price_range && <div style={S.cardMeta}>{t.priceLabel}: {i.price_range}</div>}
                 {i.notes && <p style={S.cardNotes}>{i.notes}</p>}
                 <a
-                  href={i.booking_link || `mailto:${i.contact_email}`}
+                  href={safeHref(i.booking_link) || safeHref(`mailto:${i.contact_email}`, { allowMailto: true })}
                   target={i.booking_link ? "_blank" : undefined}
                   rel={i.booking_link ? "noreferrer noopener" : undefined}
                   style={S.cardBtn}
