@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<script src="/guides/lang.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Free Car Bill of Sale Maker: Fill In and Print | DriveLink</title>
+<meta name="description" content="Make a free, printable car bill of sale for a private sale in any state. Fill in the seller, buyer, vehicle and price, then print it to sign. Nothing leaves your browser.">
+<link rel="canonical" href="https://drivelink.deals/tools/car-bill-of-sale">
+
+<meta property="og:type" content="website">
+<meta property="og:title" content="Free car bill of sale maker">
+<meta property="og:description" content="Make a free, printable car bill of sale for a private sale in any state. Fill in the seller, buyer, vehicle and price, then print it to sign. Nothing leaves your browser.">
+<meta property="og:url" content="https://drivelink.deals/tools/car-bill-of-sale">
+<meta property="og:site_name" content="DriveLink">
+<meta name="twitter:card" content="summary">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/guides/lang.css">
+
+<style>
+  :root{
+    --ink:#0f172a; --body:#334155; --muted:#64748b; --line:#e2e8f0; --wash:#f8fafc;
+    --blue:#1d4ed8; --warn:#b45309; --warn-wash:#fffbeb; --warn-line:#fde68a;
+  }
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{margin:0;font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;
+    color:var(--body);background:#fff;line-height:1.65;font-size:17px}
+  .wrap{max-width:720px;margin:0 auto;padding:0 20px}
+  header.site{border-bottom:1px solid var(--line);padding:18px 0}
+  header.site .wrap{display:flex;align-items:center;justify-content:space-between;gap:16px}
+  header.site nav{display:flex;align-items:center}
+  .brand{font-weight:700;font-size:19px;color:var(--ink);text-decoration:none;letter-spacing:-.01em}
+  .brand span{color:var(--blue)}
+  header.site nav a{color:var(--muted);text-decoration:none;font-size:14px;font-weight:500;margin-left:18px}
+  header.site nav a:hover{color:var(--ink)}
+  main{padding:44px 0 8px}
+  .eyebrow{font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0 0 14px}
+  h1{font-size:35px;line-height:1.18;letter-spacing:-.022em;color:var(--ink);font-weight:700;margin:0 0 20px}
+  .standfirst{font-size:19px;line-height:1.6;color:var(--ink);margin:0 0 8px}
+  .standfirst strong{font-weight:600}
+  .byline{font-size:14px;color:var(--muted);margin:24px 0 34px;padding-bottom:24px;border-bottom:1px solid var(--line)}
+  h2{font-size:23px;line-height:1.3;letter-spacing:-.015em;color:var(--ink);font-weight:600;margin:44px 0 14px}
+  h3{font-size:17px;color:var(--ink);font-weight:600;margin:28px 0 8px}
+  p{margin:0 0 16px}
+  a{color:var(--blue)}
+  strong{color:var(--ink);font-weight:600}
+  ul,ol{margin:0 0 16px;padding-left:22px}
+  li{margin:0 0 9px}
+  .callout{background:var(--warn-wash);border:1px solid var(--warn-line);border-radius:10px;padding:18px 20px;margin:26px 0}
+  .callout p{margin:0}
+  .callout p+p{margin-top:10px}
+  .callout .label{display:block;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--warn);margin-bottom:8px}
+  .compare{width:100%;border-collapse:collapse;margin:22px 0;font-size:15px}
+  .compare th,.compare td{text-align:left;padding:11px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+  .compare th{font-weight:600;color:var(--ink);font-size:13px;letter-spacing:.02em}
+  .compare td:first-child{color:var(--ink);font-weight:500}
+  .scam{border-left:3px solid var(--line);padding-left:18px;margin:0 0 26px}
+  .scam h3{margin-top:0}
+  .scam .tell{font-size:15px;color:var(--muted);margin:0}
+  .scam .tell b{color:var(--ink);font-weight:600}
+  .product{border:1px solid var(--line);border-radius:12px;background:var(--wash);padding:24px;margin:44px 0 0}
+  .product h2{margin:0 0 10px;font-size:19px}
+  .product p{font-size:16px;margin:0 0 16px}
+  .product p:last-of-type{margin-bottom:0}
+  .cta{display:inline-block;background:var(--blue);color:#fff;text-decoration:none;font-weight:600;font-size:15px;padding:11px 20px;border-radius:8px}
+  .cta:hover{background:#1e40af}
+  .related{margin:44px 0 0;padding-top:24px;border-top:1px solid var(--line)}
+  .related h2{font-size:17px;margin:0 0 12px}
+  .related ul{padding-left:20px;margin:0}
+  .related li{margin:0 0 7px;font-size:16px}
+  footer.site{border-top:1px solid var(--line);margin-top:52px;padding:26px 0 44px}
+  footer.site p{font-size:14px;color:var(--muted);margin:0 0 8px}
+  footer.site a{color:var(--muted)}
+  a:focus-visible,.cta:focus-visible{outline:2px solid var(--blue);outline-offset:2px;border-radius:3px}
+  @media (max-width:640px){
+    body{font-size:16px} h1{font-size:28px} h2{font-size:20px}
+    .standfirst{font-size:17px} main{padding-top:32px} header.site nav{display:none}
+    .compare{font-size:14px} .compare th,.compare td{padding:9px 8px}
+  }
+
+  .tool{border:1px solid var(--line);border-radius:12px;background:#fff;padding:22px;margin:24px 0}
+  .tool label{display:flex;gap:10px;align-items:flex-start;margin:0 0 12px;font-size:16px;cursor:pointer}
+  .tool input[type=checkbox]{margin-top:5px;width:18px;height:18px;flex:none}
+  .tool button.go{background:var(--blue);color:#fff;border:0;border-radius:8px;font:600 15px 'Inter',sans-serif;padding:11px 20px;cursor:pointer}
+  .tool button.ghost{background:#fff;color:var(--ink);border:1px solid var(--line);border-radius:8px;font:600 15px 'Inter',sans-serif;padding:10px 18px;cursor:pointer;margin-left:8px}
+  .result{margin-top:18px;border-radius:10px;padding:16px 18px;display:none}
+  .result.low{display:block;background:#f0fdf4;border:1px solid #bbf7d0}
+  .result.mid{display:block;background:#fffbeb;border:1px solid #fde68a}
+  .result.high{display:block;background:#fef2f2;border:1px solid #fecaca}
+  .result h3{margin:0 0 6px}
+  .blank{display:inline-block;border-bottom:1px solid var(--ink);min-width:150px;height:1.1em}
+  .form-sheet{border:1px solid var(--ink);border-radius:6px;padding:22px;margin:24px 0;background:#fff}
+  .form-sheet h3{text-align:center;margin:0 0 14px}
+  .form-sheet p{margin:0 0 12px;line-height:2}
+  .printbtn{background:var(--blue);color:#fff;border:0;border-radius:8px;font:600 15px 'Inter',sans-serif;padding:11px 20px;cursor:pointer}
+  @media print{header.site,footer.site,.product,.related,.noprint,.eyebrow,.byline{display:none!important}
+    body{font-size:13px}}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:0 14px}
+  @media (max-width:640px){.grid{grid-template-columns:1fr}}
+  .f{display:block;margin:0 0 14px}
+  .tool label.f{display:block;cursor:default}
+  .f > span{display:block;font-size:14px;font-weight:600;color:var(--ink);margin:0 0 6px}
+  .f input,.f select,.f textarea{width:100%;font:16px 'Inter',sans-serif;padding:10px 12px;border:1px solid var(--line);border-radius:8px;color:var(--ink);background:#fff}
+  .f textarea{min-height:76px;resize:vertical}
+  .tool h3{margin:6px 0 12px;font-size:15px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+  .hint{font-size:13px;color:var(--warn);margin:-8px 0 12px}
+  .doc{border:1px solid var(--ink);border-radius:6px;padding:28px;margin:24px 0;background:#fff;color:#0f172a;font-size:15px;line-height:1.7}
+  .doc h2{text-align:center;margin:0 0 18px;font-size:20px;letter-spacing:.06em}
+  .doc p{margin:0 0 12px}
+  .doc .b{font-weight:600;border-bottom:1px solid #94a3b8;padding:0 4px}
+  .doc .sig{display:grid;grid-template-columns:1fr 1fr;gap:28px;margin-top:34px}
+  .doc .sig div{border-top:1px solid #0f172a;padding-top:6px;font-size:13px}
+  @media print{.noprint,header.site,footer.site,.product,.related,.eyebrow,.byline,h1,.standfirst,[data-lang] > h2,[data-lang] > ul,[data-lang] > p{display:none!important}
+    .doc{border:0;padding:0;margin:0}}
+</style>
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "Free car bill of sale maker",
+  "url": "https://drivelink.deals/tools/car-bill-of-sale",
+  "applicationCategory": "BusinessApplication",
+  "operatingSystem": "Any",
+  "offers": {
+    "@type": "Offer",
+    "price": "0",
+    "priceCurrency": "USD"
+  },
+  "publisher": {
+    "@type": "Organization",
+    "name": "DriveLink",
+    "url": "https://drivelink.deals"
+  }
+}
+</script>
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "Do I need a bill of sale to sell a car privately?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Some states require one and many don't, but it's worth writing one either way. It records who sold what to whom, for how much and on which date, which protects both sides if there's a question about the sale, the price for sales tax, or a ticket on the car after the sale."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Does a car bill of sale need to be notarized?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "In most states, no. A few states require notarization or their own official form, so check your state's motor vehicle agency before the sale."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What should a car bill of sale include?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Both names and addresses, the year, make, model and VIN, the odometer reading, the price, the date of sale, whether the car is sold as is, any other terms such as a loan payoff, and both signatures."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Does a bill of sale replace the title?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "No. The seller still has to sign the title over to the buyer, and the mileage disclosure is usually made on the title itself. The bill of sale is a record of the deal that goes with it."
+      }
+    }
+  ]
+}
+</script>
+
+</head>
+<body>
+
+<header class="site">
+  <div class="wrap">
+    <a class="brand" href="https://drivelink.deals">Drive<span>Link</span></a>
+    <nav>
+      <div data-lang="en">
+        <a href="https://drivelink.deals/browse">Browse</a>
+        <a href="https://drivelink.deals/start-deal">Secure a deal</a>
+        <a href="https://drivelink.deals/safety">Is this safe?</a>
+      </div>
+      <div data-lang="es">
+        <a href="https://drivelink.deals/browse">Explorar</a>
+        <a href="https://drivelink.deals/start-deal">Asegurar un trato</a>
+        <a href="https://drivelink.deals/safety">¿Es esto seguro?</a>
+      </div>
+      <div class="lang-toggle" data-lang-toggle role="group" aria-label="Language">
+        <button type="button" data-lang-btn="en">EN</button>
+        <button type="button" data-lang-btn="es">ES</button>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<main>
+<article class="wrap">
+
+<div data-lang="en">
+  <p class="eyebrow noprint">Free tool &middot; Any state</p>
+  <h1>Free car bill of sale maker</h1>
+  <p class="standfirst">Fill in the details and your bill of sale builds itself below, ready to print and sign. <strong>Nothing you type is saved or sent anywhere.</strong></p>
+  <div class="tool noprint" data-bos>
+    <h3>Seller</h3>
+    <div class="grid"><label class="f"><span>Full name</span><input data-k="sn" autocomplete="off"></label><label class="f"><span>Address</span><input data-k="sa" autocomplete="off"></label></div>
+    <h3>Buyer</h3>
+    <div class="grid"><label class="f"><span>Full name</span><input data-k="bn" autocomplete="off"></label><label class="f"><span>Address</span><input data-k="ba" autocomplete="off"></label></div>
+    <h3>Vehicle</h3>
+    <div class="grid">
+      <label class="f"><span>Year</span><input data-k="yr" inputmode="numeric" maxlength="4"></label>
+      <label class="f"><span>Make</span><input data-k="mk"></label>
+      <label class="f"><span>Model</span><input data-k="md"></label>
+      <label class="f"><span>Color (optional)</span><input data-k="cl"></label>
+    </div>
+    <label class="f"><span>VIN</span><input data-k="vin" maxlength="20" style="text-transform:uppercase" autocomplete="off"></label>
+    <p class="hint" data-vinhint hidden>A VIN is usually 17 characters. Check it against the title and the car.</p>
+    <div class="grid">
+      <label class="f"><span>Odometer (miles)</span><input data-k="odo" inputmode="numeric"></label>
+      <label class="f"><span>Mileage is</span><select data-k="ods"><option value="a">Actual mileage</option><option value="x">Over the odometer’s limit</option><option value="n">Not the actual mileage</option></select></label>
+    </div>
+    <h3>Sale</h3>
+    <div class="grid">
+      <label class="f"><span>Price ($)</span><input data-k="pr" type="number" min="0" step="1" inputmode="decimal"></label>
+      <label class="f"><span>Date of sale</span><input data-k="dt" type="date"></label>
+    </div>
+    <label class="f"><span>Payment method (optional)</span><input data-k="pm"></label>
+    <label><input type="checkbox" data-k="asis" checked> <span>Sold as is, with no warranty</span></label>
+    <label class="f"><span>Other terms (optional)</span><textarea data-k="ot" placeholder="For example: loan with ABC Credit Union, paid off by the seller from the sale price; title to buyer within 30 days."></textarea></label>
+    <p style="font-size:14px;color:var(--muted)">The document is in English, the language motor vehicle agencies use.</p>
+    <button class="go" type="button" onclick="window.print()">Print or save as PDF</button>
+    <button class="ghost" type="button" data-clear>Clear</button>
+  </div>
+  <div class="doc" data-doc aria-live="polite"></div>
+
+  <h2>Before you sign</h2>
+  <ul>
+    <li><strong>It doesn't replace the title.</strong> The seller still signs the title over, and the mileage disclosure is usually made on the title itself. See <a href="/guides/how-to-transfer-a-car-title">how to transfer a car title</a>.</li>
+    <li><strong>Some states have their own form</strong> or require a notary. Check your state's motor vehicle agency. In New Jersey, see our <a href="/guides/new-jersey-car-bill-of-sale">New Jersey bill of sale guide</a>.</li>
+    <li><strong>Print two copies</strong> and both sign both, so each of you keeps an original.</li>
+    <li><strong>Sign only once the payment is real.</strong> Our guides on <a href="/guides/how-to-sell-a-car-privately">selling</a> and <a href="/guides/how-to-buy-a-car-from-a-private-seller">buying</a> privately cover safe ways to pay.</li>
+  </ul>
+
+  <div class="product">
+    <h2>Where DriveLink fits</h2>
+    <p>A bill of sale records the deal. DriveLink protects the money: the buyer pays through DriveLink, and the seller can't withdraw it until the buyer confirms they have the car and title. It works on a sale you arranged on Facebook Marketplace, Craigslist or anywhere else.</p>
+    <p><a class="cta" href="https://drivelink.deals/start-deal">Secure a deal</a></p>
+  </div>
+</div>
+
+<div data-lang="es">
+  <p class="eyebrow noprint">Herramienta gratuita &middot; Cualquier estado</p>
+  <h1>Factura de venta de auto gratis</h1>
+  <p class="standfirst">Llena los datos y tu factura de venta se arma sola abajo, lista para imprimir y firmar. <strong>Nada de lo que escribes se guarda ni se env&iacute;a.</strong></p>
+  <div class="tool noprint" data-bos>
+    <h3>Vendedor</h3>
+    <div class="grid"><label class="f"><span>Nombre completo</span><input data-k="sn" autocomplete="off"></label><label class="f"><span>Dirección</span><input data-k="sa" autocomplete="off"></label></div>
+    <h3>Comprador</h3>
+    <div class="grid"><label class="f"><span>Nombre completo</span><input data-k="bn" autocomplete="off"></label><label class="f"><span>Dirección</span><input data-k="ba" autocomplete="off"></label></div>
+    <h3>Vehículo</h3>
+    <div class="grid">
+      <label class="f"><span>Año</span><input data-k="yr" inputmode="numeric" maxlength="4"></label>
+      <label class="f"><span>Marca</span><input data-k="mk"></label>
+      <label class="f"><span>Modelo</span><input data-k="md"></label>
+      <label class="f"><span>Color (opcional)</span><input data-k="cl"></label>
+    </div>
+    <label class="f"><span>VIN</span><input data-k="vin" maxlength="20" style="text-transform:uppercase" autocomplete="off"></label>
+    <p class="hint" data-vinhint hidden>Un VIN suele tener 17 caracteres. Compáralo con el título y el auto.</p>
+    <div class="grid">
+      <label class="f"><span>Millaje (millas)</span><input data-k="odo" inputmode="numeric"></label>
+      <label class="f"><span>El millaje es</span><select data-k="ods"><option value="a">Real</option><option value="x">Supera el límite del odómetro</option><option value="n">No es el millaje real</option></select></label>
+    </div>
+    <h3>Venta</h3>
+    <div class="grid">
+      <label class="f"><span>Precio ($)</span><input data-k="pr" type="number" min="0" step="1" inputmode="decimal"></label>
+      <label class="f"><span>Fecha de venta</span><input data-k="dt" type="date"></label>
+    </div>
+    <label class="f"><span>Forma de pago (opcional)</span><input data-k="pm"></label>
+    <label><input type="checkbox" data-k="asis" checked> <span>Se vende tal cual, sin garantía</span></label>
+    <label class="f"><span>Otras condiciones (opcional)</span><textarea data-k="ot" placeholder="Por ejemplo: préstamo con ABC Credit Union, liquidado por el vendedor con el precio de venta; título al comprador en 30 días."></textarea></label>
+    <p style="font-size:14px;color:var(--muted)">El documento se genera en inglés, el idioma que usan las agencias de vehículos.</p>
+    <button class="go" type="button" onclick="window.print()">Imprimir o guardar como PDF</button>
+    <button class="ghost" type="button" data-clear>Borrar</button>
+  </div>
+  <div class="doc" data-doc aria-live="polite"></div>
+
+  <h2>Antes de firmar</h2>
+  <ul>
+    <li><strong>No reemplaza el t&iacute;tulo.</strong> El vendedor igual tiene que firmar el t&iacute;tulo, y la declaraci&oacute;n de millaje normalmente se hace en el mismo t&iacute;tulo. Mira <a href="/guides/how-to-transfer-a-car-title">c&oacute;mo transferir el t&iacute;tulo de un auto</a>.</li>
+    <li><strong>Algunos estados tienen su propio formulario</strong> o piden notario. Consulta la agencia de veh&iacute;culos de tu estado. En Nueva Jersey, mira nuestra <a href="/guides/new-jersey-car-bill-of-sale">gu&iacute;a de factura de venta en Nueva Jersey</a>.</li>
+    <li><strong>Imprime dos copias</strong> y que ambos firmen las dos, para que cada uno tenga un original.</li>
+    <li><strong>Firma solo cuando el pago sea real.</strong> Nuestras gu&iacute;as para <a href="/guides/how-to-sell-a-car-privately">vender</a> y <a href="/guides/how-to-buy-a-car-from-a-private-seller">comprar</a> de forma privada explican formas seguras de pagar.</li>
+  </ul>
+
+  <div class="product">
+    <h2>D&oacute;nde encaja DriveLink</h2>
+    <p>Una factura de venta registra el trato. DriveLink protege el dinero: el comprador paga a trav&eacute;s de DriveLink y el vendedor no puede retirarlo hasta que el comprador confirma que tiene el auto y el t&iacute;tulo. Funciona con una venta que acordaste en Facebook Marketplace, Craigslist o cualquier otro lugar.</p>
+    <p><a class="cta" href="https://drivelink.deals/start-deal">Asegurar un trato</a></p>
+  </div>
+</div>
+
+</article>
+</main>
+
+<footer class="site">
+  <div class="wrap">
+    <div data-lang="en">
+      <p>This guide is general information about buying and selling vehicles privately, not legal or financial advice. If you have lost money, contact your bank and law enforcement first.</p>
+      <p><a href="https://drivelink.deals">DriveLink</a> &nbsp;&middot;&nbsp; <a href="https://drivelink.deals/safety">Is this safe?</a> &nbsp;&middot;&nbsp; <a href="mailto:support@drivelink.deals">support@drivelink.deals</a></p>
+    </div>
+    <div data-lang="es">
+      <p>Esta guía es información general sobre comprar y vender vehículos de forma privada, no es asesoría legal ni financiera. Si perdiste dinero, contacta primero a tu banco y a las autoridades.</p>
+      <p><a href="https://drivelink.deals">DriveLink</a> &nbsp;&middot;&nbsp; <a href="https://drivelink.deals/safety">¿Es esto seguro?</a> &nbsp;&middot;&nbsp; <a href="mailto:support@drivelink.deals">support@drivelink.deals</a></p>
+    </div>
+  </div>
+</footer>
+
+<script>
+(function () {
+  var ODO = { a: "reflects the actual mileage of the vehicle", x: "is in excess of the odometer's mechanical limits", n: "is NOT the actual mileage. WARNING: odometer discrepancy" };
+  function v(box, k) { var el = box.querySelector('[data-k="' + k + '"]'); if (!el) return ""; return el.type === "checkbox" ? el.checked : el.value.trim(); }
+  function blank(t, w) { var s = document.createElement("span"); s.className = "b"; s.textContent = t || " ".repeat(w || 18); return s; }
+  function para(doc, parts) { var p = document.createElement("p"); parts.forEach(function (x) { p.appendChild(typeof x === "string" ? document.createTextNode(x) : x); }); doc.appendChild(p); }
+  function money(n) { var x = parseFloat(n); return isFinite(x) && x > 0 ? x.toLocaleString("en-US", { style: "currency", currency: "USD" }) : ""; }
+  function fdate(d) { if (!d) return ""; var p = d.split("-"); var dt = new Date(+p[0], +p[1] - 1, +p[2]); return dt.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }); }
+  document.querySelectorAll("[data-bos]").forEach(function (box) {
+    var doc = box.nextElementSibling;
+    function render() {
+      doc.textContent = "";
+      var h = document.createElement("h2"); h.textContent = "VEHICLE BILL OF SALE"; doc.appendChild(h);
+      para(doc, ["On ", blank(fdate(v(box, "dt")), 16), ", ", blank(v(box, "sn")), " of ", blank(v(box, "sa"), 28), " (“Seller”) sells to ", blank(v(box, "bn")), " of ", blank(v(box, "ba"), 28), " (“Buyer”) the vehicle described below for the price of ", blank(money(v(box, "pr")), 12), "."]);
+      var veh = [v(box, "yr"), v(box, "mk"), v(box, "md")].filter(Boolean).join(" ");
+      para(doc, ["Vehicle: ", blank(veh, 26), v(box, "cl") ? ", " + v(box, "cl") : "", ". VIN: ", blank(v(box, "vin").toUpperCase(), 22), "."]);
+      var odo = v(box, "odo").replace(/[^0-9]/g, "");
+      para(doc, ["Odometer reading: ", blank(odo ? (+odo).toLocaleString("en-US") + " miles" : "", 12), ". To the best of the Seller’s knowledge, this reading " + ODO[v(box, "ods") || "a"] + "."]);
+      if (v(box, "pm")) para(doc, ["Payment: ", blank(v(box, "pm")), "."]);
+      para(doc, ["The Seller states that they are the legal owner of the vehicle, have the right to sell it, and that it is free of liens and claims except as written in this bill of sale."]);
+      if (v(box, "asis")) para(doc, ["The vehicle is sold as is, with no warranty from the Seller, express or implied."]);
+      if (v(box, "ot")) para(doc, ["Other terms: ", v(box, "ot")]);
+      var sig = document.createElement("div"); sig.className = "sig";
+      ["Seller signature and date", "Buyer signature and date", "Seller printed name: " + (v(box, "sn") || ""), "Buyer printed name: " + (v(box, "bn") || "")].forEach(function (t) { var d = document.createElement("div"); d.textContent = t; sig.appendChild(d); });
+      doc.appendChild(sig);
+      var vin = v(box, "vin").replace(/\s/g, "");
+      box.querySelector("[data-vinhint]").hidden = !vin || vin.length === 17;
+    }
+    box.addEventListener("input", render); box.addEventListener("change", render);
+    box.querySelector("[data-clear]").addEventListener("click", function () {
+      box.querySelectorAll("[data-k]").forEach(function (el) { if (el.type === "checkbox") el.checked = true; else if (el.tagName === "SELECT") el.selectedIndex = 0; else el.value = ""; });
+      render();
+    });
+    render();
+  });
+})();
+</script>
+</body>
+</html>
