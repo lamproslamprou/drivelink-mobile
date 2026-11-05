@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<script src="/guides/lang.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NJ Car Sales Tax Calculator for Private Sales (6.625%) | DriveLink</title>
+<meta name="description" content="Work out the New Jersey sales tax and MVC title fee on a used car bought from a private seller. Free, instant, and nothing leaves your browser.">
+<link rel="canonical" href="https://drivelink.deals/tools/nj-car-sales-tax-calculator">
+
+<meta property="og:type" content="website">
+<meta property="og:title" content="NJ car sales tax calculator for private sales">
+<meta property="og:description" content="Work out the New Jersey sales tax and MVC title fee on a used car bought from a private seller. Free, instant, and nothing leaves your browser.">
+<meta property="og:url" content="https://drivelink.deals/tools/nj-car-sales-tax-calculator">
+<meta property="og:site_name" content="DriveLink">
+<meta name="twitter:card" content="summary">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/guides/lang.css">
+
+<style>
+  :root{
+    --ink:#0f172a; --body:#334155; --muted:#64748b; --line:#e2e8f0; --wash:#f8fafc;
+    --blue:#1d4ed8; --warn:#b45309; --warn-wash:#fffbeb; --warn-line:#fde68a;
+  }
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{margin:0;font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;
+    color:var(--body);background:#fff;line-height:1.65;font-size:17px}
+  .wrap{max-width:720px;margin:0 auto;padding:0 20px}
+  header.site{border-bottom:1px solid var(--line);padding:18px 0}
+  header.site .wrap{display:flex;align-items:center;justify-content:space-between;gap:16px}
+  header.site nav{display:flex;align-items:center}
+  .brand{font-weight:700;font-size:19px;color:var(--ink);text-decoration:none;letter-spacing:-.01em}
+  .brand span{color:var(--blue)}
+  header.site nav a{color:var(--muted);text-decoration:none;font-size:14px;font-weight:500;margin-left:18px}
+  header.site nav a:hover{color:var(--ink)}
+  main{padding:44px 0 8px}
+  .eyebrow{font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0 0 14px}
+  h1{font-size:35px;line-height:1.18;letter-spacing:-.022em;color:var(--ink);font-weight:700;margin:0 0 20px}
+  .standfirst{font-size:19px;line-height:1.6;color:var(--ink);margin:0 0 8px}
+  .standfirst strong{font-weight:600}
+  .byline{font-size:14px;color:var(--muted);margin:24px 0 34px;padding-bottom:24px;border-bottom:1px solid var(--line)}
+  h2{font-size:23px;line-height:1.3;letter-spacing:-.015em;color:var(--ink);font-weight:600;margin:44px 0 14px}
+  h3{font-size:17px;color:var(--ink);font-weight:600;margin:28px 0 8px}
+  p{margin:0 0 16px}
+  a{color:var(--blue)}
+  strong{color:var(--ink);font-weight:600}
+  ul,ol{margin:0 0 16px;padding-left:22px}
+  li{margin:0 0 9px}
+  .callout{background:var(--warn-wash);border:1px solid var(--warn-line);border-radius:10px;padding:18px 20px;margin:26px 0}
+  .callout p{margin:0}
+  .callout p+p{margin-top:10px}
+  .callout .label{display:block;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--warn);margin-bottom:8px}
+  .compare{width:100%;border-collapse:collapse;margin:22px 0;font-size:15px}
+  .compare th,.compare td{text-align:left;padding:11px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+  .compare th{font-weight:600;color:var(--ink);font-size:13px;letter-spacing:.02em}
+  .compare td:first-child{color:var(--ink);font-weight:500}
+  .scam{border-left:3px solid var(--line);padding-left:18px;margin:0 0 26px}
+  .scam h3{margin-top:0}
+  .scam .tell{font-size:15px;color:var(--muted);margin:0}
+  .scam .tell b{color:var(--ink);font-weight:600}
+  .product{border:1px solid var(--line);border-radius:12px;background:var(--wash);padding:24px;margin:44px 0 0}
+  .product h2{margin:0 0 10px;font-size:19px}
+  .product p{font-size:16px;margin:0 0 16px}
+  .product p:last-of-type{margin-bottom:0}
+  .cta{display:inline-block;background:var(--blue);color:#fff;text-decoration:none;font-weight:600;font-size:15px;padding:11px 20px;border-radius:8px}
+  .cta:hover{background:#1e40af}
+  .related{margin:44px 0 0;padding-top:24px;border-top:1px solid var(--line)}
+  .related h2{font-size:17px;margin:0 0 12px}
+  .related ul{padding-left:20px;margin:0}
+  .related li{margin:0 0 7px;font-size:16px}
+  footer.site{border-top:1px solid var(--line);margin-top:52px;padding:26px 0 44px}
+  footer.site p{font-size:14px;color:var(--muted);margin:0 0 8px}
+  footer.site a{color:var(--muted)}
+  a:focus-visible,.cta:focus-visible{outline:2px solid var(--blue);outline-offset:2px;border-radius:3px}
+  @media (max-width:640px){
+    body{font-size:16px} h1{font-size:28px} h2{font-size:20px}
+    .standfirst{font-size:17px} main{padding-top:32px} header.site nav{display:none}
+    .compare{font-size:14px} .compare th,.compare td{padding:9px 8px}
+  }
+
+  .tool{border:1px solid var(--line);border-radius:12px;background:#fff;padding:22px;margin:24px 0}
+  .tool label{display:flex;gap:10px;align-items:flex-start;margin:0 0 12px;font-size:16px;cursor:pointer}
+  .tool input[type=checkbox]{margin-top:5px;width:18px;height:18px;flex:none}
+  .tool button.go{background:var(--blue);color:#fff;border:0;border-radius:8px;font:600 15px 'Inter',sans-serif;padding:11px 20px;cursor:pointer}
+  .tool button.ghost{background:#fff;color:var(--ink);border:1px solid var(--line);border-radius:8px;font:600 15px 'Inter',sans-serif;padding:10px 18px;cursor:pointer;margin-left:8px}
+  .result{margin-top:18px;border-radius:10px;padding:16px 18px;display:none}
+  .result.low{display:block;background:#f0fdf4;border:1px solid #bbf7d0}
+  .result.mid{display:block;background:#fffbeb;border:1px solid #fde68a}
+  .result.high{display:block;background:#fef2f2;border:1px solid #fecaca}
+  .result h3{margin:0 0 6px}
+  .blank{display:inline-block;border-bottom:1px solid var(--ink);min-width:150px;height:1.1em}
+  .form-sheet{border:1px solid var(--ink);border-radius:6px;padding:22px;margin:24px 0;background:#fff}
+  .form-sheet h3{text-align:center;margin:0 0 14px}
+  .form-sheet p{margin:0 0 12px;line-height:2}
+  .printbtn{background:var(--blue);color:#fff;border:0;border-radius:8px;font:600 15px 'Inter',sans-serif;padding:11px 20px;cursor:pointer}
+  @media print{header.site,footer.site,.product,.related,.noprint,.eyebrow,.byline{display:none!important}
+    body{font-size:13px}}
+  .field{margin:0 0 16px}
+  .tool label.field{display:block;cursor:default}
+  .field > span{display:block;font-size:14px;font-weight:600;color:var(--ink);margin:0 0 6px}
+  .field input[type=number],.field select{width:100%;font:16px 'Inter',sans-serif;padding:11px 12px;border:1px solid var(--line);border-radius:8px;color:var(--ink);background:#fff}
+  .chips{display:flex;flex-wrap:wrap;gap:8px}
+  .chips label{margin:0;border:1px solid var(--line);border-radius:999px;padding:8px 14px;font-size:15px;cursor:pointer}
+  .chips input{position:absolute;opacity:0;pointer-events:none}
+  .chips label:has(input:checked){border-color:var(--blue);background:#eff6ff;color:var(--blue);font-weight:600}
+  .out{margin-top:6px;border:1px solid #bfdbfe;background:#eff6ff;border-radius:10px;padding:16px 18px}
+  .out table{width:100%;border-collapse:collapse;font-size:16px}
+  .out td{padding:6px 0}
+  .out td:last-child{text-align:right;font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums}
+  .out tr.total td{border-top:1px solid #bfdbfe;padding-top:10px;font-size:18px}
+  .out p{font-size:14px;color:var(--muted);margin:10px 0 0}
+  [hidden]{display:none!important}
+</style>
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "NJ car sales tax calculator for private sales",
+  "url": "https://drivelink.deals/tools/nj-car-sales-tax-calculator",
+  "applicationCategory": "FinanceApplication",
+  "operatingSystem": "Any",
+  "offers": {
+    "@type": "Offer",
+    "price": "0",
+    "priceCurrency": "USD"
+  },
+  "publisher": {
+    "@type": "Organization",
+    "name": "DriveLink",
+    "url": "https://drivelink.deals"
+  }
+}
+</script>
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What is the sales tax on a used car bought privately in New Jersey?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "6.625% of the purchase price, according to the NJ Division of Taxation. You pay it at the Motor Vehicle Commission when you title the car in your name."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Do I pay sales tax on a car that was a gift in New Jersey?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "No sales tax is due on a gift free and clear, according to the NJ Division of Taxation; the MVC asks for the price to be written as GIFT. If you take over a loan on the car, tax is due on the loan balance you assume, unless you were already a co-owner on the title."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What if I paid less than book value?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "The Division of Taxation may send a questionnaire and can assess tax on the vehicle's value if the price can't be supported. Keep the signed bill of sale, and proof of anything that lowered the price, such as repair estimates or photos of damage."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How much is the NJ title fee?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "The MVC lists $60 for a standard title, $85 with one lien and $110 with two. Registration fees are extra and depend on the vehicle."
+      }
+    }
+  ]
+}
+</script>
+
+</head>
+<body>
+
+<header class="site">
+  <div class="wrap">
+    <a class="brand" href="https://drivelink.deals">Drive<span>Link</span></a>
+    <nav>
+      <div data-lang="en">
+        <a href="https://drivelink.deals/browse">Browse</a>
+        <a href="https://drivelink.deals/start-deal">Secure a deal</a>
+        <a href="https://drivelink.deals/safety">Is this safe?</a>
+      </div>
+      <div data-lang="es">
+        <a href="https://drivelink.deals/browse">Explorar</a>
+        <a href="https://drivelink.deals/start-deal">Asegurar un trato</a>
+        <a href="https://drivelink.deals/safety">¿Es esto seguro?</a>
+      </div>
+      <div class="lang-toggle" data-lang-toggle role="group" aria-label="Language">
+        <button type="button" data-lang-btn="en">EN</button>
+        <button type="button" data-lang-btn="es">ES</button>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<main>
+<article class="wrap">
+
+<div data-lang="en">
+  <p class="eyebrow">Free tool &middot; New Jersey</p>
+  <h1>NJ car sales tax calculator for private sales</h1>
+  <p class="standfirst">Bought a used car from a private seller in New Jersey? <strong>You pay 6.625% sales tax on the price when you title it at the MVC.</strong> Enter the price to see the tax and title fee. Nothing you enter leaves your browser.</p>
+  <div class="tool" data-calc>
+    <div class="field"><span>How did you get the car?</span>
+      <div class="chips">
+        <label><input type="radio" name="k-en" value="sale" checked> Bought it</label>
+        <label><input type="radio" name="k-en" value="gift"> Gift</label>
+        <label><input type="radio" name="k-en" value="loan"> Took over a loan</label>
+      </div>
+    </div>
+    <label class="field" data-show="sale"><span>Purchase price ($)</span><input type="number" inputmode="decimal" min="0" step="1" placeholder="12000" data-price></label>
+    <label class="field" data-show="loan" hidden><span>Loan balance you took over ($)</span><input type="number" inputmode="decimal" min="0" step="1" placeholder="5000" data-bal></label>
+    <label data-show="loan" hidden><input type="checkbox" data-coown> <span>I was already a co-owner on the title</span></label>
+    <div class="field"><span>Liens on the new title</span>
+      <div class="chips">
+        <label><input type="radio" name="l-en" value="60" checked> None</label>
+        <label><input type="radio" name="l-en" value="85"> One (financed)</label>
+        <label><input type="radio" name="l-en" value="110"> Two</label>
+      </div>
+    </div>
+    <div class="out" aria-live="polite">
+      <table>
+        <tr><td>Sales tax (6.625%)</td><td data-o="tax">$0.00</td></tr>
+        <tr><td>MVC title fee</td><td data-o="fee">$60.00</td></tr>
+        <tr class="total"><td>Total before registration</td><td data-o="tot">$60.00</td></tr>
+      </table>
+      <p>Registration and plate fees are extra and depend on the vehicle. Figures are based on NJ Division of Taxation and MVC pages checked on 5 November 2026; confirm with the MVC before you go.</p>
+    </div>
+  </div>
+
+  <h2>How New Jersey taxes a private car sale</h2>
+  <ul>
+    <li><strong>Rate:</strong> 6.625% of the purchase price, for new or used vehicles, according to the NJ Division of Taxation.</li>
+    <li><strong>When you pay:</strong> at the MVC, when you title the car in your name. The MVC says to transfer a New Jersey title within 10 working days of the sale to avoid a $25 penalty.</li>
+    <li><strong>Gifts:</strong> no sales tax on a gift free and clear. The price is written as GIFT.</li>
+    <li><strong>Taking over a loan:</strong> tax is due on the loan balance you assume, unless you were already a co-owner on the title.</li>
+    <li><strong>Swaps:</strong> trading something for a car is taxed on the car's fair market value.</li>
+    <li><strong>Low prices:</strong> if the price is well below book value, the Division of Taxation may ask you to prove it, and can assess tax on the car's value if you can't. Keep the signed bill of sale and any repair estimates or photos that explain the price.</li>
+    <li><strong>Electric cars:</strong> the MVC says the reduced rate for zero emission vehicles ended on 30 June 2025, so they're taxed at the standard rate now.</li>
+  </ul>
+  <p>Need the full list of documents? See our guides on <a href="/guides/buy-used-car-private-seller-new-jersey">buying from a private seller in New Jersey</a> and <a href="/guides/new-jersey-car-title-transfer">transferring a title in New Jersey</a>, or download the free <a href="/guides/new-jersey-private-car-sale-packet">NJ private car sale packet</a>.</p>
+
+  <div class="product">
+    <h2>Where DriveLink fits</h2>
+    <p>DriveLink is a marketplace for private car sales with protected payment built in: you pay through DriveLink, and the seller can't withdraw the money until you confirm you have the car and title. It also works on a car you found on Facebook Marketplace or Craigslist.</p>
+    <p><a class="cta" href="https://drivelink.deals/start-deal">Secure a deal</a></p>
+  </div>
+
+  <div class="related">
+    <h2>Related guides</h2>
+    <ul>
+      <li><a href="/guides/how-to-buy-a-car-from-a-private-seller">How to buy a car from a private seller, step by step</a></li>
+      <li><a href="/guides/new-jersey-car-bill-of-sale">New Jersey car bill of sale</a></li>
+      <li><a href="/tools/is-this-listing-a-scam">Is this listing a scam? Free checker</a></li>
+    </ul>
+  </div>
+</div>
+
+<div data-lang="es">
+  <p class="eyebrow">Herramienta gratuita &middot; Nueva Jersey</p>
+  <h1>Calculadora del impuesto sobre la venta de autos en NJ para ventas privadas</h1>
+  <p class="standfirst">¿Compraste un auto usado a un particular en Nueva Jersey? <strong>Pagas un 6.625% de impuesto sobre el precio cuando lo titulas en la MVC.</strong> Ingresa el precio para ver el impuesto y la tarifa de título. Nada de lo que ingresas sale de tu navegador.</p>
+  <div class="tool" data-calc>
+    <div class="field"><span>¿Cómo obtuviste el auto?</span>
+      <div class="chips">
+        <label><input type="radio" name="k-es" value="sale" checked> Lo compré</label>
+        <label><input type="radio" name="k-es" value="gift"> Regalo</label>
+        <label><input type="radio" name="k-es" value="loan"> Asumí un préstamo</label>
+      </div>
+    </div>
+    <label class="field" data-show="sale"><span>Precio de compra ($)</span><input type="number" inputmode="decimal" min="0" step="1" placeholder="12000" data-price></label>
+    <label class="field" data-show="loan" hidden><span>Saldo del préstamo que asumiste ($)</span><input type="number" inputmode="decimal" min="0" step="1" placeholder="5000" data-bal></label>
+    <label data-show="loan" hidden><input type="checkbox" data-coown> <span>Ya era copropietario en el título</span></label>
+    <div class="field"><span>Gravámenes en el nuevo título</span>
+      <div class="chips">
+        <label><input type="radio" name="l-es" value="60" checked> Ninguno</label>
+        <label><input type="radio" name="l-es" value="85"> Uno (financiado)</label>
+        <label><input type="radio" name="l-es" value="110"> Dos</label>
+      </div>
+    </div>
+    <div class="out" aria-live="polite">
+      <table>
+        <tr><td>Impuesto sobre la venta (6.625%)</td><td data-o="tax">$0.00</td></tr>
+        <tr><td>Tarifa de título de la MVC</td><td data-o="fee">$60.00</td></tr>
+        <tr class="total"><td>Total antes del registro</td><td data-o="tot">$60.00</td></tr>
+      </table>
+      <p>Las tarifas de registro y placas son aparte y dependen del vehículo. Cifras basadas en las páginas de la División de Impuestos y de la MVC de Nueva Jersey revisadas el 5 de noviembre de 2026; confírmalas con la MVC antes de ir.</p>
+    </div>
+  </div>
+
+  <h2>Cómo cobra impuestos Nueva Jersey en una venta privada</h2>
+  <ul>
+    <li><strong>Tasa:</strong> 6.625% del precio de compra, para vehículos nuevos o usados, según la División de Impuestos de Nueva Jersey.</li>
+    <li><strong>Cuándo pagas:</strong> en la MVC, cuando titulas el auto a tu nombre. La MVC indica transferir un título de Nueva Jersey dentro de los 10 días hábiles posteriores a la venta para evitar una multa de $25.</li>
+    <li><strong>Regalos:</strong> no hay impuesto sobre un regalo libre de deudas. El precio se escribe como GIFT.</li>
+    <li><strong>Si asumes un préstamo:</strong> pagas impuesto sobre el saldo que asumes, salvo que ya fueras copropietario en el título.</li>
+    <li><strong>Intercambios:</strong> cambiar algo por un auto paga impuesto sobre el valor de mercado del auto.</li>
+    <li><strong>Precios bajos:</strong> si el precio está muy por debajo del valor de referencia, la División de Impuestos puede pedirte pruebas y cobrar el impuesto sobre el valor del auto si no las tienes. Guarda la factura de venta firmada y cualquier presupuesto de reparación o fotos que expliquen el precio.</li>
+    <li><strong>Autos eléctricos:</strong> la MVC indica que la tasa reducida para vehículos de cero emisiones terminó el 30 de junio de 2025, así que hoy pagan la tasa normal.</li>
+  </ul>
+  <p>¿Necesitas la lista completa de documentos? Mira nuestras guías para <a href="/guides/buy-used-car-private-seller-new-jersey">comprar a un particular en Nueva Jersey</a> y <a href="/guides/new-jersey-car-title-transfer">transferir un título en Nueva Jersey</a>, o descarga gratis el <a href="/guides/new-jersey-private-car-sale-packet">paquete para ventas privadas en NJ</a>.</p>
+
+  <div class="product">
+    <h2>Dónde encaja DriveLink</h2>
+    <p>DriveLink es un mercado de ventas privadas de autos con pago protegido incluido: pagas a través de DriveLink y el vendedor no puede retirar el dinero hasta que confirmes que tienes el auto y el título. También funciona con un auto que encontraste en Facebook Marketplace o Craigslist.</p>
+    <p><a class="cta" href="https://drivelink.deals/start-deal">Asegurar un trato</a></p>
+  </div>
+
+  <div class="related">
+    <h2>Guías relacionadas</h2>
+    <ul>
+      <li><a href="/guides/how-to-buy-a-car-from-a-private-seller">Cómo comprar un auto a un vendedor particular, paso a paso</a></li>
+      <li><a href="/guides/new-jersey-car-bill-of-sale">Factura de venta de autos en Nueva Jersey</a></li>
+      <li><a href="/tools/is-this-listing-a-scam">¿Es una estafa este anuncio? Herramienta gratuita</a></li>
+    </ul>
+  </div>
+</div>
+
+</article>
+</main>
+
+<footer class="site">
+  <div class="wrap">
+    <div data-lang="en">
+      <p>This guide is general information about buying and selling vehicles privately, not legal or financial advice. If you have lost money, contact your bank and law enforcement first.</p>
+      <p><a href="https://drivelink.deals">DriveLink</a> &nbsp;&middot;&nbsp; <a href="https://drivelink.deals/safety">Is this safe?</a> &nbsp;&middot;&nbsp; <a href="mailto:support@drivelink.deals">support@drivelink.deals</a></p>
+    </div>
+    <div data-lang="es">
+      <p>Esta guía es información general sobre comprar y vender vehículos de forma privada, no es asesoría legal ni financiera. Si perdiste dinero, contacta primero a tu banco y a las autoridades.</p>
+      <p><a href="https://drivelink.deals">DriveLink</a> &nbsp;&middot;&nbsp; <a href="https://drivelink.deals/safety">¿Es esto seguro?</a> &nbsp;&middot;&nbsp; <a href="mailto:support@drivelink.deals">support@drivelink.deals</a></p>
+    </div>
+  </div>
+</footer>
+
+<script>
+(function () {
+  var RATE = 0.06625;
+  function money(n, lang) { return n.toLocaleString(lang === "es" ? "es-US" : "en-US", { style: "currency", currency: "USD" }); }
+  function num(el) { var v = parseFloat(el.value); return isFinite(v) && v > 0 ? v : 0; }
+  document.querySelectorAll("[data-calc]").forEach(function (box) {
+    var lang = box.closest("[data-lang]").getAttribute("data-lang") === "es" ? "es" : "en";
+    function run() {
+      var kind = box.querySelector("input[name^=k-]:checked").value;
+      box.querySelectorAll("[data-show]").forEach(function (el) { el.hidden = el.getAttribute("data-show") !== kind; });
+      var base = 0;
+      if (kind === "sale") base = num(box.querySelector("[data-price]"));
+      if (kind === "loan" && !box.querySelector("[data-coown]").checked) base = num(box.querySelector("[data-bal]"));
+      var tax = Math.round(base * RATE * 100) / 100;
+      var fee = parseInt(box.querySelector("input[name^=l-]:checked").value, 10);
+      box.querySelector("[data-o=tax]").textContent = money(tax, lang);
+      box.querySelector("[data-o=fee]").textContent = money(fee, lang);
+      box.querySelector("[data-o=tot]").textContent = money(tax + fee, lang);
+    }
+    box.addEventListener("input", run); box.addEventListener("change", run); run();
+  });
+})();
+</script>
+</body>
+</html>
