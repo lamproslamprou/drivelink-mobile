@@ -1835,7 +1835,13 @@ const denyInspector = async (id) => {
     if (listing.seller_id === currentUser.id) return;
     if (blocks.some(b => b.blocked_id === listing.seller_id)) { showToast("You've blocked this seller.", "error"); return; }
     setOpenThread({ listingId: listing.id, otherId: listing.seller_id });
+    // The listing popup is an overlay on top of whatever view is underneath, and
+    // /listing/:id owns the address bar while it is open. Switching the view alone
+    // changed the page behind the popup and nothing visibly happened, so close the
+    // popup and move the URL with the view.
+    setViewingListing(null);
     setView("messages");
+    navigate(VIEW_PATHS.messages);
   };
 
   // ── Admin: wipe test data. Deletes rows from selected tables; optionally resets
@@ -2592,7 +2598,7 @@ const denyInspector = async (id) => {
           onSignIn={() => signInForListing(viewingListing.listing.id)}
           onCheckDeal={checkDealAssessment}
           onTranslate={translateListing}
-          onFindInspector={() => setView("inspectors")}
+          onFindInspector={() => { setViewingListing(null); setView("inspectors"); navigate(VIEW_PATHS.inspectors); }}
         />
       )}
       {wireInstructions && (
