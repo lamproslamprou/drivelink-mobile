@@ -11,7 +11,7 @@
 
 ## Fees
 - $0 to list. Buyers pay nothing beyond the price of the car.
-- Sellers pay a percentage of the sale price when the deal closes (0.5% during the October 2026 offer, normally 1%). Nothing if the deal falls through.
+- Sellers pay 1% of the sale price when the deal closes. Nothing if the deal falls through.
 - Card or bank processing is charged by Stripe.
 
 ## Pages

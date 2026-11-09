@@ -25,7 +25,7 @@ import { metaForPath, DEFAULT_TITLE, DEFAULT_DESCRIPTION } from "./pageMeta.js";
 import EscrowExplained from "./EscrowExplained.jsx";
 import InspectorsView from "./InspectorsView.jsx";
 import SellerToolkitView from "./SellerToolkitView.jsx";
-import { platformFeeRate, platformFeeLabel, promoActive } from "./fee.js";
+import { platformFeeRate, platformFeeLabel } from "./fee.js";
 import { analytics } from "@heycatch/sdk";
 import { trackEvent, markInternalBrowser, isInternalAccount } from "./track.js";
 import GuestContact from "./GuestContact.jsx";
@@ -93,9 +93,8 @@ function todayET() {
   }).format(new Date());
 }
 
-// DriveLink's own fee now comes from platformFeeRate() in ./fee.js: 0.5% during
-// the October 2026 promo, 1% otherwise (reverts automatically Nov 1 ET). The
-// Promoter's cut below is never part of the promo.
+// DriveLink's own fee comes from platformFeeRate() in ./fee.js (1%). Promoters
+// are paid a flat bounty, never a percentage.
 const PROMOTER_FEE = 0; // Promoters get a flat bounty, never a % of the sale
 // $500 (cents). Mirrors WIRE_MIN_CENTS in supabase/functions/_shared/helpers.ts —
 // the backend re-enforces this gate itself (create-wire-session throws if the
@@ -2722,7 +2721,7 @@ function LegalPageView({ type, onBack }) {
             <p>Sellers agree that listing information (price, mileage, condition, photos, VIN) is accurate to the best of their knowledge. DriveLink may remove any listing that is misleading, fraudulent, or violates these terms, at our discretion, with or without notice.</p>
 
             <h2>4. Fees</h2>
-            <p>Listing a car is free. When a listing sells, DriveLink charges a 1% platform fee on the final sale price (reduced to 0.5% for payments made from October 1 through October 31, 2026). Payment processing is charged by our payment provider (Stripe), not by DriveLink: approximately 2.9% + $0.30 per card payment, or approximately 0.8% (capped at $5) per wire transfer. Because the buyer pays the seller's own Stripe account, this processing fee is deducted from the seller's proceeds. Stripe does not return its processing fee when a payment is refunded, so if a sale is cancelled or refunded, the seller bears that fee (for example, about $0.45 on a $5 payment); DriveLink's own fee is returned in full. Promoters, if any, are paid separately by DriveLink and nothing extra is charged to you for it. The exact amount you'll receive is shown before you publish a listing.</p>
+            <p>Listing a car is free. When a listing sells, DriveLink charges a 1% platform fee on the final sale price. Payment processing is charged by our payment provider (Stripe), not by DriveLink: approximately 2.9% + $0.30 per card payment, or approximately 0.8% (capped at $5) per wire transfer. Because the buyer pays the seller's own Stripe account, this processing fee is deducted from the seller's proceeds. Stripe does not return its processing fee when a payment is refunded, so if a sale is cancelled or refunded, the seller bears that fee (for example, about $0.45 on a $5 payment); DriveLink's own fee is returned in full. Promoters, if any, are paid separately by DriveLink and nothing extra is charged to you for it. The exact amount you'll receive is shown before you publish a listing.</p>
 
             <h2>5. Payments and Protected Payment</h2>
             <p>Checkout is processed through Stripe. DriveLink does not store your payment card details. When a buyer pays, the payment is made to the seller's own Stripe account, not to DriveLink. DriveLink never receives or holds the buyer's money; the only amount paid to DriveLink at checkout is DriveLink's fee.</p>
@@ -5267,7 +5266,7 @@ function AboutViewEs({ onBack, onBrowse, onSafety, onPricing }) {
           <p>Nada se libera por un temporizador. Cuando el comprador paga, recibe un código de entrega de 6 dígitos. En la entrega, cuando el auto y el título firmado ya están en sus manos, le da ese código al vendedor, quien lo ingresa, y los fondos se liberan. Stripe retiene los pagos con tarjeta unos 2 días hábiles (más en los primeros pagos de un vendedor), así que el pago al vendedor se envía en cuanto el cobro se haya liberado. El comprador también puede confirmar la recepción en la app si lo prefiere. Si una venta se queda sin movimiento y no hay confirmación de ninguna de las partes, la pausamos y les preguntamos a ambos qué pasó, en lugar de pagarle a alguien y esperar que todo salga bien. Si algo sale mal, el comprador puede abrir una disputa en cualquier momento.</p>
 
           <h2>Cuánto cuesta</h2>
-          <p>DriveLink cobra a los vendedores {platformFeeLabel()} del precio de venta{promoActive() ? " (la mitad de nuestro 1 % habitual, hasta el 31 de octubre)" : ""}. Los compradores no pagan nada más allá del precio del auto. La tarifa se muestra de antemano al publicar un auto, junto con lo que el vendedor realmente recibirá después de los costos de procesamiento de la tarjeta: sin sorpresas con el número real a la hora del pago.</p>
+          <p>DriveLink cobra a los vendedores {platformFeeLabel()} del precio de venta. Los compradores no pagan nada más allá del precio del auto. La tarifa se muestra de antemano al publicar un auto, junto con lo que el vendedor realmente recibirá después de los costos de procesamiento de la tarjeta: sin sorpresas con el número real a la hora del pago.</p>
           {onPricing && <p><button style={styles.legalInlineLink} onClick={onPricing}>Ver la tabla completa de tarifas con un ejemplo →</button></p>}
 
           <h2>Dónde está el dinero</h2>
@@ -5329,7 +5328,7 @@ function AboutView({ onBack, onBrowse, onSafety, onPricing }) {
           <p>Nothing is released on a timer. When the buyer pays, they get a 6-digit handover code. At the handover — once the car and the signed title are in their hands — they give that code to the seller, who enters it, and the funds are released. Stripe holds card payments for about 2 business days (longer on a seller's first payouts), so the seller's payout is sent as soon as the payment has cleared. The buyer can also confirm receipt in the app if they'd rather. If a sale goes quiet with no confirmation either way, we pause it and ask both people what happened, rather than paying anyone out and hoping. If something goes wrong, the buyer can open a dispute at any point.</p>
 
           <h2>What it costs</h2>
-          <p>DriveLink charges sellers {platformFeeLabel()} of the sale price{promoActive() ? " (half our usual 1%, through October 31)" : ""}. Buyers pay nothing beyond the price of the car. The fee is shown upfront when a car is listed, alongside what the seller will actually receive after card processing costs — no discovering the real number at payout time.</p>
+          <p>DriveLink charges sellers {platformFeeLabel()} of the sale price. Buyers pay nothing beyond the price of the car. The fee is shown upfront when a car is listed, alongside what the seller will actually receive after card processing costs — no discovering the real number at payout time.</p>
           {onPricing && <p><button style={styles.legalInlineLink} onClick={onPricing}>See the full fee schedule with a worked example →</button></p>}
 
           <h2>Where the money sits</h2>
@@ -5711,7 +5710,7 @@ function HandoverDateField({ value, onChange }) {
 
 // What the seller actually receives, shown while they type the price.
 //
-// The headline fee is 1% (0.5% during the October 2026 promo — see fee.js), but
+// The headline fee is 1% (see fee.js), but
 // that is not what lands in their account: card
 // processing is deducted too, and on a $50 sale the difference between "1%"
 // and reality was $49.50 vs $47.00. Quoting a percentage and paying out a
