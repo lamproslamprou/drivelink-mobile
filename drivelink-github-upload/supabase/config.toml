@@ -35,3 +35,10 @@ entrypoint = "./functions/wanted-alert/index.ts"
 enabled = true
 verify_jwt = false
 entrypoint = "./functions/notify-wanted/index.ts"
+
+# Called by pg_cron every 30 minutes with a shared-secret Bearer token, not a
+# user JWT. Keep verify_jwt off or the cron job gets rejected with a 401.
+[functions.process-pending-payouts]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/process-pending-payouts/index.ts"

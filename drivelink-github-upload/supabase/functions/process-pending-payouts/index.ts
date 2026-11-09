@@ -44,7 +44,7 @@ Deno.serve(async (req) => {
   const { data: rows, error } = await supabase
     .from("listings")
     .select(
-      "id, seller_id, buyer_id, status, funds_released, seller_net, sale_price, referral_code, stripe_payment_intent_id, release_not_before, make, model, year, charge_mode, charge_account_id, stripe_dispute_id, confirmed_at",
+      "id, seller_id, buyer_id, status, funds_released, seller_net, sale_price, referral_code, stripe_payment_intent_id, release_not_before, make, model, year, charge_mode, charge_account_id, stripe_dispute_id, confirmed_at, is_test",
     )
     .eq("charge_mode", "direct")
     .eq("payout_status", "pending")
@@ -92,9 +92,10 @@ Deno.serve(async (req) => {
       // itself (most card funds settle in about 2 business days). Retrying
       // every 30 minutes was silent, so a stuck seller payout could sit for
       // weeks unnoticed. Alert once a day, on the 14:00 UTC run, after 5 days.
+      // Test listings (is_test) are retried but never alerted on.
       const waitedMs = Date.now() - new Date(listing.confirmed_at).getTime();
       const now = new Date();
-      if (!r.released && r.pending && waitedMs > STALL_ALERT_MS && now.getUTCHours() === 14 && now.getUTCMinutes() < 30) {
+      if (!r.released && r.pending && !listing.is_test && waitedMs > STALL_ALERT_MS && now.getUTCHours() === 14 && now.getUTCMinutes() < 30) {
         await notifyAdminSync({
           subject: `⚠️ Seller payout still waiting — ${listing.id}`,
           html: alertHtml("Payout waiting more than 5 days after handover", [
