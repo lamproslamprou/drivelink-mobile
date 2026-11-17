@@ -42,3 +42,10 @@ entrypoint = "./functions/notify-wanted/index.ts"
 enabled = true
 verify_jwt = false
 entrypoint = "./functions/process-pending-payouts/index.ts"
+
+# send-signup-welcome is called by pg_cron with the shared cron secret, not a
+# user JWT. Keep verify_jwt off or the cron job gets rejected with a 401.
+[functions.send-signup-welcome]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/send-signup-welcome/index.ts"
