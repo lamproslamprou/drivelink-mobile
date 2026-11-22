@@ -102,7 +102,7 @@ function bodyFor(path, meta) {
         <p>Listing a car is free. The seller pays ${esc(fee)} of the sale price, only when the deal closes. Buyers pay nothing beyond the price of the car. If the deal falls through, nobody pays DriveLink anything. Card processing is a separate Stripe charge.</p>
         <h2>Explore</h2>
         ${navHtml()}
-        <p>DriveLink LLC, Branchburg, New Jersey. U.S. transactions only. Support: support@drivelink.deals. Instagram: https://instagram.com/drivelink_deals</p>
+        <p>DriveLink LLC, Branchburg, New Jersey. U.S. transactions only. Support: support@drivelink.deals. Instagram: https://instagram.com/drivelink_deals. YouTube: https://www.youtube.com/@drivelink_deals</p>
       </main>
     </noscript>`;
   }
