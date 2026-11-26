@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useLang, LangToggle } from "./i18n.jsx";
 import { platformFeeLabel, promoActive } from "./fee.js";
 import { faqItemsEn } from "./faqData.js";
+import HowItWorksVideo from "./HowItWorksVideo.jsx";
 
 // Fee copy is built from fee.js so it flips back to "1%" by itself on Nov 1 ET.
 const FEE = platformFeeLabel();
@@ -170,6 +171,8 @@ export default function FAQView({ onBack, onSafety, onNavigate }) {
             </button>
           )}
         </div>
+
+        <HowItWorksVideo variant="inline" />
 
         <div style={S.list}>
           {t.items.map((it, i) => {
