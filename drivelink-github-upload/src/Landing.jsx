@@ -7,7 +7,6 @@ import { promoActive, platformFeeLabel, maxFeeLabel } from "./fee.js";
 import { HERO_SCREENSHOT } from "./siteProof.js";
 import { UsageLine, TestimonialWall, ThirdPartyStrip, TrustCallout, FounderFooterLine } from "./ProofBlocks.jsx";
 import HeroDealMock from "./HeroDealMock.jsx";
-import HowItWorksVideo from "./HowItWorksVideo.jsx";
 
 const TRUST_ICON_PATHS = {
   lock: <><rect x="4" y="11" width="16" height="10" rx="2" /><path d="M8 11V7a4 4 0 0 1 8 0v4" /></>,
@@ -221,38 +220,9 @@ export default function Landing({ onSignIn, onSignInTo, onBrowse, onNavigate, si
         </div>
       </section>
 
-      {listings.length > 0 && (
-        <section style={styles.carStripSection} className="dl-car-strip">
-          <div style={styles.carStripHead}>
-            <span style={styles.carStripTitle}>{t("lp.carsNow")}</span>
-            <button style={styles.trustLink} onClick={onBrowse}>{t("lp.carsAll")}</button>
-          </div>
-          {/* 3+ cars: a swipe row on phones (see .dl-car-strip-many in the CSS)
-              so the strip stays one tile tall however many listings exist.
-              Under 3 it stays a plain grid, where a narrow lone tile looks odd. */}
-          <div style={styles.carStripRow} className={listings.length >= 3 ? "dl-car-strip-many" : undefined}>
-            {listings.slice(0, 6).map((c) => {
-              const img = (c.images && c.images[0]) || c.image;
-              const d = Number(c.price) / 100;
-              return (
-                <button key={c.id} style={styles.carTile} onClick={() => onOpenCar?.(c.id)}>
-                  {img && <img src={img} alt={`${c.year} ${c.make} ${c.model}`} style={styles.carTileImg} loading="lazy" />}
-                  <span style={styles.carTileName}>{c.year} {c.make} {c.model}</span>
-                  <span style={styles.carTilePrice}>{d.toLocaleString("en-US", { style: "currency", currency: "USD", minimumFractionDigits: d % 1 === 0 ? 0 : 2, maximumFractionDigits: d % 1 === 0 ? 0 : 2 })}</span>
-                  {c.location_text && <span style={styles.carTileMeta}>{c.location_text}</span>}
-                </button>
-              );
-            })}
-          </div>
-        </section>
-      )}
-
       {/* Real, dated third-party mentions only — renders nothing until
           THIRD_PARTY in siteProof.js has entries. */}
       <ThirdPartyStrip />
-
-      {/* HOW IT WORKS — click-to-play explainer video */}
-      <HowItWorksVideo />
 
       {/* THE PROBLEM */}
       <section style={{ ...styles.section, background: "#f8fafc", paddingTop: 64, paddingBottom: 64 }} className="dl-section">
